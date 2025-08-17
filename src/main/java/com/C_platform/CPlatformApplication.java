@@ -3,7 +3,7 @@ package com.C_platform;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-// test 중
+// test 중 1
 @SpringBootApplication
 public class CPlatformApplication {
 
