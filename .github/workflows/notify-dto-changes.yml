@@ -2,15 +2,9 @@ name: Commit Keyword Discord Notification
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - 'feature/**'   # 필요 없으면 지워도 됨
+    branches: [ main, develop, 'feature/**' ]
   pull_request:
-    branches:
-      - main
-      - develop
-      - 'feature/**'
+    branches: [ main, develop, 'feature/**' ]
 
 jobs:
   notify-on-keyword:
@@ -20,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # 커밋 범위 스캔 위해 전체 히스토리
+          fetch-depth: 0
 
       - name: Fetch base branch (for PR)
         if: ${{ github.event_name == 'pull_request' }}
@@ -29,28 +23,38 @@ jobs:
       - name: Scan commit messages for keyword
         id: scan
         env:
-          KEYWORD: "[API 변경]"   # ← 원하는 키워드로 바꿔도 됨
+          KEYWORD: "[API 변경]"
         run: |
-          # 비교 범위 결정
+          set -euo pipefail
           if [ "${{ github.event_name }}" = "push" ]; then
             BASE="${{ github.event.before }}"
             HEAD="${{ github.sha }}"
             if [ "$BASE" = "0000000000000000000000000000000000000000" ] || [ -z "$BASE" ]; then
-              RANGE="$HEAD~50..$HEAD"     # 새 브랜치 첫 push 방어
+              RANGE="$HEAD~50..$HEAD"
             else
               RANGE="$BASE..$HEAD"
             fi
             LOG=$(git log --pretty=format:'%h %s' "$RANGE")
+            TITLE="Commit keyword detected (Push)"
+            URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+            BRANCH="${{ github.ref_name }}"
+            AUTHOR="${{ github.actor }}"
           else
-            # PR: base..HEAD 범위의 커밋들
             LOG=$(git log --pretty=format:'%h %s' ${{ github.base_ref }}..HEAD)
+            TITLE="Commit keyword detected (Pull Request)"
+            URL="${{ github.event.pull_request.html_url }}"
+            BRANCH="${{ github.event.pull_request.head.ref }}"
+            AUTHOR="${{ github.event.pull_request.user.login }}"
           fi
 
-          echo "=== Scan range commits ==="
+          echo "=== KEYWORD ==="
+          echo "$KEYWORD"
+          echo "=== SCAN RANGE COMMITS ==="
           echo "$LOG"
 
-          # 대소문자 구분 없이 키워드 매칭
-          MATCHED=$(echo "$LOG" | grep -i -F "$KEYWORD" || true)
+          # 대소문자 무시 포함 검색
+          KEY_LC=$(echo "$KEYWORD" | tr '[:upper:]' '[:lower:]')
+          MATCHED=$(echo "$LOG" | tr '[:upper:]' '[:lower:]' | grep -F "$KEY_LC" || true)
 
           if [ -n "$MATCHED" ]; then
             echo "found=true" >> $GITHUB_OUTPUT
@@ -59,24 +63,19 @@ jobs:
             echo "found=false" >> $GITHUB_OUTPUT
           fi
 
-          # PR/Push 공통으로 표시용 정보 준비
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "title=Commit keyword detected (Push)" >> $GITHUB_OUTPUT
-            echo "author=${{ github.actor }}" >> $GITHUB_OUTPUT
-            echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-            echo "url=${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" >> $GITHUB_OUTPUT
-          else
-            echo "title=Commit keyword detected (Pull Request)" >> $GITHUB_OUTPUT
-            echo "author=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
-            echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
-            echo "url=${{ github.event.pull_request.html_url }}" >> $GITHUB_OUTPUT
-          fi
+          {
+            echo "title=$TITLE"
+            echo "author=$AUTHOR"
+            echo "branch=$BRANCH"
+            echo "url=$URL"
+          } >> $GITHUB_OUTPUT
 
       - name: Post to Discord
         if: steps.scan.outputs.found == 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           REPO="${{ github.repository }}"
           TITLE="${{ steps.scan.outputs.title }}"
           AUTHOR="${{ steps.scan.outputs.author }}"
@@ -84,33 +83,28 @@ jobs:
           URL="${{ steps.scan.outputs.url }}"
           BODY="$(cat matched.txt)"
 
-          # 임베드 색상 (푸시=초록, PR=노랑)
-          if [ "${{ github.event_name }}" = "push" ]; then COLOR=3066993; else COLOR=15844367; fi
-
-          jq -n --arg title "$TITLE" \
-                --arg repo "$REPO" \
-                --arg author "$AUTHOR" \
-                --arg branch "$BRANCH" \
-                --arg url "$URL" \
-                --arg body "$BODY" \
-                --arg color "$COLOR" '
+          # jq 없이 순정 JSON
+          cat > payload.json <<EOF
           {
             "embeds": [{
-              "title": $title,
+              "title": "$TITLE",
               "description": "커밋 메시지에서 키워드가 감지되었습니다.",
-              "color": ($color|tonumber),
+              "color": 3066993,
               "fields": [
-                {"name":"📁 Repository","value":$repo,"inline":true},
-                {"name":"🌿 Branch","value":("`"+$branch+"`"),"inline":true},
-                {"name":"👤 Author","value":$author,"inline":true},
-                {"name":"🔗 Link","value":$url,"inline":false},
-                {"name":"📝 Matched Commits","value":("```\\n"+$body+"\\n```"),"inline":false}
+                {"name":"📁 Repository","value":"$REPO","inline":true},
+                {"name":"🌿 Branch","value":"\`$BRANCH\`","inline":true},
+                {"name":"👤 Author","value":"$AUTHOR","inline":true},
+                {"name":"🔗 Link","value":"$URL","inline":false},
+                {"name":"📝 Matched Commits","value":"\`\`\`\n$BODY\n\`\`\`","inline":false}
               ],
-              "timestamp": (now|tojson)
+              "timestamp": "$TS"
             }]
-          }' > payload.json
+          }
+          EOF
 
-          curl -H "Content-Type: application/json" -d @payload.json "$DISCORD_WEBHOOK_URL"
+          curl -sS -H "Content-Type: application/json" \
+               -d @payload.json \
+               "$DISCORD_WEBHOOK_URL"
 
       - name: Summary
         if: steps.scan.outputs.found == 'true'
@@ -119,3 +113,8 @@ jobs:
           echo "- **Repository**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ steps.scan.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
           echo "- **URL**: ${{ steps.scan.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Matched commits" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat matched.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
