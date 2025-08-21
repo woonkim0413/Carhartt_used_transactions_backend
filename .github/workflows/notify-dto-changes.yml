@@ -1,0 +1,120 @@
+name: Commit Keyword Discord Notification
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop, 'feature/**' ]
+
+jobs:
+  notify-on-keyword:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch (for PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+
+      - name: Scan commit messages for keyword
+        id: scan
+        env:
+          KEYWORD: "[API 변경]"
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+            if [ "$BASE" = "0000000000000000000000000000000000000000" ] || [ -z "$BASE" ]; then
+              RANGE="$HEAD~50..$HEAD"
+            else
+              RANGE="$BASE..$HEAD"
+            fi
+            LOG=$(git log --pretty=format:'%h %s' "$RANGE")
+            TITLE="Commit keyword detected (Push)"
+            URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+            BRANCH="${{ github.ref_name }}"
+            AUTHOR="${{ github.actor }}"
+          else
+            LOG=$(git log --pretty=format:'%h %s' ${{ github.base_ref }}..HEAD)
+            TITLE="Commit keyword detected (Pull Request)"
+            URL="${{ github.event.pull_request.html_url }}"
+            BRANCH="${{ github.event.pull_request.head.ref }}"
+            AUTHOR="${{ github.event.pull_request.user.login }}"
+          fi
+
+          echo "=== KEYWORD ==="
+          echo "$KEYWORD"
+          echo "=== SCAN RANGE COMMITS ==="
+          echo "$LOG"
+
+          # 대소문자 무시 포함 검색
+          KEY_LC=$(echo "$KEYWORD" | tr '[:upper:]' '[:lower:]')
+          MATCHED=$(echo "$LOG" | tr '[:upper:]' '[:lower:]' | grep -F "$KEY_LC" || true)
+
+          if [ -n "$MATCHED" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "$MATCHED" | head -c 1800 > matched.txt
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+          {
+            echo "title=$TITLE"
+            echo "author=$AUTHOR"
+            echo "branch=$BRANCH"
+            echo "url=$URL"
+          } >> $GITHUB_OUTPUT
+
+      - name: Post to Discord
+        if: steps.scan.outputs.found == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          REPO="${{ github.repository }}"
+          TITLE="${{ steps.scan.outputs.title }}"
+          AUTHOR="${{ steps.scan.outputs.author }}"
+          BRANCH="${{ steps.scan.outputs.branch }}"
+          URL="${{ steps.scan.outputs.url }}"
+          BODY="$(cat matched.txt)"
+
+          # jq 없이 순정 JSON
+          cat > payload.json <<EOF
+          {
+            "embeds": [{
+              "title": "$TITLE",
+              "description": "커밋 메시지에서 키워드가 감지되었습니다.",
+              "color": 3066993,
+              "fields": [
+                {"name":"📁 Repository","value":"$REPO","inline":true},
+                {"name":"🌿 Branch","value":"\`$BRANCH\`","inline":true},
+                {"name":"👤 Author","value":"$AUTHOR","inline":true},
+                {"name":"🔗 Link","value":"$URL","inline":false},
+                {"name":"📝 Matched Commits","value":"\`\`\`\n$BODY\n\`\`\`","inline":false}
+              ],
+              "timestamp": "$TS"
+            }]
+          }
+          EOF
+
+          curl -sS -H "Content-Type: application/json" \
+               -d @payload.json \
+               "$DISCORD_WEBHOOK_URL"
+
+      - name: Summary
+        if: steps.scan.outputs.found == 'true'
+        run: |
+          echo "## ✅ Commit keyword detected" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ steps.scan.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: ${{ steps.scan.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Matched commits" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat matched.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
