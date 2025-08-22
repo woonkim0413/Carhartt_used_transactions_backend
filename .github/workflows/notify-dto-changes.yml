@@ -2,10 +2,9 @@ name: Commit Keyword Discord Notification
 
 on:
   push:
-    branches: [ main, develop, 'feature/**' ]
+    branches: [ main, develop, dev ]
   pull_request:
-    branches: [ main, develop, 'feature/**' ]
-
+    branches: [ main, develop, dev ]
 jobs:
   notify-on-keyword:
     runs-on: ubuntu-latest
