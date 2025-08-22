@@ -2,7 +2,7 @@ name: Build and Deploy Spring Boot to AWS EC2
 
 on:
   push:
-    branches: [ feature/login ]
+    branches: [ main ]
 # 추가
 env:
   PROJECT_NAME: Carhartt_platform
@@ -35,7 +35,7 @@ jobs:
         shell: bash
 
       - name: Make application-prod.properties
-        if: contains(github.ref, 'feature/login') # branch가 main 일 때
+        if: contains(github.ref, 'main') # branch가 main 일 때
         run: |
           cd ./src/main/resources
           touch ./application-prod.properties
