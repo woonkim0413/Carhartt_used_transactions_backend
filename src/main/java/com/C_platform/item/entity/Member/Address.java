@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-@Slf4j @Embeddable
+@Embeddable
 @Getter @Setter
 public class Address {
     private String city;
