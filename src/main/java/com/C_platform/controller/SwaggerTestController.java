@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/items")
 public class SwaggerTestController {
-
         // 단순 테스트용
         @GetMapping("/{id}")
         public ResponseEntity<Item> getItem(@PathVariable int id) {
