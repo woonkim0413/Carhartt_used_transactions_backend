@@ -1,9 +1,8 @@
-package com.C_platform.item.entity.Member;
+package com.C_platform.order;
 
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 
 @Embeddable
 @Getter @Setter

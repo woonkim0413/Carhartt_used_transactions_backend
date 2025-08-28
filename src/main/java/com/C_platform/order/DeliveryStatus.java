@@ -1,4 +1,4 @@
-package com.C_platform.item.entity.Member;
+package com.C_platform.order;
 
 public enum DeliveryStatus {
     READY, ING, COMPLETED;
