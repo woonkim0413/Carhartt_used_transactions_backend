@@ -6,6 +6,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 
 @Getter
 public enum ProductErrorCode {
+
     P001("P001", "product.not.found"),
     P002("P002", "product.stock.insufficient"),
     P003("P003", "product.price.invalid");

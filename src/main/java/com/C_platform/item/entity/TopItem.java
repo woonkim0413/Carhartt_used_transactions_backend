@@ -1,23 +1,10 @@
 package com.C_platform.item.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
 
-/**
- * 상의
- */
-@Embeddable
-@Getter
-@Setter
-public class TopItem {
-    @Column(name = "chest" ,nullable = false , columnDefinition = "INT(5)")
-    private Integer chest; // 가슴 단면
-
-    @Column(name = "shoulder", nullable = false , columnDefinition = "INT(5)")
-    private Integer shoulder; // 어깨
-
-    @Column(name = "sleeve", nullable = false ,columnDefinition = "INT(5)")
-    private Integer sleeve; // 소매
+@Entity
+@DiscriminatorValue("TOP") // 실제 d_type 값에 맞게 조정
+public class TopItem extends Item {
+    // 상의 전용 도메인 로직이 있으면 추가
 }
