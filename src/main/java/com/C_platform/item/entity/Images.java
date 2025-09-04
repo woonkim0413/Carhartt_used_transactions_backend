@@ -2,6 +2,10 @@ package com.C_platform.item.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "images")
@@ -9,17 +13,16 @@ public class Images {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id; // 이미지 ID
+    @Column(name = "image_id")
+    private Long id;
 
-    @Column(name = "image_url", nullable = false, length = 255)
-    private String imageUrl; // 이미지 URL
-
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "item_id", nullable = false)
-    @JsonBackReference
     private Item item;
 
-    @Column(name = "represent_url", nullable = false , length = 255 )
-    private String representUrl; // 대표 이미지
+    @Column(name = "image_url", nullable = false, length = 1000)
+    private String imageUrl;
+
+    // 대표 여부 컬럼이 ERD에 없다면 URL만 유지
+    // getters/setters ...
 }

@@ -1,6 +1,6 @@
 package com.C_platform.item.service;
 
-import com.C_platform.item.repository.ItemRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -8,5 +8,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ItemService {
 
-    private final ItemRepository itemRepository;
+
+
 }

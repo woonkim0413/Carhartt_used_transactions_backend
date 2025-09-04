@@ -1,23 +1,11 @@
 package com.C_platform.item.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
-import lombok.Getter;
-import lombok.Setter;
 
-/**
- * 하의
- */
-@Embeddable
-@Getter
-@Setter
-public class BottomItem {
-    @Column(name = "rise_length", nullable = false,columnDefinition = "INT(5)")
-    private Integer riseLength; // 밑위
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
 
-    @Column(name = "thigh", nullable = false,columnDefinition = "INT(5)")
-    private Integer thigh; // 허벅지
-
-    @Column(name = "hem", nullable = false,columnDefinition = "INT(5)")
-    private Integer hem; // 밑단
+@Entity
+@DiscriminatorValue("BOTTOM") // 실제 d_type 값에 맞게 조정
+public class BottomItem extends Item {
+    // 하의 전용 도메인 로직이 있으면 추가
 }
