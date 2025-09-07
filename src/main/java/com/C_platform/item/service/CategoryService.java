@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -20,8 +21,12 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
 
-    public List<CategoryResponseDto> getCategories() {
+    public Optional<List<CategoryResponseDto>> getCategories() {
         List<Category> allCategories = categoryRepository.findAll();
+
+        if (allCategories.isEmpty()) {
+            return Optional.empty();
+        }
 
         // 상위 카테고리 를 기준으로 자식 카테고리를 갖는 MAP 생성
         Map<Long, List<Category>> parentIdToChildren = new HashMap<>();
@@ -48,7 +53,7 @@ public class CategoryService {
 
         List<CategoryResponseDto> result = new ArrayList<>();
         result.add(root);
-        return result;
+        return Optional.of(result);
     }
 
     private CategoryResponseDto convertToDto(Category category, Map<Long, List<Category>> parentIdToChildren, boolean isTopLevel) {
