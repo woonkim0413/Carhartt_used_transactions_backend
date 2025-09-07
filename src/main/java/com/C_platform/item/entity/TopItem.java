@@ -1,10 +1,18 @@
 package com.C_platform.item.entity;
 
 import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
-@DiscriminatorValue("TOP") // 실제 d_type 값에 맞게 조정
+@Getter
+@DiscriminatorValue("TOP") // DTYPE 값이 'T'일 경우 Top 엔티티로 매핑
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TopItem extends Item {
-    // 상의 전용 도메인 로직이 있으면 추가
+
+    @Embedded
+    private TopItemEmbeddable topinfo;
 }

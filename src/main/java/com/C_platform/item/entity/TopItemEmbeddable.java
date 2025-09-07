@@ -2,22 +2,22 @@ package com.C_platform.item.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 /**
  * 상의
  */
 @Embeddable
 @Getter
-@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
 public class TopItemEmbeddable  {
-    @Column(name = "chest" ,nullable = false , columnDefinition = "INT(5)")
-    private Integer chest; // 가슴 단면
+    @Column(name = "chest" ,nullable = false)
+    private int chest; // 가슴 단면
 
-    @Column(name = "shoulder", nullable = false , columnDefinition = "INT(5)")
-    private Integer shoulder; // 어깨
+    @Column(name = "shoulder", nullable = false)
+    private int shoulder; // 어깨
 
-    @Column(name = "sleeve", nullable = false ,columnDefinition = "INT(5)")
-    private Integer sleeve; // 소매
+    @Column(name = "sleeve", nullable = false)
+    private int sleeve; // 소매
 }

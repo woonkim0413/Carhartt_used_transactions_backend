@@ -2,19 +2,14 @@ package com.C_platform.item.entity;
 
 
 import jakarta.persistence.*;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "item")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
-@DiscriminatorColumn(name = "d_type")
-@Getter
-@Setter // 불변 객체... 찾아보기
 public class Item {
 
     @Id
@@ -23,62 +18,31 @@ public class Item {
     private Long id;
 
     @Column(name = "item_name", nullable = false, length = 255)
-    private String itemName;
+    private String name;
 
-    // ERD 오타 유지: itme_price
-    @Column(name = "itme_price", nullable = false)
-    private Integer itemPrice;
+    @Column(name = "item_price", nullable = false)
+    private Integer price;
 
-    // 사이즈 컬럼: 단일테이블이므로 모두 nullable=true
-    @Column(name = "total_length")
-    private Integer totalLength;
+    @Column(name = "og_price", nullable = false)
+    private Integer ogPrice;
 
-    @Column(name = "chest")
-    private Integer chest;
-
-    @Column(name = "shoulder")
-    private Integer shoulder;
-
-    @Column(name = "sleeve")
-    private Integer sleeve;
-
-    @Column(name = "rise_length")
-    private Integer riseLength;
-
-    @Column(name = "thigh")
-    private Integer thigh;
-
-    @Column(name = "hem")
-    private Integer hem;
+    @Column(name = "item_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ItemStatus status;
 
     @Column(name = "signed_date", nullable = false)
     private LocalDateTime signedDate;
 
-    @Column(name = "updated_date")
-    private LocalDateTime updatedDate;
+    @Column(name = "update_date", nullable = false)
+    private LocalDateTime updateDate;
 
-    // 카테고리 연결: 조인테이블 표기 ERD 준수 (I 대문자)
     @ManyToMany
     @JoinTable(
-            name = "category_join_Item",
-            joinColumns = @JoinColumn(name = "item_id"),
-            inverseJoinColumns = @JoinColumn(name = "category_id")
+            name = "category_join_Item", // 중간 테이블 이름
+            joinColumns = @JoinColumn(name = "item_id"), // 현재 엔티티(Item)를 참조하는 FK
+            inverseJoinColumns = @JoinColumn(name = "category_id") // 반대쪽 엔티티(Category)를 참조하는 FK
     )
-    private Set<Category> categories = new LinkedHashSet<>();
+    private List<Category> categories = new ArrayList<>();
 
-    // 이미지 양방향
-    @OneToMany(mappedBy = "item", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Images> images = new ArrayList<>();
 
-    // equals/hashCode는 식별자 기반
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Item that)) return false;
-        return id != null && id.equals(that.id);
-    }
-    @Override
-    public int hashCode() { return Objects.hashCode(id); }
-
-    // getters/setters ...
 }

@@ -2,10 +2,17 @@ package com.C_platform.item.entity;
 
 
 import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
-@DiscriminatorValue("BOTTOM") // 실제 d_type 값에 맞게 조정
+@Getter
+@DiscriminatorValue("BOTTOM") // DTYPE 값이 'P'일 경우 Pants 엔티티로 매핑
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class BottomItem extends Item {
-    // 하의 전용 도메인 로직이 있으면 추가
+    @Embedded
+    private BottomItemEmbeddable bottomInfo;
 }

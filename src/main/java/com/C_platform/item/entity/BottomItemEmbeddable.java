@@ -2,22 +2,22 @@ package com.C_platform.item.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 /**
  * 하의
  */
 @Embeddable
 @Getter
-@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
 public class BottomItemEmbeddable  {
-    @Column(name = "rise_length", nullable = false,columnDefinition = "INT(5)")
-    private Integer riseLength; // 밑위
+    @Column(name = "rise_length", nullable = false)
+    private int riseLength; // 밑위
 
-    @Column(name = "thigh", nullable = false,columnDefinition = "INT(5)")
-    private Integer thigh; // 허벅지
+    @Column(name = "thigh", nullable = false)
+    private int thigh; // 허벅지
 
-    @Column(name = "hem", nullable = false,columnDefinition = "INT(5)")
-    private Integer hem; // 밑단
+    @Column(name = "hem", nullable = false)
+    private int hem; // 밑단
 }
