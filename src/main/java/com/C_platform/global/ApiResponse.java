@@ -1,5 +1,6 @@
 package com.C_platform.global;
 
+import com.C_platform.global.error.ErrorBody;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,7 +12,7 @@ public class ApiResponse<T> {
 
     private final boolean success;
     private final T data;
-    private final ErrorBody error;
+    private final ErrorBody<?> error;
     private final MetaData meta;
 
     public static <T> ApiResponse<T> success(T data, MetaData meta) {
@@ -22,8 +23,8 @@ public class ApiResponse<T> {
                 .build();
     }
 
-    public static ApiResponse<Object> fail(ErrorBody error, MetaData meta) {
-        return ApiResponse.<Object>builder()
+    public static <T> ApiResponse<T> fail(ErrorBody<?> error, MetaData meta) {
+        return ApiResponse.<T>builder()
                 .success(false)
                 .error(error)
                 .meta(meta)

@@ -1,12 +1,12 @@
 package com.C_platform.item.service;
 
-import com.C_platform.item.repository.CategoryRepository;
+import com.C_platform.item.infrastructure.CategoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.transaction.annotation.Transactional;
 
 
 @Transactional
-class CategoryServiceTest {
+class CategoryUseCaseTest {
 
     private CategoryRepository categoryRepository;
 

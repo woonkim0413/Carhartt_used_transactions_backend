@@ -1,6 +1,8 @@
 package com.C_platform.config;
 
-import com.C_platform.global.ProductErrorCode;
+
+import com.C_platform.global.error.CategoryErrorCode;
+import com.C_platform.global.error.ProductErrorCode;
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Configuration;
@@ -16,5 +18,7 @@ public class MessageSourceConfig {
     @PostConstruct
     public void init() {
         ProductErrorCode.setMessageSource(messageSource);
+        CategoryErrorCode.setMessageSource(messageSource);
+
     }
 }
