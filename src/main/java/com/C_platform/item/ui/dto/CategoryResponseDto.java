@@ -1,4 +1,4 @@
-package com.C_platform.item.dto;
+package com.C_platform.item.ui.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;

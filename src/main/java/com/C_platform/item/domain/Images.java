@@ -1,4 +1,4 @@
-package com.C_platform.item.entity;
+package com.C_platform.item.domain;
 
 import jakarta.persistence.*;
 

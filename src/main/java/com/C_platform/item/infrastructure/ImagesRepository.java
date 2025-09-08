@@ -1,7 +1,7 @@
-package com.C_platform.item.repository;
+package com.C_platform.item.infrastructure;
 
 
-import com.C_platform.item.entity.Images;
+import com.C_platform.item.domain.Images;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

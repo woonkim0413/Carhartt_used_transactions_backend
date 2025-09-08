@@ -1,7 +1,7 @@
-package com.C_platform.item.repository;
+package com.C_platform.item.infrastructure;
 
 
-import com.C_platform.item.entity.Category;
+import com.C_platform.item.domain.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

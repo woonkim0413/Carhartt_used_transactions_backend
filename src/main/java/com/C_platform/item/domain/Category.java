@@ -1,4 +1,4 @@
-package com.C_platform.item.entity;
+package com.C_platform.item.domain;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -29,5 +29,8 @@ public class Category {
     // 본인 참조 1:N
     @OneToMany(mappedBy = "parent")
     private List<Category> children = new ArrayList<>();
+
+    @OneToMany(mappedBy = "category")
+    private List<CategoryItem> categoriesItems = new ArrayList<>();
 
 }

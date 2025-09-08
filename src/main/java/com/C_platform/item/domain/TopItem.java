@@ -1,5 +1,4 @@
-package com.C_platform.item.entity;
-
+package com.C_platform.item.domain;
 
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Embedded;
@@ -10,9 +9,10 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@DiscriminatorValue("BOTTOM") // DTYPE 값이 'P'일 경우 Pants 엔티티로 매핑
+@DiscriminatorValue("TOP") // DTYPE 값이 'T'일 경우 Top 엔티티로 매핑
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class BottomItem extends Item {
+public class TopItem extends Item {
+
     @Embedded
-    private BottomItemEmbeddable bottomInfo;
+    private TopItemEmbeddable topinfo;
 }

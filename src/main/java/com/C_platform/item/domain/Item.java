@@ -1,4 +1,4 @@
-package com.C_platform.item.entity;
+package com.C_platform.item.domain;
 
 
 import jakarta.persistence.*;
@@ -36,13 +36,8 @@ public class Item {
     @Column(name = "update_date", nullable = false)
     private LocalDateTime updateDate;
 
-    @ManyToMany
-    @JoinTable(
-            name = "category_join_Item", // 중간 테이블 이름
-            joinColumns = @JoinColumn(name = "item_id"), // 현재 엔티티(Item)를 참조하는 FK
-            inverseJoinColumns = @JoinColumn(name = "category_id") // 반대쪽 엔티티(Category)를 참조하는 FK
-    )
-    private List<Category> categories = new ArrayList<>();
+    @OneToMany(mappedBy = "item")
+    private List<CategoryItem> categories = new ArrayList<>();
 
 
 }
