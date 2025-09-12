@@ -1,6 +1,7 @@
 package com.C_platform.config;
 
 
+import com.C_platform.Member.domain.NameChangeErrorCode;
 import com.C_platform.global.error.CategoryErrorCode;
 import com.C_platform.global.error.ProductErrorCode;
 import jakarta.annotation.PostConstruct;
@@ -17,8 +18,10 @@ public class MessageSourceConfig {
 
     @PostConstruct
     public void init() {
+        // Item domain
         ProductErrorCode.setMessageSource(messageSource);
         CategoryErrorCode.setMessageSource(messageSource);
-
+        // member domain
+        NameChangeErrorCode.setMessageSource(messageSource);
     }
 }
