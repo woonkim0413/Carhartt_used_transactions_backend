@@ -1,6 +1,6 @@
 package com.C_platform.order;
 
-import com.C_platform.Member.domain.Member;
+import com.C_platform.Member.entity.Member;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
