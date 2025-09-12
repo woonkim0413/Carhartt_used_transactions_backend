@@ -1,7 +1,9 @@
 package com.C_platform.item.ui.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.Setter;
@@ -28,16 +30,19 @@ public class Sizes {
     @Positive(message = "{item.size.positive.chest}")
     private int chest;
 
-    @Schema(description = "밑위", example = "30")
-    @Positive(message = "{item.size.positive.rise}")
-    @JsonProperty("rise_length")
-    private int riseLength;
-
-    @Schema(description = "허벅지", example = "25")
-    @Positive(message = "{item.size.positive.thigh}")
-    private int thigh;
-
-    @Schema(description = "밑단", example = "20")
-    @Positive(message = "{item.size.positive.hem}")
-    private int hem;
+//    @Schema(description = "밑위", example = "30")
+//    @Positive(message = "{item.size.positive.rise}")
+//    @JsonProperty("rise_length")
+//    @JsonIgnore
+//    private int riseLength;
+//
+//    @Schema(description = "허벅지", example = "25")
+//    @Positive(message = "{item.size.positive.thigh}")
+//    @JsonIgnore
+//    private int thigh;
+//
+//    @Schema(description = "밑단", example = "20")
+//    @Positive(message = "{item.size.positive.hem}")
+//    @JsonIgnore
+//    private int hem;
 }

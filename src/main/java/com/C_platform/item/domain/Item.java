@@ -2,11 +2,21 @@ package com.C_platform.item.domain;
 
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@SuperBuilder // @Builder 대신 @SuperBuilder 사용
 @Entity
 @Table(name = "item")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
@@ -23,8 +33,8 @@ public class Item {
     @Column(name = "item_price", nullable = false)
     private Integer price;
 
-    @Column(name = "og_price", nullable = false)
-    private Integer ogPrice;
+//    @Column(name = "og_price", nullable = true)
+//    private Integer ogPrice;
 
     @Column(name = "item_status", nullable = false)
     @Enumerated(EnumType.STRING)
@@ -33,7 +43,7 @@ public class Item {
     @Column(name = "signed_date", nullable = false)
     private LocalDateTime signedDate;
 
-    @Column(name = "update_date", nullable = false)
+    @Column(name = "update_date", nullable = true)
     private LocalDateTime updateDate;
 
     @OneToMany(mappedBy = "item")

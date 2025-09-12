@@ -1,8 +1,13 @@
 package com.C_platform.item.domain;
 
 import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
+@Builder
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
 public class CategoryItem {
     @Id
     @GeneratedValue

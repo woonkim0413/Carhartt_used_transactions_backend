@@ -9,10 +9,11 @@ import java.util.ArrayList;
 
 @Getter
 @Setter
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorBody<T extends ErrorCode> {
     private String code;
     private String message;
-    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String field;
     private ArrayList<Detail> details;
 
     public ErrorBody(T code) {
@@ -24,5 +25,10 @@ public class ErrorBody<T extends ErrorCode> {
         this.code = code.getCode();
         this.message = code.getMessage();
         this.details = details;
+    }
+
+    public ErrorBody(String field, String message) {
+        this.field = field;
+        this.message = message;
     }
 }

@@ -2,6 +2,7 @@ package com.C_platform.config;
 
 
 import com.C_platform.global.error.CategoryErrorCode;
+import com.C_platform.global.error.ImageErrorCode;
 import com.C_platform.global.error.ProductErrorCode;
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.MessageSource;
@@ -19,6 +20,7 @@ public class MessageSourceConfig {
     public void init() {
         ProductErrorCode.setMessageSource(messageSource);
         CategoryErrorCode.setMessageSource(messageSource);
+        ImageErrorCode.setMessageSource(messageSource);
 
     }
 }

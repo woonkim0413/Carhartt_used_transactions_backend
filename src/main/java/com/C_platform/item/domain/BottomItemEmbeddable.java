@@ -12,12 +12,12 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 public class BottomItemEmbeddable  {
-    @Column(name = "rise_length", nullable = false)
+    @Column(name = "rise_length", nullable = true)
     private int riseLength; // 밑위
 
-    @Column(name = "thigh", nullable = false)
+    @Column(name = "thigh", nullable = true)
     private int thigh; // 허벅지
 
-    @Column(name = "hem", nullable = false)
+    @Column(name = "hem", nullable = true)
     private int hem; // 밑단
 }

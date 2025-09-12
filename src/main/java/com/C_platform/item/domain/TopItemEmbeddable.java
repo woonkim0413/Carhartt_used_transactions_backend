@@ -11,6 +11,7 @@ import lombok.*;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
+@Builder
 public class TopItemEmbeddable  {
     @Column(name = "chest" ,nullable = false)
     private int chest; // 가슴 단면
@@ -20,4 +21,13 @@ public class TopItemEmbeddable  {
 
     @Column(name = "sleeve", nullable = false)
     private int sleeve; // 소매
+
+    @Column(name = "rise_length", nullable = false)
+    private int riseLength = 0; // 밑위
+
+    @Column(name = "thigh", nullable = false)
+    private int thigh = 0; // 허벅지
+
+    @Column(name = "hem", nullable = false)
+    private int hem = 0; // 밑단
 }
