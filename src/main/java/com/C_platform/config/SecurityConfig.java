@@ -2,7 +2,6 @@ package com.C_platform.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -12,9 +11,6 @@ import org.springframework.security.oauth2.client.web.AuthorizationRequestReposi
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AuthenticationFailureHandler;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -42,26 +38,6 @@ public class SecurityConfig {
             "/v1/auth/login/kakao",
             "/v1/auth/login/local"
     };
-
-    @Bean
-    public AuthenticationSuccessHandler jsonAuthSuccessHandler() { ... }
-
-    @Bean
-    public AuthenticationFailureHandler jsonAuthFailureHandler() { ... }
-
-    @Bean
-    public JsonUsernamePasswordAuthFilter jsonUsernamePasswordAuthFilter(
-            AuthenticationManager authenticationManager,
-            AuthenticationSuccessHandler jsonAuthSuccessHandler,
-            AuthenticationFailureHandler jsonAuthFailureHandler
-    ) {
-        return new JsonUsernamePasswordAuthFilter(
-                "/v1/auth/local/login",
-                authenticationManager,
-                jsonAuthSuccessHandler,
-                jsonAuthFailureHandler
-        );
-    }
 
     // local login password 암호화 객체
     @Bean
@@ -132,9 +108,6 @@ public class SecurityConfig {
         // form기반이 아니라 json 기반 로컬 로그인이기에 아래 코드 사용 x
         // http.formLogin(AbstractHttpConfigurer::disable);
 
-        // ➜ JSON 로그인 필터 등록(UsernamePasswordAuthenticationFilter 이전)
-        http.addFilterBefore(jsonFilter, UsernamePasswordAuthenticationFilter.class);
-
         // oauth 로그인 관련 지원
         http.oauth2Login(oauth2 -> {
             oauth2.authorizationEndpoint(authorization -> {
@@ -145,9 +118,6 @@ public class SecurityConfig {
                 // 아직 해당 객체 미구현
                 userInfo.userService(oAuth2UserService);
             });
-
-            // 아직 해당 객체 미구현
-            oauth2.successHandler(commonLoginSuccessHandler());
         });
 
         return http.build();
