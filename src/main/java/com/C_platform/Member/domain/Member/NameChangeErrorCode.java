@@ -1,8 +1,7 @@
-package com.C_platform.Member.domain;
+package com.C_platform.Member.domain.Member;
 
 import com.C_platform.global.error.ErrorCode;
 import lombok.Getter;
-import lombok.Setter;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 

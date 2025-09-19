@@ -1,7 +1,7 @@
 package com.C_platform.config;
 
 
-import com.C_platform.Member.domain.NameChangeErrorCode;
+import com.C_platform.Member.domain.Member.NameChangeErrorCode;
 import com.C_platform.global.error.CategoryErrorCode;
 import com.C_platform.global.error.ProductErrorCode;
 import jakarta.annotation.PostConstruct;

@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequ
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -40,6 +41,7 @@ public class SecurityConfig {
     };
 
     // local login password 암호화 객체
+    // Oauth에선 사용 안 함
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -56,7 +58,9 @@ public class SecurityConfig {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(List.of(
                 "https://your-frontend.com",
-                "http://localhost:3000"
+                "http://localhost:3000",
+                // 프론트 서버 Origin 추가
+                "https://carhartt-usedtransactions-frontend.pages.dev"
         ));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Content-Type", "X-Requested-With", "X-XSRF-TOKEN", "Authorization"));
@@ -71,6 +75,16 @@ public class SecurityConfig {
     public XsrfPresenceFilter xsrfPresenceFilter() {
         return new XsrfPresenceFilter();
     }
+
+    // java 코드로 쉽게 http 요청을 만들 수 있게 도와주는 객체
+    // Oauth 통신 및 Server에서 API 호출을 할 때 자주 사용된다
+    @Bean public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    // ***************************************************************************************
+    // ************************************* filterChain main logic **************************
+    // ***************************************************************************************
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -114,10 +128,10 @@ public class SecurityConfig {
                 authorization.authorizationRequestRepository(cookieAuthorizationRequestRepository());
             });
 
-            oauth2.userInfoEndpoint(userInfo -> {
-                // 아직 해당 객체 미구현
-                userInfo.userService(oAuth2UserService);
-            });
+//            oauth2.userInfoEndpoint(userInfo -> {
+//                // 아직 해당 객체 미구현
+//                userInfo.userService(oAuth2UserService);
+//            });
         });
 
         return http.build();

@@ -1,5 +1,6 @@
-package com.C_platform.Member.domain;
+package com.C_platform.Member.domain.Oauth;
 
+import com.C_platform.Member.domain.Oauth.CustomOAuth2User;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
