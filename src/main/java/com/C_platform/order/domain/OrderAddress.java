@@ -6,16 +6,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "order_address")
+@Embeddable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderAddress {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "order_address_id")
-    private Long id;
 
     @Column(nullable = false, length = 50)
     private String city;
@@ -38,13 +32,16 @@ public class OrderAddress {
         this.homeNumber = homeNumber;
     }
 
-    /** Member.Address 값 객체를 주문 시점에 스냅샷으로 변환 */
+    /** 주문 생성 시, 멤버의 주소 값을 '복사'해서 스냅샷으로 만듭니다. */
     public static OrderAddress snapshotOf(Address address) {
-        return new OrderAddress(
-                address.getCity(),
-                address.getStreet(),
-                address.getHome_number()
-        );
+        // Address의 실제 게터명에 맞춰 아래 한 줄을 선택하세요.
+        // return new OrderAddress(address.getCity(), address.getStreet(), address.getHome_number()); // 필드명이 home_number인 경우
+        return new OrderAddress(address.getCity(), address.getStreet(), address.getHomeNumber());     // 필드명이 homeNumber인 경우
+    }
+
+    /** 직접 값으로 만드는 팩토리 */
+    public static OrderAddress of(String city, String street, String homeNumber) {
+        return new OrderAddress(city, street, homeNumber);
     }
 }
 

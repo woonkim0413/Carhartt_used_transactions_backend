@@ -1,4 +1,4 @@
-package com.C_platform.order.application.dto;
+package com.C_platform.order.ui.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -14,6 +14,12 @@ public record ApiResponse<T>(
 ) {
     public static <T> ApiResponse<T> success(T data, String requestId, String traceId) {
         return new ApiResponse<>(true, data, new Meta(OffsetDateTime.now(), requestId, traceId));
+    }
+
+    public static <T> ApiResponse<T> fail(String requestId, String traceId) {
+        return new ApiResponse<>(false, null, new Meta(
+                java.time.OffsetDateTime.now(), requestId, traceId
+        ));
     }
 
     public record Meta(
