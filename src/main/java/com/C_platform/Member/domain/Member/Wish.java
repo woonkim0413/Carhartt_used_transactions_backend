@@ -1,4 +1,4 @@
-package com.C_platform.Member.domain;
+package com.C_platform.Member.domain.Member;
 
 import jakarta.persistence.*;
 import lombok.Setter;

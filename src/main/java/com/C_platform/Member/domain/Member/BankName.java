@@ -1,4 +1,4 @@
-package com.C_platform.Member.domain;
+package com.C_platform.Member.domain.Member;
 
 public enum BankName {
     IBK기업은행,

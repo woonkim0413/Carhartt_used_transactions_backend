@@ -1,5 +1,6 @@
-package com.C_platform.Member.domain;
+package com.C_platform.Member.domain.Address;
 
+import com.C_platform.Member.domain.Member.Member;
 import jakarta.persistence.*;
 import lombok.Setter;
 

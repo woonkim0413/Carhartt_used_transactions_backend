@@ -1,4 +1,4 @@
-package com.C_platform.Member.domain;
+package com.C_platform.Member.domain.Oauth;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.user.OAuth2User;

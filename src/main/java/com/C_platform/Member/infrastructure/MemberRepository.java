@@ -1,7 +1,7 @@
 package com.C_platform.Member.infrastructure;
 
-import com.C_platform.Member.domain.Member;
-import com.C_platform.Member.domain.OAuthProvider;
+import com.C_platform.Member.domain.Member.Member;
+import com.C_platform.Member.domain.Oauth.OAuthProvider;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

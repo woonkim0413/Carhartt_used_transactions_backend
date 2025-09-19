@@ -1,9 +1,10 @@
-package com.C_platform.Member.domain;
+package com.C_platform.Member.domain.Member;
 
+import com.C_platform.Member.domain.Address.Address;
+import com.C_platform.Member.domain.Oauth.OAuthProvider;
 import com.C_platform.order.Order;
 import jakarta.persistence.*;
 import lombok.Getter;
-
 import java.util.ArrayList;
 import java.util.List;
 
