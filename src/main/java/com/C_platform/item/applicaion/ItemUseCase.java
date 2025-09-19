@@ -1,6 +1,6 @@
 package com.C_platform.item.applicaion;
 
-import com.C_platform.Member.domain.Member;
+import com.C_platform.Member.domain.Member.Member;
 import com.C_platform.Member.infrastructure.MemberRepository;
 import com.C_platform.exception.CategoryException;
 import com.C_platform.exception.ItemException;

@@ -55,9 +55,13 @@ public class Member {
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Address> addresses = new ArrayList<>();
 
-    // Order와 연관관계로 묶인 field
-    @OneToMany(mappedBy = "member")
-    private List<Order> orders = new ArrayList<>();
+    // 내가 '구매자'인 주문 목록
+    @OneToMany(mappedBy = "buyer")
+    private List<Order> purchaseOrders = new ArrayList<>();
+
+    // 내가 '판매자'인 주문 목록
+    @OneToMany(mappedBy = "seller")
+    private List<Order> salesOrders = new ArrayList<>();
 
     // Wish와 연관관계로 묶인 field
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)

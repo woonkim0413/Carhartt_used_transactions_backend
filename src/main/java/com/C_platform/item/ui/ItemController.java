@@ -1,6 +1,6 @@
 package com.C_platform.item.ui;
 
-import com.C_platform.Member.domain.CustomOAuth2User;
+import com.C_platform.Member.domain.Oauth.CustomOAuth2User;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.item.applicaion.ItemUseCase;
@@ -11,13 +11,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -86,6 +84,7 @@ public class ItemController {
 
         return ResponseEntity.ok().body(ApiResponse.success(response, getMetaData()));
     }
+
 
     /**
      * 메타데이터 생성
