@@ -9,11 +9,15 @@ import lombok.Setter;
 public class Address {
     private String city;
     private String street;
-    private String home_number;
+    private String homeNumber;
 
     public Address(String city, String street, String home_number) {
         this.city = city;
         this.street = street;
-        this.home_number = home_number;
+        this.homeNumber = home_number;
+    }
+
+    public Address() {
+
     }
 }

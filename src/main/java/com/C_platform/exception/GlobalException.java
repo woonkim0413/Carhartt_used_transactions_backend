@@ -73,5 +73,12 @@ public class GlobalException {
         return ResponseEntity.badRequest().body(ApiResponse.fail(errorBody, meta));
     }
 
+    //주문 생성 관련
+    @ExceptionHandler(CreateOrderException.class)
+    public ResponseEntity<ApiResponse<Object>> handleCreateOrderException(CreateOrderException ex) {
+        log.error("CreateOrder error: {}", ex.getMessage());
+        return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
+    }
+
 }
 

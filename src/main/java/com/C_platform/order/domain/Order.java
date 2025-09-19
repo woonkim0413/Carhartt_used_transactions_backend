@@ -1,6 +1,7 @@
 package com.C_platform.order.domain;
 
-import com.C_platform.Member.entity.Member;
+import com.C_platform.Member.domain.Member;
+import com.C_platform.item.domain.Item;
 import com.C_platform.order.Address;
 import jakarta.persistence.*;
 import lombok.*;
@@ -26,35 +27,46 @@ public class Order {
     @Column(name = "order_status", length = 20, nullable = false)
     private  OrderStatus orderStatus;
 
-    @Embedded //Address는 보통 @Embeddable로 처리
-    @AttributeOverrides({
-            @AttributeOverride(name = "city", column = @Column(name = "delivery_city")),
-            @AttributeOverride(name = "street", column = @Column(name = "delivery_street")),
-            @AttributeOverride(name = "home_number", column = @Column(name = "delivery_home_number"))
-    })
-    private Address orderAddress;
+    @Embedded
+    private OrderAddress shipping; // 배송지 스냅샷(값 타입)
+
+    @Embedded
+    private ItemSnapshot itemSnapshot;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "buyer_id", nullable = false)
+    @JoinColumn(name = "buyer_id", nullable = true) //buyer, seller 정보 추가되면 false로 수정
     private Member buyer;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "seller_id", nullable = false)
+    @JoinColumn(name = "seller_id", nullable = true) //buyer, seller 정보 추가되면 false로 수정
     private Member seller;
 
     @Column(name = "detail_message", nullable = true)
     private String detailMessage;
 
     // 공개 팩토리 메서드
-    public static Order createOrder(Member buyer, Member seller, Address address, String detailMessage) {
+    public static Order createOrder(Member buyer, Member seller, OrderAddress shipping, String detailMessage, ItemSnapshot itemSnapshot) {
         return Order.builder()
                 .buyer(buyer)
                 .seller(seller)
-                .orderAddress(address)
+                .shipping(shipping)
                 .detailMessage(detailMessage)
+                .itemSnapshot(itemSnapshot)
                 .orderDateTime(LocalDateTime.now())
                 .orderStatus(OrderStatus.READY)
                 .build();
+    }
+
+    //임시: buyer/seller 없이 생성 가능한 Draft 팩토리
+    public static Order createDraft(OrderAddress shipping, String detailMessage, ItemSnapshot snapshot) {
+        if (shipping == null || snapshot == null) throw new IllegalArgumentException("shipping/snapshot required");
+        Order o = new Order();
+        o.shipping = shipping;
+        o.itemSnapshot = snapshot;
+        o.orderStatus = OrderStatus.READY;     // 혹은 DRAFT 상태가 있으면 그걸로
+        o.orderDateTime = LocalDateTime.now();
+        // detailMessage 필드가 있다면 세팅
+        return o;
     }
 
     //핵심 상태 전이 메서드 주문 생성 => 주문 완료
