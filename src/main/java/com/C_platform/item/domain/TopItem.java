@@ -16,4 +16,8 @@ public class TopItem extends Item {
 
     @Embedded
     private TopItemEmbeddable topinfo;
+
+    public void updateSize(TopItemEmbeddable topinfo) {
+        this.topinfo = topinfo;
+    }
 }
