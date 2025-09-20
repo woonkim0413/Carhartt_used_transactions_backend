@@ -51,6 +51,7 @@ public class OauthController {
     }
 
     // 2. 카카오 로그인 리다이렉트
+    // 사용자가 카카오 버튼을 누르면 카카오 Oauth server redirect url을 만들어서 리다이렉트 해준다
     @GetMapping("/auth/login/kakao")
     public void redirectToKakao(HttpServletResponse response) throws IOException {
         String authorizeUrl = oauth2Service.getAuthorizeUrl(OAuthProvider.KAKAO);
