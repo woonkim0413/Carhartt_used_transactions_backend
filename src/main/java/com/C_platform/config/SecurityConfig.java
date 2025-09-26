@@ -140,19 +140,23 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     // cors
     http.cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource()));
 
-    // CSRF (더블 서브밋: JS가 쿠키 XSRF-TOKEN을 읽어 X-XSRF-TOKEN 헤더로 반사)
-    CookieCsrfTokenRepository repo =
-            CookieCsrfTokenRepository.withHttpOnlyFalse();
-    repo.setCookieName("XSRF-TOKEN");
-    repo.setCookiePath("/");
-    repo.setSecure(true);
-    repo.setCookieCustomizer(c -> c.sameSite("Lax"));
+    // 테스트 편하게 CSRF 일단 꺼도 됨
+    http.csrf(csrf -> csrf.disable());
 
-    // csrf-token을 spring이 관리/검증하도록 인가
-    http.csrf(csrf -> csrf.csrfTokenRepository(repo));
-
-    // GET 진입 시 토큰 쿠키 보장
-    http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
+    //테스트 위해 주석 처리
+//    // CSRF (더블 서브밋: JS가 쿠키 XSRF-TOKEN을 읽어 X-XSRF-TOKEN 헤더로 반사)
+//    CookieCsrfTokenRepository repo =
+//            CookieCsrfTokenRepository.withHttpOnlyFalse();
+//    repo.setCookieName("XSRF-TOKEN");
+//    repo.setCookiePath("/");
+//    repo.setSecure(true);
+//    repo.setCookieCustomizer(c -> c.sameSite("Lax"));
+//
+//    // csrf-token을 spring이 관리/검증하도록 인가
+//    http.csrf(csrf -> csrf.csrfTokenRepository(repo));
+//
+//    // GET 진입 시 토큰 쿠키 보장
+//    http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
 
     // 세션 관리 정책
     http.sessionManagement
@@ -163,8 +167,18 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
 
     // 인가(인가 규칙)
     http.authorizeHttpRequests(auth -> auth
+
             .requestMatchers(SWAGGER_WHITELIST).permitAll()
             .requestMatchers(AUTH_WHITELIST).permitAll()
+
+            // ✅ 주문 생성 API 실제 경로 허용
+            .requestMatchers("/api/order").permitAll()
+
+            // === 깡통 결제 API 전용 전체 허용 ===
+            .requestMatchers("/v1/order/*/payment/**").permitAll()
+            .requestMatchers("/v1/payment/**").permitAll()
+
+            //마지막으로 anyRequest가 와야 함
             .anyRequest().authenticated()
     );
 

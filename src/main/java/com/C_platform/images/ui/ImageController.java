@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import software.amazon.awssdk.http.SdkHttpMethod;
@@ -19,7 +20,7 @@ import software.amazon.awssdk.http.SdkHttpMethod;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
-
+@ConditionalOnProperty(name = "cloud.aws.s3.enabled", havingValue = "true")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor

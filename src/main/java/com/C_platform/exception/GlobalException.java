@@ -80,5 +80,12 @@ public class GlobalException {
         return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
     }
 
+    //결제 관련
+    @ExceptionHandler(PaymentException.class)
+    public ResponseEntity<ApiResponse<Object>> handlePaymentException(PaymentException ex) {
+        log.error("Payment error: {}", ex.getMessage());
+        return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
+    }
+
 }
 
