@@ -1,6 +1,7 @@
 package com.C_platform.exception;
 
 
+import com.C_platform.Member.domain.exception.KakaoOauthException;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.Detail;
 import com.C_platform.global.MetaData;
@@ -17,13 +18,12 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.Collectors;
 
 
 @Slf4j
 @ControllerAdvice
-public class GlobalException {
+public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
@@ -52,6 +52,15 @@ public class GlobalException {
         // Handle the exception (e.g., return a custom response)
     }
 
+    // (운강) 공통 에러 응답 생성 utils method
+    private static ResponseEntity<ApiResponse<Object>> getApiResponseResponseEntity(ErrorCode ex) {
+        ErrorBody<ErrorCode> errorBody = new ErrorBody<>(ex);
+        MetaData meta = MetaData.builder()
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.badRequest().body(ApiResponse.fail(errorBody, meta));
+    }
+
     @ExceptionHandler(InvalidImageExtensionException.class)
     public ResponseEntity<ApiResponse<Object>> handleInvalidImageExtensionException(InvalidImageExtensionException ex) {
         log.error("Invalid image extension: {}", ex.getMessage());
@@ -64,19 +73,17 @@ public class GlobalException {
         return getApiResponseResponseEntity(ex.getErrorCode());
     }
 
-
-    private static ResponseEntity<ApiResponse<Object>> getApiResponseResponseEntity(ErrorCode ex) {
-        ErrorBody<ErrorCode> errorBody = new ErrorBody<>(ex);
-        MetaData meta = MetaData.builder()
-                .timestamp(LocalDateTime.now())
-                .build();
-        return ResponseEntity.badRequest().body(ApiResponse.fail(errorBody, meta));
-    }
-
     //주문 생성 관련
     @ExceptionHandler(CreateOrderException.class)
     public ResponseEntity<ApiResponse<Object>> handleCreateOrderException(CreateOrderException ex) {
         log.error("CreateOrder error: {}", ex.getMessage());
+        return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
+    }
+
+    // KakaoOauth Exception 관련 처리 handler
+    @ExceptionHandler(KakaoOauthException.class)
+    public ResponseEntity<ApiResponse<Object>> handleKakaoOauthException(KakaoOauthException ex) {
+        log.error("KakaoOauth error: {}", ex.getMessage());
         return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
     }
 
@@ -86,6 +93,5 @@ public class GlobalException {
         log.error("Payment error: {}", ex.getMessage());
         return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
     }
-
 }
 
