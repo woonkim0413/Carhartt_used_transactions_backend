@@ -8,20 +8,16 @@ import lombok.*;
 // kakao Resource server에서 받은 Json data를 매핑
 public class OAuth2KakaoUserInfoDto {
 
-    private String id;
-    private int statusCode;
-    private String name;
-    private String ageRange;
-    private String birthday;
-    private String gender;
+    private final String id;
+    private final int statusCode;
+    private final String name;
+    private final String email;
 
     @Builder
-    public OAuth2KakaoUserInfoDto(String id, int statusCode, String name, String ageRange, String birthday, String gender) {
+    public OAuth2KakaoUserInfoDto(String id, int statusCode, String name, String email) {
         this.id = id;
         this.statusCode = statusCode;
         this.name = name;
-        this.ageRange = ageRange;
-        this.birthday = birthday;
-        this.gender = gender;
+        this.email = email;
     }
 }

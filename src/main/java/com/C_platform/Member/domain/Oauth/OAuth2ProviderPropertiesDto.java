@@ -9,8 +9,8 @@ public record OAuth2ProviderPropertiesDto(ProviderConfig kakao, ProviderConfig n
     public record ProviderConfig(
             String authorizationUri,
             String tokenUri,
-            String userInfoUri,
-            String userNameAttribute
+            String userInfoUri
+            // String userNameAttribute
     ) {
     }
 }

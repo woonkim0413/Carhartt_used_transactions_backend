@@ -36,9 +36,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         Map<String, Object> attributes = Map.of(
                 "id", kakaoUser.getId(),
                 "name", kakaoUser.getName(),
-                "ageRange", kakaoUser.getAgeRange(),
-                "birthday", kakaoUser.getBirthday(),
-                "gender", kakaoUser.getGender()
+                "email", kakaoUser.getEmail()
         );
 
         return new DefaultOAuth2User(

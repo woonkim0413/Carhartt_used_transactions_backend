@@ -34,12 +34,24 @@ jobs:
         run: chmod +x ./gradlew
         shell: bash
 
+      - name: Remove test application.properties (for main branch only)
+        if: contains(github.ref, 'main') # main 브랜치에서만 실행
+        run: |
+          cd ./src/main/resources
+          if [ -f application.properties ]; then
+            rm application.properties
+            echo "✅ Deleted test application.properties"
+          else
+            echo "ℹ️ No test application.properties found"
+          fi
+        shell: bash
+
       - name: Make application-prod.properties
         if: contains(github.ref, 'main') # branch가 main 일 때
         run: |
           cd ./src/main/resources
           touch ./application-prod.properties
-          echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./application-prod.properties
+          echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./application.properties
         shell: bash
 
       - name: Build with Gradle
