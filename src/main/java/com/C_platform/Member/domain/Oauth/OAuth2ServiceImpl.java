@@ -1,22 +1,18 @@
 package com.C_platform.Member.domain.Oauth;
 
-import jakarta.servlet.http.HttpSession;
+
+import com.C_platform.Member.ui.dto.LoginProviderDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -66,6 +62,27 @@ public class OAuth2ServiceImpl implements OAuth2Service {
         };
     }
 
+    @Override
+    public List<LoginProviderDto> getLoginProviderList() {
+        // 공통 url 부분
+        String baseUrl = "http://43.203.218.247:8080//v1/";
+
+        return List.of(
+            LoginProviderDto.builder()
+                .provider(OAuthProvider.KAKAO)
+                .loginType(LoginType.OAUTH)
+                .authorizeUrl(baseUrl + "auth/login/kakao")
+                .build(),
+
+            LoginProviderDto.builder()
+                .provider(OAuthProvider.NAVER)
+                .loginType(LoginType.OAUTH)
+                .authorizeUrl(baseUrl + "auth/login/naver")
+                .build()
+        );
+    }
+
+
     private OAuthRegistration getRegistration(OAuthProvider provider) {
         return switch (provider) {
             case KAKAO -> OAuthRegistration.kakao();
@@ -85,15 +102,8 @@ public class OAuth2ServiceImpl implements OAuth2Service {
                 .queryParam("client_id", registration.clientId())
                 .queryParam("redirect_uri", registration.redirectUri())
                 .queryParam("state", state);
-                // 쿠키에 sessionId가 있을 때를 test하기 위해서 주석
-                // .queryParam("prompt", "login");
-
-        // KAKAO 공식 scope 표현 방식은 'account_email,name'처럼 각 요소를 쉼표로 합치고, 접두어 붙이지 않음
-//        if (registration.scope() != null && !registration.scope().isEmpty()) {
-//            // 예: registration.scope() == List.of("account_email", "name")
-//            String scopeCsv = String.join(",", registration.scope());
-//            builder.queryParam("scope", scopeCsv);
-//        }
+        // 쿠키에 sessionId가 있을 때를 test하기 위해서 주석
+        // .queryParam("prompt", "login");
 
         // 중복 인코딩 방지
         return builder.build(false).toUriString();

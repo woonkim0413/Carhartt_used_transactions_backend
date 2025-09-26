@@ -1,4 +1,4 @@
-package com.C_platform.Member.domain.Oauth;
+package com.C_platform.Member.domain.Member;
 
 import com.C_platform.global.error.ErrorCode;
 import lombok.Getter;

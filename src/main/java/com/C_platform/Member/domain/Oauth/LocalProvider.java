@@ -2,6 +2,6 @@ package com.C_platform.Member.domain.Oauth;
 
 import java.io.Serializable;
 
-public enum OAuthProvider implements Provider {
-    KAKAO, NAVER;
+public enum LocalProvider implements Provider {
+    LOCAL;
 }

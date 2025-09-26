@@ -5,6 +5,9 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+### application.propertes - ci/cd할 때 secret에서 꺼내서 사용 ###
+application.properties
+
 ### STS ###
 .apt_generated
 .classpath

@@ -1,6 +1,7 @@
 package com.C_platform.Member.domain.Member;
 
 import com.C_platform.Member.domain.Address.Address;
+import com.C_platform.Member.domain.Oauth.LoginType;
 import com.C_platform.Member.domain.Oauth.OAuthProvider;
 import com.C_platform.order.domain.Order;
 import jakarta.persistence.*;
@@ -35,7 +36,7 @@ public class Member {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "login_type")
-    private loginType loginType;
+    private LoginType loginType;
 
     @JoinColumn(name = "address_id")
     private int defaultAddressId;

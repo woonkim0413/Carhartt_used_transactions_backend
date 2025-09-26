@@ -47,6 +47,7 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/swagger-resources/**"
+            // "/api/v1/**",
     };
 
     // 수정: 콜백 경로 추가
