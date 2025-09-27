@@ -1,6 +1,7 @@
 package com.C_platform.Member.domain.Oauth;
 
 
+import com.C_platform.Member.infrastructure.MemberRepository;
 import com.C_platform.Member.ui.dto.LoginProviderDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,12 +23,16 @@ public class OAuth2ServiceImpl implements OAuth2Service {
     // properties.oauth.yml을 읽어서 자바 코드에 대입하는 Dto들
     private final OAuth2RegistrationPropertiesDto registrationPropertiesDto;
     private final OAuth2ProviderPropertiesDto providerPropertiesDto;
-    // Request API Utils
+
+    // Request API와 관련된 Utils 객체
     private final RestTemplate restTemplate;
+
     // 해당 객체를 getUserInfo 내부로 들인 뒤 provider가 KAKAO인 경우만 new로 생성하는 패턴도 생각해봄
     // -> 안티 패턴임 new로 생성하면 spring이 bean으로 관리 못 하기에 AOP 지원 불가, TEST Mock 주입 불가함
     //    그리고 실질적인 Dto build는 .parse()를 호출할 때 실행되기에 resource 낭비도 거의 없다
     private final OAuth2KakaoUserInfoParser kakaoUserInfoParser;
+
+    private final MemberRepository memberRepository;
 
     @Override
     // *** Access-Token으로 Resource Server에 사용자 정보를 요청하여 받은 뒤 dto에 담아서 반환하는 method ***

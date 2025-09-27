@@ -15,6 +15,8 @@ public class OAuth2KakaoUserInfoParser {
                 .id(String.valueOf(userInfo.get("id")))
                 .name((String) kakaoAccount.get("name"))
                 .email((String) kakaoAccount.get("email"))
+                .provider(OAuthProvider.KAKAO)
+                .loginType(LoginType.OAUTH)
                 .statusCode(200)
                 .build();
     }
