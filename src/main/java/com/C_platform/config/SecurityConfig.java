@@ -46,15 +46,18 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/swagger-resources/**"
+            "/swagger-resources/**",
+            "/api/v1/**",
     };
 
+    // 수정: 콜백 경로 추가
     private static final String[] AUTH_WHITELIST = {
             "/v1",
             "/v1/main",
-            "/v1/auth/login",
-            "/v1/auth/login/kakao",
-            "/v1/auth/login/local"
+            "/v1/oauth/login",
+            "/v1/oauth/login/kakao",
+            "/v1/oauth/login/local",
+            "/v1/oauth/kakao/callback"
     };
 
     // local login password 암호화 객체
@@ -124,7 +127,6 @@ public class SecurityConfig {
                 .authorizationUri(kakaoProvider.authorizationUri())
                 .tokenUri(kakaoProvider.tokenUri())
                 .userInfoUri(kakaoProvider.userInfoUri())
-                .userNameAttributeName(kakaoProvider.userNameAttribute())
                 .clientName(kakao.clientName())
                 .build();
 
@@ -145,11 +147,16 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             CookieCsrfTokenRepository.withHttpOnlyFalse();
     repo.setCookieName("XSRF-TOKEN");
     repo.setCookiePath("/");
-    repo.setSecure(true);
+    // todo 아직 https로 통신을 보호하고 있지 않으므로 주석 처리해야 정상 테스트 가능 (https 구현 후 지우기)
+    // repo.setSecure(true);
     repo.setCookieCustomizer(c -> c.sameSite("Lax"));
 
     // csrf-token을 spring이 관리/검증하도록 인가
-    http.csrf(csrf -> csrf.csrfTokenRepository(repo));
+    http.csrf(csrf -> csrf
+             .csrfTokenRepository(repo)
+            // todo 아직 csrf 비교 구현 전이라 해당 코드로 csrf 비교 껐음 (csrf 구현 후 지우기)
+             .ignoringRequestMatchers("/v1/oauth/logout")
+    );
 
     // GET 진입 시 토큰 쿠키 보장
     http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
@@ -163,8 +170,19 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
 
     // 인가(인가 규칙)
     http.authorizeHttpRequests(auth -> auth
+
             .requestMatchers(SWAGGER_WHITELIST).permitAll()
             .requestMatchers(AUTH_WHITELIST).permitAll()
+            .requestMatchers("/v1/oauth/logout").permitAll()
+
+            // ✅ 주문 생성 API 실제 경로 허용
+            .requestMatchers("/api/order").permitAll()
+
+            // === 깡통 결제 API 전용 전체 허용 ===
+            .requestMatchers("/v1/order/*/payment/**").permitAll()
+            .requestMatchers("/v1/payment/**").permitAll()
+
+            //마지막으로 anyRequest가 와야 함
             .anyRequest().authenticated()
     );
 

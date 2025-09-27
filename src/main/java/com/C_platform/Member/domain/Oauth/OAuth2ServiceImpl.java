@@ -1,5 +1,8 @@
 package com.C_platform.Member.domain.Oauth;
 
+
+import com.C_platform.Member.infrastructure.MemberRepository;
+import com.C_platform.Member.ui.dto.LoginProviderDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -9,8 +12,8 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -18,14 +21,18 @@ import java.util.UUID;
 public class OAuth2ServiceImpl implements OAuth2Service {
 
     // properties.oauth.yml을 읽어서 자바 코드에 대입하는 Dto들
-    private final OAuth2RegistrationPropertiesDto registrationProps;
-    private final OAuth2ProviderPropertiesDto providerProps;
-    // Request API Utils
+    private final OAuth2RegistrationPropertiesDto registrationPropertiesDto;
+    private final OAuth2ProviderPropertiesDto providerPropertiesDto;
+
+    // Request API와 관련된 Utils 객체
     private final RestTemplate restTemplate;
+
     // 해당 객체를 getUserInfo 내부로 들인 뒤 provider가 KAKAO인 경우만 new로 생성하는 패턴도 생각해봄
     // -> 안티 패턴임 new로 생성하면 spring이 bean으로 관리 못 하기에 AOP 지원 불가, TEST Mock 주입 불가함
     //    그리고 실질적인 Dto build는 .parse()를 호출할 때 실행되기에 resource 낭비도 거의 없다
-    private final OAuth2KakaoService kakaoService;
+    private final OAuth2KakaoUserInfoParser kakaoUserInfoParser;
+
+    private final MemberRepository memberRepository;
 
     @Override
     // *** Access-Token으로 Resource Server에 사용자 정보를 요청하여 받은 뒤 dto에 담아서 반환하는 method ***
@@ -55,10 +62,31 @@ public class OAuth2ServiceImpl implements OAuth2Service {
 
         // 사용자 정보를 Dto에 담은 뒤 반환
         return switch (provider) {
-            case KAKAO -> kakaoService.parse(userInfo);
+            case KAKAO -> kakaoUserInfoParser.parse(userInfo);
             case NAVER -> throw new UnsupportedOperationException("Naver 구현 예정");
         };
     }
+
+    @Override
+    public List<LoginProviderDto> getLoginProviderList() {
+        // 공통 url 부분
+        String baseUrl = "http://43.203.218.247:8080//v1/";
+
+        return List.of(
+            LoginProviderDto.builder()
+                .provider(OAuthProvider.KAKAO)
+                .loginType(LoginType.OAUTH)
+                .authorizeUrl(baseUrl + "auth/login/kakao")
+                .build(),
+
+            LoginProviderDto.builder()
+                .provider(OAuthProvider.NAVER)
+                .loginType(LoginType.OAUTH)
+                .authorizeUrl(baseUrl + "auth/login/naver")
+                .build()
+        );
+    }
+
 
     private OAuthRegistration getRegistration(OAuthProvider provider) {
         return switch (provider) {
@@ -67,29 +95,39 @@ public class OAuth2ServiceImpl implements OAuth2Service {
         };
     }
 
-    // Oauth 페이지로 browser을 redirect하기 위한 요청 url 생성
+    // Oauth 인증 페이지 redirect url 생성 method
     @Override
-    public String getAuthorizeUrl(OAuthProvider provider) {
-        // 등록/공급자 설정 가져오기
-        OAuth2RegistrationPropertiesDto.RegistrationConfig registration =
-                getRegistrationConfig(provider);
-        OAuth2ProviderPropertiesDto.ProviderConfig providerConfig =
-                getProviderConfig(provider);
+    public String getAuthorizeUrl(OAuthProvider provider, String state) {
+        var registration = getRegistrationConfig(provider); // clientId, redirectUri, scope(List<String>) 등
+        var providerConfig = getProviderConfig(provider);   // authorizationUri 등
 
-        // 쿼리 파라미터 조립
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(providerConfig.authorizationUri())
                 .queryParam("response_type", "code")
                 .queryParam("client_id", registration.clientId())
                 .queryParam("redirect_uri", registration.redirectUri())
-                .queryParam("state", UUID.randomUUID().toString());
+                .queryParam("state", state);
+        // 쿠키에 sessionId가 있을 때를 test하기 위해서 주석
+        // .queryParam("prompt", "login");
 
-        // scope가 있다면 공백 기준으로 합쳐서 추가
-        if (registration.scope() != null && !registration.scope().isEmpty()) {
-            builder.queryParam("scope", String.join(" ", registration.scope()));
-        }
+        // 중복 인코딩 방지
+        return builder.build(false).toUriString();
+    }
 
-        return builder.build().toUriString();
+    // properties.oauth.yml에서 등록 정보 (client id, client secrert, redirect url)를 가져옴
+    private OAuth2RegistrationPropertiesDto.RegistrationConfig getRegistrationConfig(OAuthProvider provider) {
+        return switch (provider) {
+            case KAKAO -> registrationPropertiesDto.kakao();
+            case NAVER -> registrationPropertiesDto.naver();
+        };
+    }
+
+    // properties.oauth.yml에서 Oauth server와 통신하기 위한 url 정보들을 가져옴
+    private OAuth2ProviderPropertiesDto.ProviderConfig getProviderConfig(OAuthProvider provider) {
+        return switch (provider) {
+            case KAKAO -> providerPropertiesDto.kakao();
+            case NAVER -> providerPropertiesDto.naver();
+        };
     }
 
     // Authorization Code + client Secret을 조합한 값을 통해서 kakao Authorization Server에 값을 요청한다
@@ -109,7 +147,7 @@ public class OAuth2ServiceImpl implements OAuth2Service {
                 .queryParam("client_id", registration.clientId())
                 .queryParam("redirect_uri", registration.redirectUri())
                 .queryParam("code", code)
-                .queryParam("client_secret", registration.clientSecret()) // ✅ client_secret 포함!
+                .queryParam("client_secret", registration.clientSecret())
                 .build()
                 .toUri()
                 .getRawQuery(); // form body용 query string 추출
@@ -118,6 +156,7 @@ public class OAuth2ServiceImpl implements OAuth2Service {
         // Access-Token을 얻기 위한 요청은 Post요청이고 넣어야 하는 값이 많기에 RequestEntity보다 HttpEntity를 쓰는 것이 낫다
         HttpEntity<String> request = new HttpEntity<>(body, headers);
 
+        // 요청 보낸 뒤 응답에서 Access Token 꺼내서 반환
         try {
             // POST 요청 수행
             ResponseEntity<Map> response = restTemplate.exchange(
@@ -129,31 +168,14 @@ public class OAuth2ServiceImpl implements OAuth2Service {
 
             Map<String, Object> responseBody = response.getBody();
 
-            // access_token 추출
+            // access_token 추출 후 반환
             if (responseBody != null && responseBody.containsKey("access_token")) {
                 return responseBody.get("access_token").toString();
             } else {
                 throw new RuntimeException("Access Token을 응답에서 찾을 수 없습니다: " + responseBody);
             }
-
         } catch (RestClientException e) {
             throw new RuntimeException("OAuth Access Token 요청 실패", e);
         }
-    }
-
-    // properties.oauth.yml에서 등록 정보 (client id, client secrert, redirect url)를 가져옴
-    private OAuth2RegistrationPropertiesDto.RegistrationConfig getRegistrationConfig(OAuthProvider provider) {
-        return switch (provider) {
-            case KAKAO -> registrationProps.kakao();
-            case NAVER -> registrationProps.naver();
-        };
-    }
-
-    // properties.oauth.yml에서 Oauth server와 통신하기 위한 url 정보들을 가져옴
-    private OAuth2ProviderPropertiesDto.ProviderConfig getProviderConfig(OAuthProvider provider) {
-        return switch (provider) {
-            case KAKAO -> providerProps.kakao();
-            case NAVER -> providerProps.naver();
-        };
     }
 }

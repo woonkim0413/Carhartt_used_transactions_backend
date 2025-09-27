@@ -1,22 +1,23 @@
 package com.C_platform.item.applicaion;
 
+
 import com.C_platform.Member.domain.Member.Member;
 import com.C_platform.Member.infrastructure.MemberRepository;
 import com.C_platform.exception.CategoryException;
 import com.C_platform.exception.ItemException;
 import com.C_platform.global.error.CategoryErrorCode;
+import com.C_platform.global.error.ItemErrorCode;
 import com.C_platform.item.domain.*;
-import com.C_platform.item.infrastructure.CategoryItemRepository;
 import com.C_platform.item.infrastructure.CategoryRepository;
-import com.C_platform.item.infrastructure.ImagesRepository;
 import com.C_platform.item.infrastructure.ItemRepository;
 import com.C_platform.item.ui.dto.CreateItemRequestDto;
+import com.C_platform.item.ui.dto.ItemDetailResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +49,9 @@ public class ItemUseCase {
                 .price(requestDto.getPrice())
                 .status(ItemStatus.FOR_SALE)
                 .signedDate(LocalDateTime.now())
+                .description(requestDto.getDescription())
+                .totalLength(requestDto.getSizes().getTottalength())
+                .directTrade(requestDto.getDirectTrade())
                 .topinfo(topItemEmbeddable)
                 .build();
 
@@ -105,10 +109,10 @@ public class ItemUseCase {
         return itemRepository.save(item);
     }
 
-    @Transactional
+    @Transactional(propagation= Propagation.REQUIRED)
     public void deleteItem(Long itemId, Long memberId) {
         Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new ItemException(com.C_platform.global.error.ItemErrorCode.I001));
+                .orElseThrow(() -> new ItemException(ItemErrorCode.I002));
 
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalStateException("존재하지 않는 회원입니다."));
@@ -120,7 +124,15 @@ public class ItemUseCase {
         try {
             itemRepository.delete(item);
         } catch (Exception e) {
-            throw new ItemException(com.C_platform.global.error.ItemErrorCode.I002);
+            throw new ItemException(ItemErrorCode.I002);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public ItemDetailResponseDto findItemDetailById(Long itemId) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new ItemException(ItemErrorCode.I002));
+
+        return ItemDetailResponseDto.of(item);
     }
 }

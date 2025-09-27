@@ -1,6 +1,7 @@
 package com.C_platform.Member.infrastructure;
 
 import com.C_platform.Member.domain.Member.Member;
+import com.C_platform.Member.domain.Oauth.LocalProvider;
 import com.C_platform.Member.domain.Oauth.OAuthProvider;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,9 +17,10 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     // email로 회원 조회
     Optional<Member> findByEmail(String email);
 
-    // Provider과 OauthId로 회원 조회
-    @Query("select m.memberId from Member m where m.oauthProvider = :provider and m.oauthId = :oauthId")
-    Optional<Member> findIdByProviderAndOauthId(OAuthProvider provider, String oauthId);
+    // Oauth 로그일 때 회원 조회
+    Optional<Member> findByOauthProviderAndOauthId(OAuthProvider provider, String oauthId);
+    // Local 로그인일 때 회원 조회
+    Optional<Member> findByLocalProviderAndEmail(LocalProvider localProvider, String email);
 
     // orderId로 구매자 회원 조회
     @Query(value = """

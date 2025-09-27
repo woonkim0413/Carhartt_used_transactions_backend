@@ -6,6 +6,7 @@ import com.C_platform.images.domain.ImagePreSignedUrlRequestDto;
 import com.C_platform.images.domain.ImagePreSignedUrlResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.http.SdkHttpMethod;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@ConditionalOnProperty(name = "cloud.aws.s3.enabled", havingValue = "true")
 @Service
 @RequiredArgsConstructor
 public class ImageUseCase {

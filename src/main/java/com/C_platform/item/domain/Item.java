@@ -5,10 +5,7 @@ package com.C_platform.item.domain;
 import com.C_platform.Member.domain.Member.Member;
 import com.C_platform.order.domain.Order;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
@@ -47,6 +44,9 @@ public class Item {
     @Enumerated(EnumType.STRING)
     private ItemStatus status;
 
+    @Column(name="total_length", nullable = false)
+    private Integer totalLength;
+
     @Column(name = "signed_date", nullable = false)
     private LocalDateTime signedDate;
 
@@ -60,9 +60,11 @@ public class Item {
     private Boolean directTrade;
 
     @OneToMany(mappedBy = "item", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<CategoryItem> categories = new ArrayList<>();
 
     @OneToMany(mappedBy = "item", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Images> images = new ArrayList<>();
 
 
@@ -99,5 +101,9 @@ public class Item {
                 .item(this)
                 .build();
         this.categories.add(categoryItem);
+    }
+
+    public boolean isTrade() {
+        return Boolean.TRUE.equals(directTrade);
     }
 }

@@ -5,18 +5,20 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
+@Builder
 @Schema(description = "사이즈 정보")
 public class Sizes {
 
     @Schema(description = "총장", example = "70")
     @JsonProperty("totlal_length")
     @Positive(message = "{item.size.positive.total}")
-    private int tottalLength;
+    private int tottalength;
 
     @Schema(description = "소매길이", example = "60")
     @Positive(message = "{item.size.positive.sleeve}")

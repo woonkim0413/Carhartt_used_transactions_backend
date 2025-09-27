@@ -9,11 +9,13 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
+@Builder
 public class CreateItemRequestDto {
 
     @Schema(description = "상품명", example = "멋진 티셔츠")
