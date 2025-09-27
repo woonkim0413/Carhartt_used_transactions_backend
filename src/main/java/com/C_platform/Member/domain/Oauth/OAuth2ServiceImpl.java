@@ -60,8 +60,6 @@ public class OAuth2ServiceImpl implements OAuth2Service {
         // response에 실린 사용자 정보 획득
         Map<String, Object> userInfo = response.getBody();
 
-        // todo : 멤버가 db에 등록 안 되어 있다면 등록하기
-
         // 사용자 정보를 Dto에 담은 뒤 반환
         return switch (provider) {
             case KAKAO -> kakaoUserInfoParser.parse(userInfo);

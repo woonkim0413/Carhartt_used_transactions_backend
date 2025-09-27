@@ -14,18 +14,20 @@ public class MemberJoinService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public Member loginOrRegisterByOAuth(OAuthProvider provider, String oauthId, String name, String email) {
+    public JoinOrLoginResult ensureOAuthMember(OAuthProvider provider, String oauthId, String name, String email) {
         return memberRepository.findByOauthProviderAndOauthId(provider, oauthId)
-                .orElseGet(() -> createOAuthMember(provider, oauthId, name, email));
+                .map(found -> new JoinOrLoginResult(found, false))
+                .orElseGet(() -> new JoinOrLoginResult(createOAuthMember(provider, oauthId, name, email), true));
     }
 
     @Transactional
-    public Member loginOrRegisterByLocal(LocalProvider localProvider, String email, String encodedPassword, String name) {
+    public JoinOrLoginResult ensureLocalMember(LocalProvider localProvider, String email, String encodedPassword, String name) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("email is required for LOCAL");
         }
         return memberRepository.findByLocalProviderAndEmail(localProvider, email)
-                .orElseGet(() -> createLocalMember(localProvider, email, encodedPassword, name));
+                .map(found -> new JoinOrLoginResult(found, false))
+                .orElseGet(() -> new JoinOrLoginResult(createLocalMember(localProvider, email, encodedPassword, name), true));
     }
 
     private Member createOAuthMember(OAuthProvider provider, String oauthId, String name, String email) {

@@ -1,5 +1,6 @@
 package com.C_platform.Member.ui.controller;
 
+import com.C_platform.Member.domain.Member.Member;
 import com.C_platform.Member.domain.Oauth.*;
 import com.C_platform.Member.domain.exception.KakaoOauthErrorCode;
 import com.C_platform.Member.domain.exception.KakaoOauthException;
@@ -33,6 +34,7 @@ import java.util.UUID;
 public class OauthController {
 
     private final OAuth2Service oauth2Service;
+    private final MemberJoinService memberJoinService;
 
     // Kakao/Naver 로그인 공급자 목록 반환
     @GetMapping("/oauth/login")
@@ -144,9 +146,19 @@ public class OauthController {
         // (해당 계층에서 Resource server와 통신, response body 값을 UserInfoParser를 사용해 userInfoDto로 가공하여 반환)
         OAuth2KakaoUserInfoDto userInfo = oauth2Service.getUserInfo(accessToken, OAuthProvider.KAKAO);
 
+        JoinOrLoginResult result = memberJoinService.ensureOAuthMember(
+                OAuthProvider.KAKAO,
+                userInfo.getId(),
+                userInfo.getName(),
+                userInfo.getEmail()
+        );
+
+        Member member = result.member();
+        boolean isNew = result.isNew();
+
         // 3. 사용자 정보 세션에 저장
         session.setAttribute("user", userInfo);
-        log.info("{} sessionId : {}", userInfo.getName(), session.getId());
+        log.info("[새로 가입한 회원 : {}] / [이름 {}] / [sessionId : {}]", isNew, member.getName(), session.getId());
         logPaint.sep("kakaoCallback 이탈");
 
         // 4. 클라이언트 홈으로 리다이렉트 (지금은 FE가 없으니 단순 return으로 테스트 실행)
@@ -179,7 +191,6 @@ public class OauthController {
     }
 
     // 로그아웃은 꽤나 중요한 서버 데이터 변경 처리이기에 body에 실을 데이터가 없다고 해도 Get보단 Post 방식으로 처리하는 것이 적절하다
-    // todo 로그아웃 요청 Json 받는 Dto 생성 필요 + 로컬 구현 및 naver Oauth를 구현한다고 하면 관련 처리 로직 생성 필요
     @PostMapping("/oauth/logout")
     @Operation(summary = "로그아웃", description = " 로그아웃을 지원합니다.")
     public ApiResponse<?> logout(@Valid @RequestBody LogoutRequestDto logoutDto, HttpSession session) {

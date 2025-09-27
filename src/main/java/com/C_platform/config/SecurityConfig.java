@@ -46,8 +46,8 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/swagger-resources/**"
-            // "/api/v1/**",
+            "/swagger-resources/**",
+            "/api/v1/**",
     };
 
     // 수정: 콜백 경로 추가
@@ -158,7 +158,6 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
              .ignoringRequestMatchers("/v1/oauth/logout")
     );
 
-
     // GET 진입 시 토큰 쿠키 보장
     http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
 
@@ -174,6 +173,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
 
             .requestMatchers(SWAGGER_WHITELIST).permitAll()
             .requestMatchers(AUTH_WHITELIST).permitAll()
+            .requestMatchers("/v1/oauth/logout").permitAll()
 
             // ✅ 주문 생성 API 실제 경로 허용
             .requestMatchers("/api/order").permitAll()
