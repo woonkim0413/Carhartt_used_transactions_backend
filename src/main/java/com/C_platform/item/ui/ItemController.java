@@ -6,6 +6,7 @@ import com.C_platform.global.MetaData;
 import com.C_platform.item.applicaion.ItemUseCase;
 import com.C_platform.item.domain.Item;
 import com.C_platform.item.ui.dto.CreateItemRequestDto;
+import com.C_platform.item.ui.dto.ItemDetailResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/v1")
 @RequiredArgsConstructor
 public class ItemController {
 
@@ -44,7 +45,6 @@ public class ItemController {
                 .path("/{id}")
                 .buildAndExpand(createdItem.getId())
                 .toUri();
-
         return ResponseEntity.created(location).body(ApiResponse.success(response, getMetaData()));
     }
 
@@ -63,7 +63,6 @@ public class ItemController {
         Map<String, Object> response = new HashMap<>();
         response.put("updated", true);
         response.put("item_id", updatedItem.getId());
-
         return ResponseEntity.ok().body(ApiResponse.success(response, getMetaData()));
     }
 
@@ -83,6 +82,13 @@ public class ItemController {
         response.put("item_id", itemId);
 
         return ResponseEntity.ok().body(ApiResponse.success(response, getMetaData()));
+    }
+
+    @GetMapping("/items/{itemId}")
+    @Operation(summary = "상품 상세 정보 조회", description = "상품의 상세 정보를 조회합니다.")
+    public ResponseEntity<ApiResponse<?>> findItemDetail(@PathVariable Long itemId) {
+        ItemDetailResponseDto itemDetail = itemUseCase.findItemDetailById(itemId);
+        return ResponseEntity.ok().body(ApiResponse.success(itemDetail, getMetaData()));
     }
 
 
