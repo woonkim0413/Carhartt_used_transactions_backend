@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# main push test (1)
 
 REPOSITORY=/home/ubuntu/carhartt_platform
 cd $REPOSITORY
