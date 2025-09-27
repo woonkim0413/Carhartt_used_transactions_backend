@@ -12,12 +12,17 @@ public class OAuth2KakaoUserInfoDto {
     private final int statusCode;
     private final String name;
     private final String email;
+    private final OAuthProvider provider;
+    private final LoginType loginType;
 
     @Builder
-    public OAuth2KakaoUserInfoDto(String id, int statusCode, String name, String email) {
+    public OAuth2KakaoUserInfoDto(String id, int statusCode, String name,
+                                  String email, OAuthProvider provider, LoginType loginType) {
         this.id = id;
         this.statusCode = statusCode;
         this.name = name;
         this.email = email;
+        this.provider = provider;
+        this.loginType = loginType;
     }
 }
