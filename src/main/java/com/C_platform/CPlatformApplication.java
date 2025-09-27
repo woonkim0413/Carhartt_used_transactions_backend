@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
-// test 중 1 2 3 4 5 6
+// main push test중
 @SpringBootApplication
 @EnableConfigurationProperties(FileConfig.class)
 @ConfigurationPropertiesScan("com.C_platform.Member.domain.Oauth")
