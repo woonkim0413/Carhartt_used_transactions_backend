@@ -15,10 +15,15 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class OAuth2ServiceImpl implements OAuth2Service {
+    // application-oauth2-{환경 profils}.yml에서 값 가져옴
+    @Value("${app.base-url}")
+    private String baseUrl; // 예: https://api.your-domain.com/v1/
 
     // properties.oauth.yml을 읽어서 자바 코드에 대입하는 Dto들
     private final OAuth2RegistrationPropertiesDto registrationPropertiesDto;
@@ -69,21 +74,19 @@ public class OAuth2ServiceImpl implements OAuth2Service {
 
     @Override
     public List<LoginProviderDto> getLoginProviderList() {
-        // 공통 url 부분
-        String baseUrl = "http://43.203.218.247:8080//v1/";
 
         return List.of(
-            LoginProviderDto.builder()
-                .provider(OAuthProvider.KAKAO)
-                .loginType(LoginType.OAUTH)
-                .authorizeUrl(baseUrl + "auth/login/kakao")
-                .build(),
+                LoginProviderDto.builder()
+                        .provider(OAuthProvider.KAKAO)
+                        .loginType(LoginType.OAUTH)
+                        .authorizeUrl(baseUrl + "auth/login/kakao")
+                        .build(),
 
-            LoginProviderDto.builder()
-                .provider(OAuthProvider.NAVER)
-                .loginType(LoginType.OAUTH)
-                .authorizeUrl(baseUrl + "auth/login/naver")
-                .build()
+                LoginProviderDto.builder()
+                        .provider(OAuthProvider.NAVER)
+                        .loginType(LoginType.OAUTH)
+                        .authorizeUrl(baseUrl + "auth/login/naver")
+                        .build()
         );
     }
 
@@ -105,7 +108,7 @@ public class OAuth2ServiceImpl implements OAuth2Service {
                 .fromUriString(providerConfig.authorizationUri())
                 .queryParam("response_type", "code")
                 .queryParam("client_id", registration.clientId())
-                .queryParam("redirect_uri", registration.redirectUri())
+                .queryParam("redirect_uri", baseUrl + "oauth/kakao/callback")
                 .queryParam("state", state);
         // 쿠키에 sessionId가 있을 때를 test하기 위해서 주석
         // .queryParam("prompt", "login");

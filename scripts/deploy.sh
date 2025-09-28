@@ -30,4 +30,4 @@ chmod +x $JAR_NAME
 
 echo ">$JAR_NAME 실행"
 
-nohup java -jar $JAR_NAME > /dev/null 2> /dev/null < /dev/null &
+nohup java -jar "$JAR_NAME" >> /home/ubuntu/carhartt_platform/server_log 2>&1 < /dev/null &

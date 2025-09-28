@@ -1,0 +1,23 @@
+app:
+  base-url: http://43.203.218.247:8080/v1/
+
+spring:
+  security:
+    oauth2:
+      client:
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+        registration:
+          kakao:
+            client-id: 1370abe0c0f726b791502518bd0e12ff
+            client-secret: G6hY7ybVPZ9EjfIvJRwuJqD2Nyv2vmx2
+            redirect-uri : http://43.203.218.247:8080/v1/oauth/kakao/callback
+            authorization-grant-type: authorization_code
+            client-authentication-method: POST
+            client-name: kakao
+            scope:
+              - name
+              - account_email

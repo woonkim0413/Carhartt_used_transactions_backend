@@ -54,6 +54,14 @@ jobs:
           echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./application.properties
         shell: bash
 
+      # 스크립트 권한 부여
+      - name: Make scripts executable (and fix line endings)
+        run: |
+          sudo apt-get update && sudo apt-get install -y dos2unix
+          chmod +x scripts/*.sh
+          dos2unix scripts/*.sh
+        shell: bash
+
       - name: Build with Gradle
         run: ./gradlew build -x test
         shell: bash

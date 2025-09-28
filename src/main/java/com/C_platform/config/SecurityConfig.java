@@ -48,6 +48,7 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/swagger-resources/**",
             "/api/v1/**",
+            "/v1/**"
     };
 
     // 수정: 콜백 경로 추가
@@ -80,7 +81,9 @@ public class SecurityConfig {
                 "https://your-frontend.com",
                 "http://localhost:3000",
                 // 프론트 서버 Origin 추가
-                "https://carhartt-usedtransactions-frontend.pages.dev"
+                "https://carhartt-usedtransactions-frontend.pages.dev",
+                "https://carhartt-usedtransactions-frontend.pages.dev:5713",
+                "http://localhost:5713"
         ));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Content-Type", "X-Requested-With", "X-XSRF-TOKEN", "Authorization"));
