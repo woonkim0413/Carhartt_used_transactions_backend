@@ -1,9 +1,0 @@
-spring:
-  config:
-    import: "application.oauth2.yml"
-
-#로컬에서 실험용으로 S3 끄기
-cloud:
-  aws:
-    s3:
-      enabled: false
