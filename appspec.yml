@@ -3,7 +3,7 @@ os: linux
 files:
   - source:  /
     destination: /home/ubuntu/carhartt_platform
-    overwrite: yes # 기존 파일 덮어씌움
+    overwrite: true # 기존 파일 덮어씌움
 
   # 현재는 학습 목적이니 root 계정으로 spring boot 배포 파일을
   # 실행하지만 실무에선 각 역할마다 전용 계정을 만들어서 필요한
