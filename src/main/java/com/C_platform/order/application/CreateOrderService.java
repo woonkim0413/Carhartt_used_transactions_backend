@@ -2,9 +2,7 @@ package com.C_platform.order.application;
 
 import com.C_platform.Member.infrastructure.MemberRepository;
 import com.C_platform.exception.CreateOrderException;
-import com.C_platform.global.error.CreateOrderErrorCode; // O004/O005 등
-import com.C_platform.item.domain.Item;
-import com.C_platform.item.infrastructure.ItemRepository;
+import com.C_platform.global.error.CreateOrderErrorCode;
 import com.C_platform.order.application.dto.CreateOrderCommand;
 import com.C_platform.order.application.port.AddressReader;
 import com.C_platform.order.application.port.ItemPricingReader;
@@ -20,7 +18,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.NoSuchElementException;
-import java.util.Optional;
 
 @Slf4j
 @Service

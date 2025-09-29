@@ -55,6 +55,7 @@ public class OauthController {
     }
 
     // 2. 카카오 로그인 리다이렉트 url 생성
+    // response.redirect()에서 IOException check error가 발생할 수 있기에 throws 선언 필수
     @GetMapping("/oauth/login/kakao")
     @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위해 Oauth server로 리다이렉트 합니다")
     public void redirectToKakao(
@@ -69,7 +70,7 @@ public class OauthController {
         final boolean fromSwagger = referer != null && referer.contains("/swagger-ui");
 
         logPaint.sep("redirectToKakao handler 진입");
-        // 1) 내비게이션이 아닌 요청 차단 (XHR 등)
+        // 1) 내비게이션이 아닌 요청 차단 (XHR 등) (네이게이션 요청이란?)
         if (!fromSwagger && mode != null && !"navigate".equalsIgnoreCase(mode)) {
             log.info("로그인 진입 차단: non-navigate 요청 (mode={}, secPurpose={}, purpose={}, user={})",
                     mode, secPurpose, purpose, fetchUser);
@@ -100,6 +101,7 @@ public class OauthController {
         logPaint.sep("redirectToKakao handler 이탈");
 
         response.setHeader("Cache-Control", "no-store");
+        // IOException 발생 가능
         response.sendRedirect(authorizeUrl);
     }
 
@@ -186,7 +188,6 @@ public class OauthController {
                         .build()
                 )
                 .build();
-
         return ResponseEntity.ok(ApiResponse.success(callBackResponseDto, meta));
     }
 
