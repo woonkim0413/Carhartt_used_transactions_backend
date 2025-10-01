@@ -1,4 +1,4 @@
 package com.C_platform.Member.infrastructure;
 
-public class NaverOAuthClientAdapter {
+public class KakaoOAuthClient {
 }

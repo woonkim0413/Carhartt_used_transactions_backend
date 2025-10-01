@@ -98,7 +98,6 @@ public class OauthController {
         // kakao redirect url 생성 (scope 생략, stemp=login도 생략)
         String authorizeUrl = oauth2Service.getAuthorizeUrl(OAuthProvider.KAKAO, state);
         log.info("카카오 로그인 리다이렉트 생성 : {}", authorizeUrl);
-        logPaint.sep("redirectToKakao handler 이탈");
 
         response.setHeader("Cache-Control", "no-store");
         // IOException 발생 가능
@@ -146,7 +145,7 @@ public class OauthController {
 
         // 2. 사용자 정보 획득
         // (해당 계층에서 Resource server와 통신, response body 값을 UserInfoParser를 사용해 userInfoDto로 가공하여 반환)
-        OAuth2KakaoUserInfoDto userInfo = oauth2Service.getUserInfo(accessToken, OAuthProvider.KAKAO);
+        OAuth2UserInfoDto userInfo = oauth2Service.getUserInfo(accessToken, OAuthProvider.KAKAO);
 
         JoinOrLoginResult result = memberJoinService.ensureOAuthMember(
                 OAuthProvider.KAKAO,

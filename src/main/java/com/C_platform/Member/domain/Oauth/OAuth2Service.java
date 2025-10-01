@@ -5,7 +5,7 @@ import com.C_platform.Member.ui.dto.LoginProviderDto;
 import java.util.List;
 
 public interface OAuth2Service {
-    OAuth2KakaoUserInfoDto getUserInfo(String accessToken, OAuthProvider provider);
+    OAuth2UserInfoDto getUserInfo(String accessToken, OAuthProvider provider);
 
     String getAuthorizeUrl(OAuthProvider provider, String state);
 

@@ -32,23 +32,24 @@ public class OAuth2ServiceImpl implements OAuth2Service {
     // Request API와 관련된 Utils 객체
     private final RestTemplate restTemplate;
 
+    private final ParserRegistry parserRegistry;
+
     // 해당 객체를 getUserInfo 내부로 들인 뒤 provider가 KAKAO인 경우만 new로 생성하는 패턴도 생각해봄
     // -> 안티 패턴임 new로 생성하면 spring이 bean으로 관리 못 하기에 AOP 지원 불가, TEST Mock 주입 불가함
     //    그리고 실질적인 Dto build는 .parse()를 호출할 때 실행되기에 resource 낭비도 거의 없다
-    private final OAuth2KakaoUserInfoParser kakaoUserInfoParser;
 
     private final MemberRepository memberRepository;
 
     @Override
     // *** Access-Token으로 Resource Server에 사용자 정보를 요청하여 받은 뒤 dto에 담아서 반환하는 method ***
-    public OAuth2KakaoUserInfoDto getUserInfo(String accessToken, OAuthProvider provider) {
-        // provider에 따른 Oauth 등록 객체 반환
-        OAuthRegistration registration = getRegistration(provider);
+    public OAuth2UserInfoDto getUserInfo(String accessToken, OAuthProvider provider) {
+        // todo Resource server url은 OAuth2ProviderPropertiesDto에서 가져오도록 변경
+        OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = getProviderConfig(provider);
 
         // Resource Server에 보낼 요청 생성
         // Authorization Code를 Access-Token으로 교환할 때 client secret필요함 사용자 정보 단계에선 불필요
         RequestEntity<Void> request = RequestEntity
-                .get(URI.create(registration.getUserInfoUri()))
+                .get(URI.create(providerConfig.userInfoUri()))
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .build();
 
@@ -65,11 +66,14 @@ public class OAuth2ServiceImpl implements OAuth2Service {
         // response에 실린 사용자 정보 획득
         Map<String, Object> userInfo = response.getBody();
 
-        // 사용자 정보를 Dto에 담은 뒤 반환
-        return switch (provider) {
-            case KAKAO -> kakaoUserInfoParser.parse(userInfo);
-            case NAVER -> throw new UnsupportedOperationException("Naver 구현 예정");
-        };
+        // parserRegistry는 provider에 따라 알맞은 Parser를 반환한다
+        return parserRegistry.of(provider).parse(userInfo);
+
+//        switch를 통해서 parser 반환하는 로직 (parserRegistry로 변경함)
+//        return switch (provider) {
+//            case KAKAO -> kakaoUserInfoParser.parse(userInfo);
+//            case NAVER -> throw new UnsupportedOperationException("Naver 구현 예정");
+//        };
     }
 
     @Override
@@ -79,30 +83,23 @@ public class OAuth2ServiceImpl implements OAuth2Service {
                 LoginProviderDto.builder()
                         .provider(OAuthProvider.KAKAO)
                         .loginType(LoginType.OAUTH)
-                        .authorizeUrl(baseUrl + "auth/login/kakao")
+                        .authorizeUrl(baseUrl + "oauth/login/kakao")
                         .build(),
 
                 LoginProviderDto.builder()
                         .provider(OAuthProvider.NAVER)
                         .loginType(LoginType.OAUTH)
-                        .authorizeUrl(baseUrl + "auth/login/naver")
+                        .authorizeUrl(baseUrl + "oauth/login/naver")
                         .build()
         );
-    }
-
-
-    private OAuthRegistration getRegistration(OAuthProvider provider) {
-        return switch (provider) {
-            case KAKAO -> OAuthRegistration.kakao();
-            case NAVER -> OAuthRegistration.naver();
-        };
     }
 
     // Oauth 인증 페이지 redirect url 생성 method
     @Override
     public String getAuthorizeUrl(OAuthProvider provider, String state) {
-        var registration = getRegistrationConfig(provider); // clientId, redirectUri, scope(List<String>) 등
-        var providerConfig = getProviderConfig(provider);   // authorizationUri 등
+        // 설정 파일에 저장된 provider에 따른 oauth 관련 정보 가져옴
+        OAuth2RegistrationPropertiesDto.RegistrationConfig registration = getRegistrationConfig(provider); // clientId, redirectUri, scope(List<String>) 등
+        OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = getProviderConfig(provider);   // authorizationUri 등
 
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(providerConfig.authorizationUri())
@@ -136,7 +133,7 @@ public class OAuth2ServiceImpl implements OAuth2Service {
     // Authorization Code + client Secret을 조합한 값을 통해서 kakao Authorization Server에 값을 요청한다
     @Override
     public String getAccessToken(String code, OAuthProvider provider) {
-        // 등록 정보 (client id, secret 등) 및 Oauth server url 정보 가져오기
+        // 설정 파일에 저장된 provider에 따른 oauth 관련 정보 가져옴
         OAuth2RegistrationPropertiesDto.RegistrationConfig registration = getRegistrationConfig(provider);
         OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = getProviderConfig(provider);
 

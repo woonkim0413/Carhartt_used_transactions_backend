@@ -14,6 +14,7 @@ public class MemberJoinService {
     private final MemberRepository memberRepository;
 
     @Transactional
+    // db에 (provider + oauthId) unique key 기반으로 member가 찾아지면 map 내부 lambda 실행, 못 찾으면 orEseGet 내부 lambda 실행
     public JoinOrLoginResult ensureOAuthMember(OAuthProvider provider, String oauthId, String name, String email) {
         return memberRepository.findByOauthProviderAndOauthId(provider, oauthId)
                 .map(found -> new JoinOrLoginResult(found, false))
@@ -21,6 +22,7 @@ public class MemberJoinService {
     }
 
     @Transactional
+    // local 기반으로 회원가입을 한 member가 있는지 검사
     public JoinOrLoginResult ensureLocalMember(LocalProvider localProvider, String email, String encodedPassword, String name) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("email is required for LOCAL");
@@ -30,6 +32,7 @@ public class MemberJoinService {
                 .orElseGet(() -> new JoinOrLoginResult(createLocalMember(localProvider, email, encodedPassword, name), true));
     }
 
+    // ensureOAuthMember에서 unique key로 회원가입된 member을 찾는데 실패하면 해당 메서드로 멤버 생성하여 db에 저장
     private Member createOAuthMember(OAuthProvider provider, String oauthId, String name, String email) {
         try {
             Member m = new Member(provider, oauthId, name, email); // ← 생성자 사용
