@@ -1,9 +1,9 @@
 package com.C_platform.config;
 
-import com.C_platform.Member.domain.Oauth.CustomOAuth2UserService;
-import com.C_platform.Member.domain.Oauth.OAuth2ProviderPropertiesDto;
-import com.C_platform.Member.domain.Oauth.OAuth2RegistrationPropertiesDto;
-import com.C_platform.Member.domain.Oauth.OAuth2Service;
+import com.C_platform.Member_woonkim.application.service.CustomOAuth2UserService;
+import com.C_platform.Member_woonkim.application.service.OAuth2Service;
+import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
+import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

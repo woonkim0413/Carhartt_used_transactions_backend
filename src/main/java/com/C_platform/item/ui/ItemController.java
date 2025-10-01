@@ -1,6 +1,6 @@
 package com.C_platform.item.ui;
 
-import com.C_platform.Member.domain.Oauth.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.Oauth.CustomOAuth2User;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.item.applicaion.ItemUseCase;
