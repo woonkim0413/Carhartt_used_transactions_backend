@@ -10,6 +10,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.security.SecureRandom;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,6 +38,9 @@ public class Member {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "member_id", nullable = false)
     private Long memberId;
+
+    @Column(name = "nickname", nullable = false)
+    private String nickname;
 
     @Column(name = "member_name", nullable = false)
     private String name;
@@ -85,6 +90,7 @@ public class Member {
         this.oauthId = oauthId;
         this.name = name;
         this.email = email;
+        this.nickname = createNickname(); // 이름 초기화
     }
 
     /** Local 전용 생성자 */
@@ -94,6 +100,24 @@ public class Member {
         this.email = email;
         this.loginPassword = encodedPassword;
         this.name = name;
+    }
+
+    private static final String[] ADJECTIVES = {
+            "빠른","조용한","용감한","행복한","똑똑한","은하","푸른","따뜻한","재빠른","신비한"
+    };
+    private static final String[] ANIMALS = {
+            "호랑이","토끼","여우","늑대","고양이","펭귄","수달","판다","사자","고래"
+    };
+
+    // RND.nextInt(value) <- "0 ~ value -1" 범위의 난수를 생성한다 value는 0보다 크거나 같아야 한다
+    private static final SecureRandom RND = new SecureRandom();
+
+    // 랜덤 이름 생성
+    private String createNickname() {
+        String adj = ADJECTIVES[RND.nextInt(ADJECTIVES.length)];
+        String animal = ANIMALS[RND.nextInt(ANIMALS.length)];
+        int suffix = 1000 + RND.nextInt(9000); // 1000~9999
+        return adj + animal + suffix; // 예: 행복한수달4821
     }
 
     // ---------- 연관관계 객체들 -----------------------

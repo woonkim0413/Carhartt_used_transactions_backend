@@ -1,8 +1,8 @@
 package com.C_platform.Member_woonkim.application.port;
 
-import com.C_platform.Member_woonkim.domain.member_entity.Member;
-import com.C_platform.Member_woonkim.domain.member_enum.LocalProvider;
-import com.C_platform.Member_woonkim.domain.member_enum.OAuthProvider;
+import com.C_platform.Member_woonkim.domain.entitys.Member;
+import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
