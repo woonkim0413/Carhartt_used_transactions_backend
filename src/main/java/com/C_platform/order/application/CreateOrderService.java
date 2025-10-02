@@ -1,6 +1,6 @@
 package com.C_platform.order.application;
 
-import com.C_platform.Member_woonkim.application.port.MemberRepository;
+import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.exception.CreateOrderException;
 import com.C_platform.global.error.CreateOrderErrorCode;
 import com.C_platform.order.application.dto.CreateOrderCommand;

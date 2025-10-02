@@ -1,6 +1,6 @@
 package com.C_platform.Member_woonkim.application.service;
 
-import com.C_platform.Member_woonkim.domain.member_enum.OAuthProvider;
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

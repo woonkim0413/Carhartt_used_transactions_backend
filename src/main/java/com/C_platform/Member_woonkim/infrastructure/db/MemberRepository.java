@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.application.port;
+package com.C_platform.Member_woonkim.infrastructure.db;
 
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LocalProvider;

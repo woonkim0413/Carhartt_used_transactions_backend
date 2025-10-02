@@ -2,13 +2,13 @@ package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.service.MemberJoinService;
 import com.C_platform.Member_woonkim.application.service.OAuth2Service;
-import com.C_platform.Member_woonkim.domain.member_entity.Member;
+import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.Oauth.*;
 import com.C_platform.Member_woonkim.exception.KakaoOauthErrorCode;
 import com.C_platform.Member_woonkim.exception.KakaoOauthException;
-import com.C_platform.Member_woonkim.domain.member_enum.LoginType;
-import com.C_platform.Member_woonkim.domain.member_enum.OAuthProvider;
-import com.C_platform.Member_woonkim.domain.member_interface.Provider;
+import com.C_platform.Member_woonkim.domain.enums.LoginType;
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
+import com.C_platform.Member_woonkim.domain.interfaces.Provider;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.presentation.dto.CallBackResponseDto;
 import com.C_platform.Member_woonkim.presentation.dto.KakaoCallbackRequestDto;
@@ -24,6 +24,8 @@ import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -102,6 +104,8 @@ public class OauthController {
         log.info("카카오 로그인 리다이렉트 생성 : {}", authorizeUrl);
 
         response.setHeader("Cache-Control", "no-store");
+        logPaint.sep("redirectToKakao handler 이탈");
+
         // IOException 발생 가능
         response.sendRedirect(authorizeUrl);
     }
@@ -151,11 +155,20 @@ public class OauthController {
 
         // 3. 사용자 정보 세션에 저장
         session.setAttribute("user", userInfo);
-        log.info("[새로 가입한 회원 : {}] / [이름 {}] / [sessionId : {}]", isNew, member.getName(), session.getId());
+        log.info("[새로 가입한 회원 : {}] / [이름 {}] / [닉네임 {}] [sessionId : {}]",
+                isNew, member.getName(), member.getNickname() ,session.getId());
         logPaint.sep("kakaoCallback 이탈");
 
-        // 4. 클라이언트 홈으로 리다이렉트 (지금은 FE가 없으니 단순 return으로 테스트 실행)
-        // response.sendRedirect("http://localhost:3000");
+        // 4. set-cookies header 추가하기 위한 객체 생성
+        ResponseCookie sessionCookie = ResponseCookie.from("SESSION", session.getId())
+                .httpOnly(true)
+                .secure(false)  // test를 위해 꺼놓음
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(1209600)
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie.toString());
 
         // [INFO] 응답 메타에 한국시간 ISO-8601 타임스탬프 포함
         String timestamp = java.time.OffsetDateTime
@@ -180,6 +193,10 @@ public class OauthController {
                 )
                 .build();
         return ResponseEntity.ok(ApiResponse.success(callBackResponseDto, meta));
+
+        // todo : 해당 json 실어서 태규님이 주신 url로 리다이렉트 하는 방법 찾아보기
+        // 클라이언트 홈으로 리다이렉트 (지금은 FE가 없으니 단순 return으로 테스트 실행)
+        // response.sendRedirect("http://localhost:3000");
     }
 
     // 로그아웃은 꽤나 중요한 서버 데이터 변경 처리이기에 body에 실을 데이터가 없다고 해도 Get보단 Post 방식으로 처리하는 것이 적절하다

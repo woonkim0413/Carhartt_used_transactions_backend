@@ -1,7 +1,7 @@
 package com.C_platform.Member_woonkim.infrastructure.dto;
 
-import com.C_platform.Member_woonkim.domain.member_enum.LoginType;
-import com.C_platform.Member_woonkim.domain.member_enum.OAuthProvider;
+import com.C_platform.Member_woonkim.domain.enums.LoginType;
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;

@@ -1,7 +1,7 @@
 package com.C_platform.Member_woonkim.presentation.dto;
 
-import com.C_platform.Member_woonkim.domain.member_enum.LoginType;
-import com.C_platform.Member_woonkim.domain.member_interface.Provider;
+import com.C_platform.Member_woonkim.domain.enums.LoginType;
+import com.C_platform.Member_woonkim.domain.interfaces.Provider;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;

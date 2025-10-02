@@ -1,8 +1,8 @@
 package com.C_platform.item.applicaion;
 
 
-import com.C_platform.Member_woonkim.domain.member_entity.Member;
-import com.C_platform.Member_woonkim.application.port.MemberRepository;
+import com.C_platform.Member_woonkim.domain.entitys.Member;
+import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.exception.CategoryException;
 import com.C_platform.exception.ItemException;
 import com.C_platform.global.error.CategoryErrorCode;

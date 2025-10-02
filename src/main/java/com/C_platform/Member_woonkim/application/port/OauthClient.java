@@ -1,7 +1,7 @@
 package com.C_platform.Member_woonkim.application.port;
 
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
-import com.C_platform.Member_woonkim.domain.member_enum.OAuthProvider;
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 
 public interface OauthClient {
     OAuthProvider getProvider();

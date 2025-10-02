@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.domain.member_entity;
+package com.C_platform.Member_woonkim.domain.entitys;
 
 import jakarta.persistence.*;
 import lombok.Setter;

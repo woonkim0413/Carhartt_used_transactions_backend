@@ -1,10 +1,10 @@
 package com.C_platform.Member_woonkim.application.service;
 
 import com.C_platform.Member_woonkim.domain.Oauth.JoinOrLoginResult;
-import com.C_platform.Member_woonkim.domain.member_entity.Member;
-import com.C_platform.Member_woonkim.domain.member_enum.LocalProvider;
-import com.C_platform.Member_woonkim.domain.member_enum.OAuthProvider;
-import com.C_platform.Member_woonkim.application.port.MemberRepository;
+import com.C_platform.Member_woonkim.domain.entitys.Member;
+import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
+import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;

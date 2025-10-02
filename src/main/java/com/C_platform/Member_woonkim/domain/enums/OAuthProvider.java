@@ -1,6 +1,6 @@
-package com.C_platform.Member_woonkim.domain.member_enum;
+package com.C_platform.Member_woonkim.domain.enums;
 
-import com.C_platform.Member_woonkim.domain.member_interface.Provider;
+import com.C_platform.Member_woonkim.domain.interfaces.Provider;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

@@ -3,11 +3,11 @@ package com.C_platform.Member_woonkim.application.service;
 
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
-import com.C_platform.Member_woonkim.domain.member_enum.LoginType;
-import com.C_platform.Member_woonkim.domain.member_enum.OAuthProvider;
+import com.C_platform.Member_woonkim.domain.enums.LoginType;
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.infrastructure.parser_and_register.ParserRegistry;
-import com.C_platform.Member_woonkim.application.port.MemberRepository;
+import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.Member_woonkim.presentation.dto.LoginProviderDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

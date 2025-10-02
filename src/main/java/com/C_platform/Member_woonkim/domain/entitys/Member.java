@@ -1,9 +1,9 @@
-package com.C_platform.Member_woonkim.domain.member_entity;
+package com.C_platform.Member_woonkim.domain.entitys;
 
-import com.C_platform.Member_woonkim.domain.member_enum.BankName;
-import com.C_platform.Member_woonkim.domain.member_enum.LocalProvider;
-import com.C_platform.Member_woonkim.domain.member_enum.LoginType;
-import com.C_platform.Member_woonkim.domain.member_enum.OAuthProvider;
+import com.C_platform.Member_woonkim.domain.enums.BankName;
+import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
+import com.C_platform.Member_woonkim.domain.enums.LoginType;
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.order.domain.Order;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -136,4 +136,8 @@ public class Member {
     // Wish와 연관관계로 묶인 field
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Wish> wishes = new ArrayList<>();
+
+    public void changeNickname(String newNickname) {
+        this.nickname = newNickname;
+    }
 }

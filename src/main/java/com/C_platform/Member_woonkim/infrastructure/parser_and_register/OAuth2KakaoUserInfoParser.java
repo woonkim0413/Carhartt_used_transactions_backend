@@ -1,8 +1,8 @@
 package com.C_platform.Member_woonkim.infrastructure.parser_and_register;
 
-import com.C_platform.Member_woonkim.domain.member_enum.LoginType;
-import com.C_platform.Member_woonkim.domain.member_enum.OAuthProvider;
-import com.C_platform.Member_woonkim.domain.member_interface.Provider;
+import com.C_platform.Member_woonkim.domain.enums.LoginType;
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
+import com.C_platform.Member_woonkim.domain.interfaces.Provider;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import org.springframework.stereotype.Component;
 
