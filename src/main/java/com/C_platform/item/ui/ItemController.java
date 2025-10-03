@@ -1,15 +1,20 @@
 package com.C_platform.item.ui;
 
-import com.C_platform.Member.domain.Oauth.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.Oauth.CustomOAuth2User;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.item.applicaion.ItemUseCase;
 import com.C_platform.item.domain.Item;
 import com.C_platform.item.ui.dto.CreateItemRequestDto;
 import com.C_platform.item.ui.dto.ItemDetailResponseDto;
+import com.C_platform.global.PageResponseDto;
+import com.C_platform.item.ui.dto.ItemListResponseDto;
+import com.C_platform.item.ui.dto.ItemSearchRequestDto;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -89,6 +94,16 @@ public class ItemController {
     public ResponseEntity<ApiResponse<?>> findItemDetail(@PathVariable Long itemId) {
         ItemDetailResponseDto itemDetail = itemUseCase.findItemDetailById(itemId);
         return ResponseEntity.ok().body(ApiResponse.success(itemDetail, getMetaData()));
+    }
+
+    @GetMapping("/items")
+    @Operation(summary = "상품 목록 조회", description = "상품 목록을 페이지네이션하여 조회합니다. 키워드 검색이 가능합니다.")
+    public ResponseEntity<ApiResponse<PageResponseDto<ItemListResponseDto>>> findItems(
+            @RequestParam(required = false) String keyword,
+            Pageable pageable) {
+        Page<ItemListResponseDto> items = itemUseCase.findItems(keyword, pageable);
+        PageResponseDto<ItemListResponseDto> responseDto = PageResponseDto.of(items);
+        return ResponseEntity.ok().body(ApiResponse.success(responseDto, getMetaData()));
     }
 
 

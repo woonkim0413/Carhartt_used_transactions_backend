@@ -2,7 +2,7 @@ package com.C_platform.item.domain;
 
 
 
-import com.C_platform.Member.domain.Member.Member;
+import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.order.domain.Order;
 import jakarta.persistence.*;
 import lombok.*;
@@ -66,9 +66,6 @@ public class Item {
     @OneToMany(mappedBy = "item", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Images> images = new ArrayList<>();
-
-
-
 
     /**
      * 주문이 들어오면 상품 상태를 SOLD_OUT으로 변경

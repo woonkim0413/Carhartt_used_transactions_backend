@@ -1,6 +1,6 @@
 package com.C_platform.order.domain;
 
-import com.C_platform.Member.domain.Member.Member;
+import com.C_platform.Member_woonkim.domain.entitys.Member;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
