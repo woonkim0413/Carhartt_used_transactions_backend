@@ -46,9 +46,8 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/swagger-resources/**",
-            "/api/v1/**",
-            "/v1/**"
+            "/swagger-resources/**"
+            // "/v1/**"
     };
 
     // 수정: 콜백 경로 추가
@@ -158,7 +157,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     http.csrf(csrf -> csrf
              .csrfTokenRepository(repo)
             // todo 아직 csrf 비교 구현 전이라 해당 코드로 csrf 비교 껐음 (csrf 구현 후 지우기)
-             .ignoringRequestMatchers("/v1/oauth/logout")
+             .ignoringRequestMatchers("/v1/oauth/logout", "/v1/myPage/**")
     );
 
     // GET 진입 시 토큰 쿠키 보장

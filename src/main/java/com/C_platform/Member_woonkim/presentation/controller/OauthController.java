@@ -2,13 +2,14 @@ package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.service.MemberJoinService;
 import com.C_platform.Member_woonkim.application.service.OAuth2Service;
+import com.C_platform.Member_woonkim.domain.Oauth.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.Oauth.JoinOrLoginResult;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
-import com.C_platform.Member_woonkim.domain.Oauth.*;
-import com.C_platform.Member_woonkim.exception.KakaoOauthErrorCode;
-import com.C_platform.Member_woonkim.exception.KakaoOauthException;
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.domain.interfaces.Provider;
+import com.C_platform.Member_woonkim.exception.KakaoOauthErrorCode;
+import com.C_platform.Member_woonkim.exception.KakaoOauthException;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.presentation.dto.CallBackResponseDto;
 import com.C_platform.Member_woonkim.presentation.dto.KakaoCallbackRequestDto;
@@ -27,10 +28,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -53,8 +60,8 @@ public class OauthController {
         logPaint.sep("로그인 방식 목록 호출 진입");
         // meta 생성
         MetaData meta = MetaData.builder()
-                            .timestamp(LocalDateTime.now())
-                            .build();
+                .timestamp(LocalDateTime.now())
+                .build();
 
         // 로그인 리스트 획득
         List<LoginProviderDto> providers = oauth2Service.getLoginProviderList();
@@ -67,48 +74,47 @@ public class OauthController {
     // response.redirect()에서 IOException check error가 발생할 수 있기에 throws 선언 필수
     @GetMapping("/oauth/login/kakao")
     @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위해 Oauth server로 리다이렉트 합니다")
-    public void redirectToKakao (
-            HttpServletRequest request,
-            HttpServletResponse response,
-            HttpSession session) throws IOException {
-        // 1) navigate 요청을 판단하기 위해 header 값 추출
-        String referer = request.getHeader("Referer"); // navigate로 보낸 요청인지 cors, non-cors 등으로 보낸 요청인지 확인 (네비게이트 아니면 차단)
-        boolean fromSwagger = referer != null && referer.contains("/swagger-ui"); // swagger ui에서 온 요청인 경우 차단 X
-        boolean isNavigate  = "navigate".equalsIgnoreCase(request.getHeader("Sec-Fetch-Mode")); // prefetch/prerender와 같은 미리 불러오기 트래픽인지 확인 (맞으면 차단)
-        String secPurpose = nvl(request.getHeader("Sec-Purpose"));
-        String purpose    = nvl(request.getHeader("Purpose"));
-        boolean isPrefetchOrPrerender = secPurpose.contains("prefetch") || secPurpose.contains("prerender") || purpose.contains("prefetch");
-
-        // 2) 내비게이션이 아닌 요청 차단 (XHR 등) (네이게이션 요청이란?)
+    public ResponseEntity<?> redirectToKakao (
+            HttpServletRequest req,
+            HttpSession session)
+    {
         logPaint.sep("redirectToKakao handler 진입");
-        if (!fromSwagger && !isNavigate) {
-            response.sendError(400, "Login redirect must be a browser navigation.");
-            return;
-        }
-
-        // 3) 프리페치/프리렌더 차단
+        // 0) 프리페치/프리렌더 차단
+        String secPurpose = nvl(req.getHeader("Sec-Purpose")); // e.g. "prefetch;prerender"
+        String purpose = nvl(req.getHeader("Purpose"));     // 일부 UA: "prefetch"
+        boolean isPrefetchOrPrerender =
+                secPurpose.contains("prefetch") || secPurpose.contains("prerender") || purpose.contains("prefetch");
         if (isPrefetchOrPrerender) {
-            response.setHeader("Cache-Control", "no-store");
-            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-            return;
+            return ResponseEntity.noContent()
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                    .build(); // 204
         }
 
-        // 4 ) 여기까지 통과한 경우에만 기존 로깅 + 리다이렉트
-        // CSRF 방지용 state (세션 저장)
-        String state = UUID.randomUUID().toString();
+        // 1) CSRF 핵심 방어: state 생성/세션 저장
+        String state = java.util.UUID.randomUUID().toString();
         session.setAttribute("oauth_state", state);
         log.info("session에 state 저장 완료 : {}", state);
 
-        // kakao redirect url 생성 (scope 생략, stemp=login도 생략)
         String authorizeUrl = oauth2Service.getAuthorizeUrl(OAuthProvider.KAKAO, state);
         log.info("카카오 로그인 리다이렉트 생성 : {}", authorizeUrl);
 
-        response.setHeader("Cache-Control", "no-store");
+        // 2) XHR/Swagger면 URL을 JSON으로 반환 → 사용자가 클릭해서 네비게이션 유도
+        String mode = req.getHeader("Sec-Fetch-Mode"); // "navigate" | "cors" | "no-cors" ...
+        boolean isXhr = mode != null && !"navigate".equalsIgnoreCase(mode);
         logPaint.sep("redirectToKakao handler 이탈");
+        if (isXhr) {
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                    .body(java.util.Map.of("authorizeUrl", authorizeUrl));
+        }
 
-        // IOException 발생 가능
-        response.sendRedirect(authorizeUrl);
+        // 3) 일반 브라우저 클릭이면 302 리다이렉트
+        return ResponseEntity.status(302)
+                .header(HttpHeaders.LOCATION, authorizeUrl)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .build();
     }
+
 
     // 3. 카카오 콜백 처리 - 사용자 정보 session 저장
     // URL ex) GET /oauth/kakao/callback?code=AUTH_CODE&state=xxx (state는 카카오 로그인 리다이렉트 url에 param으로 붙인 값)
@@ -155,8 +161,37 @@ public class OauthController {
 
         // 3. 사용자 정보 세션에 저장
         session.setAttribute("user", userInfo);
+
+        // 5) todo : test : ✅ Spring Security 인증 세팅 (CustomOAuth2User 사용) (@AuthenticationPrincipal 사용 가능하도록)
+        var authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("id",    member.getMemberId());
+        attributes.put("name",  member.getName());
+        attributes.put("email", member.getEmail());
+
+        CustomOAuth2User principal = new CustomOAuth2User(
+                member.getMemberId(),
+                attributes,
+                authorities
+        );
+
+        var authentication = new UsernamePasswordAuthenticationToken(
+                principal, null, authorities
+        );
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+
+        // 세션에도 SecurityContext 저장 (중요)
+        session.setAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                context
+        );
+
         log.info("[새로 가입한 회원 : {}] / [이름 {}] / [닉네임 {}] [sessionId : {}]",
-                isNew, member.getName(), member.getNickname() ,session.getId());
+                isNew, member.getName(), member.getNickname(), session.getId());
         logPaint.sep("kakaoCallback 이탈");
 
         // 4. set-cookies header 추가하기 위한 객체 생성
@@ -185,11 +220,11 @@ public class OauthController {
                 .sessionId(session.getId())
                 // 내부 static class는 독립적으로 추가 build (이걸 위해서 inner class에도 @builder 사용)
                 .user(
-                    CallBackResponseDto.User.builder()
-                        .id(String.valueOf(userInfo.getId()))
-                        .name(userInfo.getName())
-                        .email(userInfo.getEmail())
-                        .build()
+                        CallBackResponseDto.User.builder()
+                                .id(String.valueOf(userInfo.getId()))
+                                .name(userInfo.getName())
+                                .email(userInfo.getEmail())
+                                .build()
                 )
                 .build();
         return ResponseEntity.ok(ApiResponse.success(callBackResponseDto, meta));
@@ -214,8 +249,8 @@ public class OauthController {
         return ApiResponse.success(
                 Map.of("message", "로그아웃 완료"),
                 MetaData.builder()
-                    .timestamp(LocalDateTime.now())
-                    .build());
+                        .timestamp(LocalDateTime.now())
+                        .build());
     }
 
     // redirectToKakao handler에서 사용
