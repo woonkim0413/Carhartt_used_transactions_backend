@@ -102,17 +102,12 @@ public class OauthController {
         String mode = req.getHeader("Sec-Fetch-Mode"); // "navigate" | "cors" | "no-cors" ...
         boolean isXhr = mode != null && !"navigate".equalsIgnoreCase(mode);
         logPaint.sep("redirectToKakao handler 이탈");
-        if (isXhr) {
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                    .body(java.util.Map.of("authorizeUrl", authorizeUrl));
-        }
 
-        // 3) 일반 브라우저 클릭이면 302 리다이렉트
-        return ResponseEntity.status(302)
-                .header(HttpHeaders.LOCATION, authorizeUrl)
+        // 3) 어떤 요청이든 항상 JSON 반환 (리다이렉트 절대 안 함)
+        return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .build();
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .body(java.util.Map.of("authorizeUrl", authorizeUrl));
     }
 
 
