@@ -12,7 +12,10 @@ import com.C_platform.item.infrastructure.CategoryRepository;
 import com.C_platform.item.infrastructure.ItemRepository;
 import com.C_platform.item.ui.dto.CreateItemRequestDto;
 import com.C_platform.item.ui.dto.ItemDetailResponseDto;
+import com.C_platform.item.ui.dto.ItemListResponseDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -134,5 +137,16 @@ public class ItemUseCase {
                 .orElseThrow(() -> new ItemException(ItemErrorCode.I002));
 
         return ItemDetailResponseDto.of(item);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ItemListResponseDto> findItems(String keyword, Pageable pageable) {
+        Page<Item> items;
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            items = itemRepository.findByNameContaining(keyword, pageable);
+        } else {
+            items = itemRepository.findAll(pageable);
+        }
+        return items.map(ItemListResponseDto::of);
     }
 }
