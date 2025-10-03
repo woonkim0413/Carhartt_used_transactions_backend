@@ -73,8 +73,8 @@ public class OauthController {
     // 2. 카카오 로그인 리다이렉트 url 생성
     // response.redirect()에서 IOException check error가 발생할 수 있기에 throws 선언 필수
     @GetMapping("/oauth/login/kakao")
-    @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위해 Oauth server로 리다이렉트 합니다")
-    public ResponseEntity<?> redirectToKakao (
+    @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위한 Oauth server url을 생성하여 내려줍니다")
+    public ResponseEntity<ApiResponse<Map<String, String>>> redirectToKakao (
             HttpServletRequest req,
             HttpSession session)
     {
@@ -107,7 +107,8 @@ public class OauthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header(HttpHeaders.PRAGMA, "no-cache")
-                .body(java.util.Map.of("authorizeUrl", authorizeUrl));
+                .body(ApiResponse.success(Map.of("kakao-redirect-Url", authorizeUrl),         // 공통 응답 생성을 위한 meta 생성
+                MetaData.builder().timestamp(LocalDateTime.now()).build()));
     }
 
 
