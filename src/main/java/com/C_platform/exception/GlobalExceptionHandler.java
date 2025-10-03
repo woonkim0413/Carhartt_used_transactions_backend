@@ -1,7 +1,7 @@
 package com.C_platform.exception;
 
 
-import com.C_platform.Member.domain.exception.KakaoOauthException;
+import com.C_platform.Member_woonkim.exception.KakaoOauthException;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.Detail;
 import com.C_platform.global.MetaData;
