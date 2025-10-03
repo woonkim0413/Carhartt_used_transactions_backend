@@ -79,6 +79,7 @@ public class SecurityConfig {
         cfg.setAllowedOrigins(List.of(
                 "https://your-frontend.com",
                 "http://localhost:3000",
+                "http://localhost:8080",
                 // 프론트 서버 Origin 추가
                 "https://carhartt-usedtransactions-frontend.pages.dev",
                 "https://carhartt-usedtransactions-frontend.pages.dev:5713",
