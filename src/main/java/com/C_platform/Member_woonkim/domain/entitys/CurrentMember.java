@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.domain.Oauth;
+package com.C_platform.Member_woonkim.domain.entitys;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;

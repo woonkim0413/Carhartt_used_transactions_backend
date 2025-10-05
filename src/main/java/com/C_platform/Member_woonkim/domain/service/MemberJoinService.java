@@ -1,6 +1,6 @@
 package com.C_platform.Member_woonkim.domain.service;
 
-import com.C_platform.Member_woonkim.domain.Oauth.JoinOrLoginResult;
+import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;

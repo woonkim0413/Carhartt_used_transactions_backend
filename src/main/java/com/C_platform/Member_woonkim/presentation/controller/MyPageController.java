@@ -1,7 +1,7 @@
 package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.MyPageUseCase;
-import com.C_platform.Member_woonkim.domain.Oauth.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
 import com.C_platform.Member_woonkim.presentation.Assembler.MyPageAssembler;
 import com.C_platform.Member_woonkim.presentation.dto.request.ChangeNicknameRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.response.ChangeNicknameResponseDto;
@@ -21,8 +21,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @RestController
