@@ -2,10 +2,10 @@ package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.MyPageUseCase;
 import com.C_platform.Member_woonkim.domain.Oauth.CustomOAuth2User;
-import com.C_platform.Member_woonkim.presentation.dto.ChangeNicknameRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.request.ChangeNicknameRequestDto;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
-import com.C_platform.global.logPaint;
+import com.C_platform.Member_woonkim.utils.LogPaint;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,11 +31,12 @@ public class MyPageController {
 
     @PostMapping("/myPage/change_nickname")
     @Operation(summary = "사용자 닉네임 변경", description = "마이 페이지에서 사용자 닉네임을 변경할 때 사용합니다")
+    // todo : ResponseDto 만들기
     public ResponseEntity<ApiResponse<Map<String, String>>> changeNickname(
             @Valid @RequestBody ChangeNicknameRequestDto dto,
             @AuthenticationPrincipal CustomOAuth2User customOAuth2User
     ) {
-        logPaint.sep("changeNickname 진입");
+        LogPaint.sep("changeNickname 진입");
         String changeNickname = dto.changeNickname();
         Long memberId = customOAuth2User.getMemberId();
 
@@ -52,7 +53,7 @@ public class MyPageController {
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        logPaint.sep("changeNickname 이탈");
+        LogPaint.sep("changeNickname 이탈");
         return ResponseEntity.ok(ApiResponse.success(responseBody, meta));
     }
 }

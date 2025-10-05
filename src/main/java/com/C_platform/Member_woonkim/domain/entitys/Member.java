@@ -71,7 +71,7 @@ public class Member {
     private LoginType loginType;
 
     @JoinColumn(name = "address_id")
-    private int defaultAddressId;
+    private Long defaultAddressId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "count_bank")
@@ -83,6 +83,8 @@ public class Member {
     @Column(name = "image_url")
     private String profileImageUrl;
 
+
+    // -------------------- 메서드 -----------------------
     /** OAuth 전용 생성자 */
     public Member(OAuthProvider oauthProvider, String oauthId, String name, String email) {
         this.loginType = LoginType.OAUTH;
@@ -120,7 +122,11 @@ public class Member {
         return adj + animal + suffix; // 예: 행복한수달4821
     }
 
-    // ---------- 연관관계 객체들 -----------------------
+    public void changeDefaultAddressId(Long defaultAddressId) {
+        this.defaultAddressId = defaultAddressId;
+    }
+
+    // ---------------- 연관관계 객체들 -----------------------
     // Address와 연관관계로 묶인 field
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Address> addresses = new ArrayList<>();

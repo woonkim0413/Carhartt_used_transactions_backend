@@ -46,8 +46,9 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/swagger-resources/**"
-            // "/v1/**"
+            "/swagger-resources/**",
+            "/h2-console/**" // H2 db를 test하기 위해 추가함
+            // "/v1/**" // 로그인 기능을 구현 완료, 로그인 후 api 사용
     };
 
     // 수정: 콜백 경로 추가
@@ -158,8 +159,16 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     http.csrf(csrf -> csrf
              .csrfTokenRepository(repo)
             // todo 아직 csrf 비교 구현 전이라 해당 코드로 csrf 비교 껐음 (csrf 구현 후 지우기)
-             .ignoringRequestMatchers("/v1/oauth/logout", "/v1/myPage/**")
+             .ignoringRequestMatchers(
+                     "/v1/oauth/logout",
+                     "/v1/myPage/**",
+                     "/h2-console/**",
+                     "/v1/orders/**"
+             )
     );
+
+    // H2 콘솔이 사용하는 프레임 기능 활성화
+    http.headers(h -> h.frameOptions(f -> f.sameOrigin()));
 
     // GET 진입 시 토큰 쿠키 보장
     http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);

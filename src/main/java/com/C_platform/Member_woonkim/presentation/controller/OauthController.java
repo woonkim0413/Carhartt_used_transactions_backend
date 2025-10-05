@@ -11,13 +11,13 @@ import com.C_platform.Member_woonkim.domain.interfaces.Provider;
 import com.C_platform.Member_woonkim.exception.KakaoOauthErrorCode;
 import com.C_platform.Member_woonkim.exception.KakaoOauthException;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
-import com.C_platform.Member_woonkim.presentation.dto.CallBackResponseDto;
-import com.C_platform.Member_woonkim.presentation.dto.KakaoCallbackRequestDto;
-import com.C_platform.Member_woonkim.presentation.dto.LoginProviderDto;
-import com.C_platform.Member_woonkim.presentation.dto.LogoutRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.response.CallBackResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.request.KakaoCallbackRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.response.LoginProviderResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.request.LogoutRequestDto;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
-import com.C_platform.global.logPaint;
+import com.C_platform.Member_woonkim.utils.LogPaint;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -49,36 +49,38 @@ import java.util.UUID;
 public class OauthController {
 
     private final OAuth2Service oauth2Service;
+    // 기존 회원 유무에 따른 서비스 제공
     private final MemberJoinService memberJoinService;
 
     // Kakao/Naver 로그인 공급자 목록 반환
     @GetMapping("/oauth/login")
     @Operation(summary = "로그인 방식 (Oauths, local) 목록 출력", description = " 서비스가 지원하는 로그인 방식을 조회 합니다.")
-    public ResponseEntity<ApiResponse<List<LoginProviderDto>>> getLoginProviders() {
+    public ResponseEntity<ApiResponse<List<LoginProviderResponseDto>>> getLoginProviders() {
         String requestId = UUID.randomUUID().toString();
 
-        logPaint.sep("로그인 방식 목록 호출 진입");
+        LogPaint.sep("로그인 방식 목록 호출 진입");
         // meta 생성
         MetaData meta = MetaData.builder()
                 .timestamp(LocalDateTime.now())
                 .build();
 
         // 로그인 리스트 획득
-        List<LoginProviderDto> providers = oauth2Service.getLoginProviderList();
+        List<LoginProviderResponseDto> providers = oauth2Service.getLoginProviderList();
         log.info("로그인 목록 준비 완료");
-        logPaint.sep("로그인 방식 목록 호출 이탈");
+        LogPaint.sep("로그인 방식 목록 호출 이탈");
         return ResponseEntity.ok(ApiResponse.success(providers, meta));
     }
 
     // 2. 카카오 로그인 리다이렉트 url 생성
     // response.redirect()에서 IOException check error가 발생할 수 있기에 throws 선언 필수
     @GetMapping("/oauth/login/kakao")
+    // todo : responseDto 생성 필요
     @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위한 Oauth server url을 생성하여 내려줍니다")
     public ResponseEntity<ApiResponse<Map<String, String>>> redirectToKakao (
             HttpServletRequest req,
             HttpSession session)
     {
-        logPaint.sep("redirectToKakao handler 진입");
+        LogPaint.sep("redirectToKakao handler 진입");
         // 0) 프리페치/프리렌더 차단
         String secPurpose = nvl(req.getHeader("Sec-Purpose")); // e.g. "prefetch;prerender"
         String purpose = nvl(req.getHeader("Purpose"));     // 일부 UA: "prefetch"
@@ -101,13 +103,13 @@ public class OauthController {
         // 2) XHR/Swagger면 URL을 JSON으로 반환 → 사용자가 클릭해서 네비게이션 유도
         String mode = req.getHeader("Sec-Fetch-Mode"); // "navigate" | "cors" | "no-cors" ...
         boolean isXhr = mode != null && !"navigate".equalsIgnoreCase(mode);
-        logPaint.sep("redirectToKakao handler 이탈");
+        LogPaint.sep("redirectToKakao handler 이탈");
 
-        // 3) 어떤 요청이든 항상 JSON 반환 (리다이렉트 절대 안 함)
+        // 3) 어떤 ㅎ요청이든 항상 JSON 반환 (리다이렉트 절대 안 함)
         return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store") // 해당 값 캐시에 남기지 않는다
                 .header(HttpHeaders.PRAGMA, "no-cache")
-                .body(ApiResponse.success(Map.of("kakao-redirect-Url", authorizeUrl),         // 공통 응답 생성을 위한 meta 생성
+                .body(ApiResponse.success(Map.of("kakao-redirect-Url", authorizeUrl), // 공통 응답 생성을 위한 meta 생성
                 MetaData.builder().timestamp(LocalDateTime.now()).build()));
     }
 
@@ -124,7 +126,7 @@ public class OauthController {
             HttpSession session,
             HttpServletResponse response
     ) throws IOException {
-        logPaint.sep("kakaoCallback 진입");
+        LogPaint.sep("kakaoCallback 진입");
 
         String code = kakaoCallbackRequestDto.code();
         String returnedState = kakaoCallbackRequestDto.state();
@@ -188,7 +190,7 @@ public class OauthController {
 
         log.info("[새로 가입한 회원 : {}] / [이름 {}] / [닉네임 {}] [sessionId : {}]",
                 isNew, member.getName(), member.getNickname(), session.getId());
-        logPaint.sep("kakaoCallback 이탈");
+        LogPaint.sep("kakaoCallback 이탈");
 
         // 4. set-cookies header 추가하기 위한 객체 생성
         ResponseCookie sessionCookie = ResponseCookie.from("SESSION", session.getId())
@@ -234,14 +236,14 @@ public class OauthController {
     @PostMapping("/oauth/logout")
     @Operation(summary = "로그아웃", description = " 로그아웃을 지원합니다.")
     public ApiResponse<?> logout(@Valid @RequestBody LogoutRequestDto logoutDto, HttpSession session) {
-        logPaint.sep("logOut handler 진입");
+        LogPaint.sep("logOut handler 진입");
 
         LoginType type = logoutDto.getType();
         Provider provider = logoutDto.getProvider();
         log.info("logout request - type: {}, provider: {}", type, provider);
 
         session.invalidate();
-        logPaint.sep("logOut handler 이탈");
+        LogPaint.sep("logOut handler 이탈");
         return ApiResponse.success(
                 Map.of("message", "로그아웃 완료"),
                 MetaData.builder()

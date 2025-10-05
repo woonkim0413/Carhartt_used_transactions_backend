@@ -1,8 +1,6 @@
 package com.C_platform.Member_woonkim.application.port;
 
-import com.C_platform.Member_woonkim.domain.entitys.Member;
-
-public interface MemberService {
+public interface MemberServicePort {
     // Member getMember();
     // Member saveMember(Member member);
     // Member deleteMember(Member member);

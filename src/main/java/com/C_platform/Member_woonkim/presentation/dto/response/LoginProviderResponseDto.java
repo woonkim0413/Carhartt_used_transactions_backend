@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.presentation.dto;
+package com.C_platform.Member_woonkim.presentation.dto.response;
 
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.domain.interfaces.Provider;
@@ -9,7 +9,7 @@ import lombok.Getter;
 
 @Builder
 @Getter
-public class LoginProviderDto {
+public class LoginProviderResponseDto {
     @Schema(description = "로그인 식별자", example = "KAKAO")
     private Provider provider;
 

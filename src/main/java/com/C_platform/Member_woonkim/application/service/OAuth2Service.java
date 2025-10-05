@@ -8,7 +8,7 @@ import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.infrastructure.parser_and_register.ParserRegistry;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
-import com.C_platform.Member_woonkim.presentation.dto.LoginProviderDto;
+import com.C_platform.Member_woonkim.presentation.dto.response.LoginProviderResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -75,16 +75,16 @@ public class OAuth2Service {
         return parserRegistry.of(provider).parse(userInfo);
     }
 
-    public List<LoginProviderDto> getLoginProviderList() {
+    public List<LoginProviderResponseDto> getLoginProviderList() {
 
         return List.of(
-                LoginProviderDto.builder()
+                LoginProviderResponseDto.builder()
                         .provider(OAuthProvider.KAKAO)
                         .loginType(LoginType.OAUTH)
                         .authorizeUrl(baseUrl + "oauth/login/kakao")
                         .build(),
 
-                LoginProviderDto.builder()
+                LoginProviderResponseDto.builder()
                         .provider(OAuthProvider.NAVER)
                         .loginType(LoginType.OAUTH)
                         .authorizeUrl(baseUrl + "oauth/login/naver")

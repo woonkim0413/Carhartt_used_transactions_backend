@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.presentation.dto;
+package com.C_platform.Member_woonkim.presentation.dto.request;
 
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
