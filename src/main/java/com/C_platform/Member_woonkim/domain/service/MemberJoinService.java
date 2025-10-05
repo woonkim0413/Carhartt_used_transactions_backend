@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.application.service;
+package com.C_platform.Member_woonkim.domain.service;
 
 import com.C_platform.Member_woonkim.domain.Oauth.JoinOrLoginResult;
 import com.C_platform.Member_woonkim.domain.entitys.Member;

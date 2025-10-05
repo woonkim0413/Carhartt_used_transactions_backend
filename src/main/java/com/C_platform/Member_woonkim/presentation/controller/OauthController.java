@@ -1,7 +1,7 @@
 package com.C_platform.Member_woonkim.presentation.controller;
 
-import com.C_platform.Member_woonkim.application.service.MemberJoinService;
-import com.C_platform.Member_woonkim.application.service.OAuth2Service;
+import com.C_platform.Member_woonkim.domain.service.MemberJoinService;
+import com.C_platform.Member_woonkim.domain.service.OAuth2Service;
 import com.C_platform.Member_woonkim.domain.Oauth.CustomOAuth2User;
 import com.C_platform.Member_woonkim.domain.Oauth.JoinOrLoginResult;
 import com.C_platform.Member_woonkim.domain.entitys.Member;

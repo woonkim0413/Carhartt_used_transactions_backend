@@ -1,6 +1,6 @@
 package com.C_platform.Member_woonkim.application.useCase;
 
-import com.C_platform.Member_woonkim.application.service.AddressService;
+import com.C_platform.Member_woonkim.domain.service.AddressService;
 import com.C_platform.Member_woonkim.domain.entitys.Address;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.infrastructure.db.AddressRepository;

@@ -2,7 +2,10 @@ package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.MyPageUseCase;
 import com.C_platform.Member_woonkim.domain.Oauth.CustomOAuth2User;
+import com.C_platform.Member_woonkim.presentation.Assembler.MyPageAssembler;
 import com.C_platform.Member_woonkim.presentation.dto.request.ChangeNicknameRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.response.ChangeNicknameResponseDto;
+import com.C_platform.Member_woonkim.utils.CreateMetaData;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.Member_woonkim.utils.LogPaint;
@@ -28,11 +31,12 @@ import java.util.Map;
 public class MyPageController {
 
     private final MyPageUseCase myPageUseCase;
+    private final MyPageAssembler myPageAssembler;
 
     @PostMapping("/myPage/change_nickname")
     @Operation(summary = "사용자 닉네임 변경", description = "마이 페이지에서 사용자 닉네임을 변경할 때 사용합니다")
     // todo : ResponseDto 만들기
-    public ResponseEntity<ApiResponse<Map<String, String>>> changeNickname(
+    public ResponseEntity<ApiResponse<ChangeNicknameResponseDto>> changeNickname(
             @Valid @RequestBody ChangeNicknameRequestDto dto,
             @AuthenticationPrincipal CustomOAuth2User customOAuth2User
     ) {
@@ -44,16 +48,13 @@ public class MyPageController {
         // todo : 이름 변경 전용 에러 코드 설게
         myPageUseCase.changeMemberNickname(changeNickname, memberId);
 
-        Map<String, String> responseBody = new HashMap<>();
-        responseBody.put("memberId", memberId.toString());
-        responseBody.put("nickname", changeNickname);
-
         // todo : meta에 실리는 로깅 값 넣도록 변경
-        MetaData meta = MetaData.builder()
-                .timestamp(LocalDateTime.now())
-                .build();
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+
+        ChangeNicknameResponseDto changeNicknameResponseDto
+                = myPageAssembler.createChangeNicknameResponseDto(memberId, changeNickname);
 
         LogPaint.sep("changeNickname 이탈");
-        return ResponseEntity.ok(ApiResponse.success(responseBody, meta));
+        return ResponseEntity.ok(ApiResponse.success(changeNicknameResponseDto, meta));
     }
 }
