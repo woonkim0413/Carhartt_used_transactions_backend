@@ -8,7 +8,8 @@ import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.infrastructure.parser_and_register.ParserRegistry;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
-import com.C_platform.Member_woonkim.presentation.dto.response.LoginProviderResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LoginProviderResponseDto;
+import com.C_platform.Member_woonkim.utils.OauthProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -31,11 +32,10 @@ public class OAuth2Service {
     @Value("${app.base-url}")
     private String baseUrl; // 예: https://api.your-domain.com/v1/
 
-    // properties.oauth.yml을 읽어서 자바 코드에 대입하는 Dto들
-    private final OAuth2RegistrationPropertiesDto registrationPropertiesDto;
-    private final OAuth2ProviderPropertiesDto providerPropertiesDto;
+    // properties.oauth.yml을 읽어서 Dto로 반환 해주는 객체
+    private final OauthProperties oauthProperties;
 
-    // Request API와 관련된 Utils 객체
+    /// Request API와 관련된 Utils 객체
     private final RestTemplate restTemplate;
 
     private final ParserRegistry parserRegistry;
@@ -49,7 +49,7 @@ public class OAuth2Service {
     // *** Access-Token으로 Resource Server에 사용자 정보를 요청하여 받은 뒤 dto에 담아서 반환하는 method ***
     public OAuth2UserInfoDto getUserInfo(String accessToken, OAuthProvider provider) {
         // todo Resource server url은 OAuth2ProviderPropertiesDto에서 가져오도록 변경
-        OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = getProviderConfig(provider);
+        OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = oauthProperties.getProviderConfig(provider);
 
         // Resource Server에 보낼 요청 생성
         // Authorization Code를 Access-Token으로 교환할 때 client secret필요함 사용자 정보 단계에선 불필요
@@ -76,7 +76,6 @@ public class OAuth2Service {
     }
 
     public List<LoginProviderResponseDto> getLoginProviderList() {
-
         return List.of(
                 LoginProviderResponseDto.builder()
                         .provider(OAuthProvider.KAKAO)
@@ -95,8 +94,8 @@ public class OAuth2Service {
     // Oauth 인증 페이지 redirect url 생성 method
     public String getAuthorizeUrl(OAuthProvider provider, String state) {
         // 설정 파일에 저장된 provider에 따른 oauth 관련 정보 가져옴
-        OAuth2RegistrationPropertiesDto.RegistrationConfig registration = getRegistrationConfig(provider); // clientId, redirectUri, scope(List<String>) 등
-        OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = getProviderConfig(provider);   // authorizationUri 등
+        OAuth2RegistrationPropertiesDto.RegistrationConfig registration = oauthProperties.getRegistrationConfig(provider); // clientId, redirectUri, scope(List<String>) 등
+        OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = oauthProperties.getProviderConfig(provider);   // authorizationUri 등
 
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(providerConfig.authorizationUri())
@@ -104,6 +103,7 @@ public class OAuth2Service {
                 .queryParam("client_id", registration.clientId())
                 .queryParam("redirect_uri", baseUrl + "oauth/kakao/callback")
                 .queryParam("state", state);
+
         // 쿠키에 sessionId가 있을 때를 test하기 위해서 주석
         // .queryParam("prompt", "login");
 
@@ -111,27 +111,11 @@ public class OAuth2Service {
         return builder.build(false).toUriString();
     }
 
-    // properties.oauth.yml에서 등록 정보 (client id, client secrert, redirect url)를 가져옴
-    private OAuth2RegistrationPropertiesDto.RegistrationConfig getRegistrationConfig(OAuthProvider provider) {
-        return switch (provider) {
-            case KAKAO -> registrationPropertiesDto.kakao();
-            case NAVER -> registrationPropertiesDto.naver();
-        };
-    }
-
-    // properties.oauth.yml에서 Oauth server와 통신하기 위한 url 정보들을 가져옴
-    private OAuth2ProviderPropertiesDto.ProviderConfig getProviderConfig(OAuthProvider provider) {
-        return switch (provider) {
-            case KAKAO -> providerPropertiesDto.kakao();
-            case NAVER -> providerPropertiesDto.naver();
-        };
-    }
-
     // Authorization Code + client Secret을 조합한 값을 통해서 kakao Authorization Server에 값을 요청한다
     public String getAccessToken(String code, OAuthProvider provider) {
         // 설정 파일에 저장된 provider에 따른 oauth 관련 정보 가져옴
-        OAuth2RegistrationPropertiesDto.RegistrationConfig registration = getRegistrationConfig(provider);
-        OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = getProviderConfig(provider);
+        OAuth2RegistrationPropertiesDto.RegistrationConfig registration = oauthProperties.getRegistrationConfig(provider); // clientId, redirectUri, scope(List<String>) 등
+        OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = oauthProperties.getProviderConfig(provider);   // authorizationUri 등
 
         // 요청 헤더 설정 (form-urlencoded)
         HttpHeaders headers = new HttpHeaders();

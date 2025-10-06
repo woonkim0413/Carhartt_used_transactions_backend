@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.presentation.dto.response;
+package com.C_platform.Member_woonkim.presentation.dto.address.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;

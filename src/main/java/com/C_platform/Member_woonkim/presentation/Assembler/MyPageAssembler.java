@@ -1,6 +1,6 @@
 package com.C_platform.Member_woonkim.presentation.Assembler;
 
-import com.C_platform.Member_woonkim.presentation.dto.response.ChangeNicknameResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.myPage.response.ChangeNicknameResponseDto;
 import org.springframework.stereotype.Component;
 
 @Component

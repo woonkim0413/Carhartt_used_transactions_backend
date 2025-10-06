@@ -1,5 +1,6 @@
 package com.C_platform.Member_woonkim.presentation.controller;
 
+import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.service.MemberJoinService;
 import com.C_platform.Member_woonkim.domain.service.OAuth2Service;
 import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
@@ -11,10 +12,13 @@ import com.C_platform.Member_woonkim.domain.interfaces.Provider;
 import com.C_platform.Member_woonkim.exception.KakaoOauthErrorCode;
 import com.C_platform.Member_woonkim.exception.KakaoOauthException;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
-import com.C_platform.Member_woonkim.presentation.dto.response.CallBackResponseDto;
-import com.C_platform.Member_woonkim.presentation.dto.request.KakaoCallbackRequestDto;
-import com.C_platform.Member_woonkim.presentation.dto.response.LoginProviderResponseDto;
-import com.C_platform.Member_woonkim.presentation.dto.request.LogoutRequestDto;
+import com.C_platform.Member_woonkim.presentation.Assembler.OauthAssembler;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.CallBackResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.KakaoCallbackRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LoginProviderResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.LogoutRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.RedirectToKakaoResponseDto;
+import com.C_platform.Member_woonkim.utils.CreateMetaData;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.Member_woonkim.utils.LogPaint;
@@ -48,7 +52,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OauthController {
 
+    private final OAuth2UseCase oauthU2seCase;
     private final OAuth2Service oauth2Service;
+
+    // Dto 생성
+    private final OauthAssembler assembler;
+
     // 기존 회원 유무에 따른 서비스 제공
     private final MemberJoinService memberJoinService;
 
@@ -56,16 +65,15 @@ public class OauthController {
     @GetMapping("/oauth/login")
     @Operation(summary = "로그인 방식 (Oauths, local) 목록 출력", description = " 서비스가 지원하는 로그인 방식을 조회 합니다.")
     public ResponseEntity<ApiResponse<List<LoginProviderResponseDto>>> getLoginProviders() {
+
         String requestId = UUID.randomUUID().toString();
 
         LogPaint.sep("로그인 방식 목록 호출 진입");
         // meta 생성
-        MetaData meta = MetaData.builder()
-                .timestamp(LocalDateTime.now())
-                .build();
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
 
         // 로그인 리스트 획득
-        List<LoginProviderResponseDto> providers = oauth2Service.getLoginProviderList();
+        List<LoginProviderResponseDto> providers = oauthU2seCase.loginProviderList();
         log.info("로그인 목록 준비 완료");
         LogPaint.sep("로그인 방식 목록 호출 이탈");
         return ResponseEntity.ok(ApiResponse.success(providers, meta));
@@ -76,41 +84,38 @@ public class OauthController {
     @GetMapping("/oauth/login/kakao")
     // todo : responseDto 생성 필요
     @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위한 Oauth server url을 생성하여 내려줍니다")
-    public ResponseEntity<ApiResponse<Map<String, String>>> redirectToKakao (
+    public ResponseEntity<ApiResponse<RedirectToKakaoResponseDto>> redirectToKakao (
             HttpServletRequest req,
             HttpSession session)
     {
         LogPaint.sep("redirectToKakao handler 진입");
+
         // 0) 프리페치/프리렌더 차단
-        String secPurpose = nvl(req.getHeader("Sec-Purpose")); // e.g. "prefetch;prerender"
-        String purpose = nvl(req.getHeader("Purpose"));     // 일부 UA: "prefetch"
-        boolean isPrefetchOrPrerender =
-                secPurpose.contains("prefetch") || secPurpose.contains("prerender") || purpose.contains("prefetch");
-        if (isPrefetchOrPrerender) {
+        if (isPrefetchOrPrerender(req)) {
             return ResponseEntity.noContent()
                     .header(HttpHeaders.CACHE_CONTROL, "no-store")
                     .build(); // 204
         }
 
         // 1) CSRF 핵심 방어: state 생성/세션 저장
-        String state = java.util.UUID.randomUUID().toString();
-        session.setAttribute("oauth_state", state);
-        log.info("session에 state 저장 완료 : {}", state);
+        String stateCode = generateAndStoreState(session);
 
-        String authorizeUrl = oauth2Service.getAuthorizeUrl(OAuthProvider.KAKAO, state);
+        // 2) 리다이렉트 주소 생성
+        String authorizeUrl = oauthU2seCase.AuthorizeUrl(OAuthProvider.KAKAO, stateCode);
         log.info("카카오 로그인 리다이렉트 생성 : {}", authorizeUrl);
 
-        // 2) XHR/Swagger면 URL을 JSON으로 반환 → 사용자가 클릭해서 네비게이션 유도
-        String mode = req.getHeader("Sec-Fetch-Mode"); // "navigate" | "cors" | "no-cors" ...
-        boolean isXhr = mode != null && !"navigate".equalsIgnoreCase(mode);
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+
+        RedirectToKakaoResponseDto redirectToKakaoResponseDto =
+                assembler.getRedirectToKakaoResponseDto(authorizeUrl);
+
         LogPaint.sep("redirectToKakao handler 이탈");
 
-        // 3) 어떤 ㅎ요청이든 항상 JSON 반환 (리다이렉트 절대 안 함)
+        // 4) 어떤 요청이든 항상 JSON 반환 (리다이렉트 절대 안 함)
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-store") // 해당 값 캐시에 남기지 않는다
                 .header(HttpHeaders.PRAGMA, "no-cache")
-                .body(ApiResponse.success(Map.of("kakao-redirect-Url", authorizeUrl), // 공통 응답 생성을 위한 meta 생성
-                MetaData.builder().timestamp(LocalDateTime.now()).build()));
+                .body(ApiResponse.success(redirectToKakaoResponseDto, meta));
     }
 
 
@@ -128,20 +133,21 @@ public class OauthController {
     ) throws IOException {
         LogPaint.sep("kakaoCallback 진입");
 
-        String code = kakaoCallbackRequestDto.code();
+        String stateCode = kakaoCallbackRequestDto.code();
         String returnedState = kakaoCallbackRequestDto.state();
         String sessionState = (String) session.getAttribute("oauth_state"); // session에 저장된 state 값 꺼내서 비교 보안 검사 (예외 가능성)
 
         log.info("callback url state parameter : {}", returnedState);
         log.info("client BE session 저장 state : {}", sessionState);
 
-        checkStateValidation(sessionState, returnedState); // req param과 session state 비교, 틀리면 예외
+        // TODO : 예외 생성
+        checkStateValidation(sessionState, returnedState); // req param과 session state 비교
 
         session.removeAttribute("oauth_state"); // state는 더 이상 쓸모없으니 세션에서 제거 (예외 가능성)
 
         // 1. Access Token 요청
         // [INFO] Kakao Authorization Server로부터 access token을 교환
-        String accessToken = oauth2Service.getAccessToken(code, OAuthProvider.KAKAO);
+        String accessToken = oauth2Service.getAccessToken(stateCode, OAuthProvider.KAKAO);
 
         // 2. 사용자 정보 획득
         // (해당 계층에서 Resource server와 통신, response body 값을 UserInfoParser를 사용해 userInfoDto로 가공하여 반환)
@@ -263,6 +269,22 @@ public class OauthController {
             // 실패 resopnse 만들어 반환하기
             throw new KakaoOauthException(KakaoOauthErrorCode.C002);
         }
+    }
+
+    private boolean isPrefetchOrPrerender(HttpServletRequest req) {
+        String secPurpose = nvl(req.getHeader("Sec-Purpose")); // e.g. "prefetch;prerender"
+        String purpose    = nvl(req.getHeader("Purpose"));     // 일부 UA: "prefetch"
+        return secPurpose.contains("prefetch")
+                || secPurpose.contains("prerender")
+                || purpose.contains("prefetch");
+    }
+
+    /** (1) state 생성 후 세션 저장 */
+    private String generateAndStoreState(HttpSession session) {
+        String state = UUID.randomUUID().toString();
+        session.setAttribute("oauth_state", state);
+        log.info("session에 state 저장 완료 : {}", state);
+        return state;
     }
 }
 

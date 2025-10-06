@@ -1,8 +1,7 @@
-package com.C_platform.Member_woonkim.presentation.dto.response;
+package com.C_platform.Member_woonkim.presentation.dto.address.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 
 import java.util.List;

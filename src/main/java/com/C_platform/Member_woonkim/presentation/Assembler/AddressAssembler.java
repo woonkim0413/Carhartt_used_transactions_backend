@@ -1,12 +1,11 @@
 package com.C_platform.Member_woonkim.presentation.Assembler;
 
 import com.C_platform.Member_woonkim.domain.entitys.Address;
-import com.C_platform.Member_woonkim.presentation.dto.response.AddressItemDto;
-import com.C_platform.Member_woonkim.presentation.dto.response.DeleteAddressResponseDto;
-import com.C_platform.Member_woonkim.presentation.dto.response.GetAddressListResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.address.response.AddressItemDto;
+import com.C_platform.Member_woonkim.presentation.dto.address.response.DeleteAddressResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.address.response.GetAddressListResponseDto;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static java.util.Collections.emptyList;

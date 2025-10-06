@@ -5,7 +5,7 @@ import com.C_platform.Member_woonkim.domain.entitys.Address;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.infrastructure.db.AddressRepository;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
-import com.C_platform.Member_woonkim.presentation.dto.request.AddAddressRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.address.request.AddAddressRequestDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.presentation.dto.request;
+package com.C_platform.Member_woonkim.presentation.dto.address.request;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
