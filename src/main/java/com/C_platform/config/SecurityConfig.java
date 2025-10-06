@@ -1,5 +1,6 @@
 package com.C_platform.config;
 
+import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.service.CustomOAuth2UserService;
 import com.C_platform.Member_woonkim.domain.service.OAuth2Service;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
@@ -109,8 +110,8 @@ public class SecurityConfig {
 
     // todo 무슨 기능인지 공부 필요
     @Bean
-    public OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService(OAuth2Service oauth2Service) {
-        return new CustomOAuth2UserService(oauth2Service);
+    public OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService(OAuth2UseCase oAuth2UseCase) {
+        return new CustomOAuth2UserService(oAuth2UseCase);
     }
 
     @Bean

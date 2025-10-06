@@ -12,12 +12,12 @@ import lombok.Getter;
 @Schema(name = "AuthLoginData")
 public class CallBackResponseDto {
 
-    @Schema(description = "로그인한 사용자 요약 정보")
-    private final User user;
-
     @JsonProperty("session_id")
     @Schema(description = "유저 정보 세션 식별자")
     private final String sessionId;
+
+    @Schema(description = "로그인한 사용자 요약 정보")
+    private final User user;
 
     @Getter
     @Builder
