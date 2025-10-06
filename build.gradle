@@ -27,6 +27,9 @@ repositories {
 }
 
 dependencies {
+	//PG 연동 위해 추가 - http rest api 제공 -> WebClient로 요청 날림
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'   // WebClient
+
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
