@@ -1,63 +1,56 @@
 package com.C_platform.payment.ui;
 
-import com.C_platform.payment.application.PaymentStubService;
-import com.C_platform.payment.ui.dto.*;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import com.C_platform.payment.application.PaymentService;
 import com.C_platform.payment.ui.dto.AttemptPaymentRequest;
 import com.C_platform.payment.ui.dto.AttemptPaymentResponse;
-import jakarta.servlet.http.HttpServletRequest;
+import com.C_platform.payment.ui.dto.CompletePaymentRequest;
+import com.C_platform.payment.ui.dto.CompletePaymentResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "Payment (Stub)", description = "PG 연동 없이 Swagger에서 확인하는 깡통 결제 API")
+@Tag(name = "Payment", description = "PG 연동 결제 API")
 @RestController
 @RequiredArgsConstructor
+@RequestMapping("/v1/payment")  // ← 경로 변경
 public class PaymentController {
 
-    private final PaymentStubService paymentStubService;
+    private final PaymentService paymentService;
 
-    // 결제 요청 (스펙: POST /v1/order/{order_id}/payment/ready)
-    @Operation(summary = "결제 요청(ready) — Stub")
-    @PostMapping(
-            value = "/v1/order/{order_id}/payment/ready",
-            consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = MediaType.APPLICATION_JSON_VALUE
-    )
-    public ResponseEntity<AttemptPaymentResponse> ready(
-            @PathVariable("order_id") Long orderId,
+    @Operation(summary = "결제 요청(ready)")
+    @PostMapping(value = "/ready")  // → /v1/payment/ready
+    public ResponseEntity<AttemptPaymentResponse> attempt(
             @Valid @RequestBody AttemptPaymentRequest body,
-            HttpServletRequest http
+            @RequestHeader("X-Dev-User-Id") Long currentUserId
     ) {
-        System.out.println("### HIT /ready orderId=" + orderId); // ← 이거
-        // path vs body 일치 검증 (팀 규칙)
-        if (!orderId.equals(body.orderId())) {
-            return ResponseEntity.badRequest().build();
-        }
-        var resp = paymentStubService.ready(body);
+        var resp = paymentService.ready(body, currentUserId);
         return ResponseEntity.ok(resp);
     }
 
-    // 결제 완료 (스펙 유지: 바디에 merchant_uid 등으로 처리)
-    @Operation(summary = "결제 완료(approve/fail/cancel) — Stub")
-    @PostMapping(
-            value = "/v1/order/{order_id}/payment/{tid}/approve",
-            consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = MediaType.APPLICATION_JSON_VALUE
-    )
+    @Operation(summary = "결제 승인 완료")
+    // 🚨 요청 URL 패턴과 정확히 일치하도록 경로를 수정했습니다.
+    @PostMapping(value = "/order/{orderId}/payment/{pgToken}/approve")
     public ResponseEntity<CompletePaymentResponse> complete(
-            @PathVariable("order_id") Long orderId,
-            @PathVariable("tid") String tid,
-            @Valid @RequestBody CompletePaymentRequest body
+            // 🚨 @RequestBody 대신 URL 경로 변수에서 필수 값을 추출합니다.
+            @PathVariable Long orderId,
+            @PathVariable String pgToken,
+            @RequestHeader("X-Dev-User-Id") Long currentUserId // 또는 @Authentication
     ) {
-        System.out.println("### HIT /approve orderId=" + orderId + " tid=" + tid);
+        // 🚨 URL에서 추출한 값으로 서비스 레이어에 필요한 DTO를 생성합니다.
+        // CompletePaymentRequest는 provider, orderId, pgToken만 있다고 가정합니다.
+        CompletePaymentRequest req = new CompletePaymentRequest(
+                "KAKAOPAY",         // provider (PG사 코드)
+                orderId,            // partner_order_id
+                pgToken             // pg_token
+        );
 
-        var resp = paymentStubService.complete(body);
+        var resp = paymentService.complete(req, currentUserId);
         return ResponseEntity.ok(resp);
     }
-
 }
+
+
 

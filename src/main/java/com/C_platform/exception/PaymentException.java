@@ -12,4 +12,10 @@ public class PaymentException extends RuntimeException {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }
+
+    //cause 받는 생성자 추가 코드
+    public PaymentException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.getMessage(), cause);
+        this.errorCode = errorCode;
+    }
 }
