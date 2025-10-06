@@ -159,7 +159,6 @@ public class OauthController {
         // 3. 사용자 정보 세션에 저장
         session.setAttribute("user", userInfo);
 
-
         log.info("[새로 가입한 회원 : {}] / [이름 {}] / [닉네임 {}] [sessionId : {}]",
                 isNew, member.getName(), member.getNickname(), session.getId());
 
@@ -178,7 +177,7 @@ public class OauthController {
         return ResponseEntity.ok(ApiResponse.success(callBackResponseDto, meta));
 
         // todo : 해당 json 실어서 태규님이 주신 url로 리다이렉트 하는 방법 찾아보기
-        // response.sendRedirect("http://localhost:5173");
+        // response.sendRedirect("http://localhost:5173"); // 실제 프론트앤드 배포 origin uri 사용
     }
 
     // 로그아웃은 꽤나 중요한 서버 데이터 변경 처리이기에 body에 실을 데이터가 없다고 해도 Get보단 Post 방식으로 처리하는 것이 적절하다
