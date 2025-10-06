@@ -1,6 +1,6 @@
 package com.C_platform.item.ui;
 
-import com.C_platform.Member_woonkim.domain.Oauth.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.item.applicaion.ItemUseCase;
@@ -9,7 +9,6 @@ import com.C_platform.item.ui.dto.CreateItemRequestDto;
 import com.C_platform.item.ui.dto.ItemDetailResponseDto;
 import com.C_platform.global.PageResponseDto;
 import com.C_platform.item.ui.dto.ItemListResponseDto;
-import com.C_platform.item.ui.dto.ItemSearchRequestDto;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.domain.Oauth;
+package com.C_platform.Member_woonkim.domain.dto;
 
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 

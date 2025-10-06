@@ -1,11 +1,14 @@
 package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.MyPageUseCase;
-import com.C_platform.Member_woonkim.domain.Oauth.CustomOAuth2User;
-import com.C_platform.Member_woonkim.presentation.dto.ChangeNicknameRequestDto;
+import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
+import com.C_platform.Member_woonkim.presentation.Assembler.MyPageAssembler;
+import com.C_platform.Member_woonkim.presentation.dto.myPage.request.ChangeNicknameRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.myPage.response.ChangeNicknameResponseDto;
+import com.C_platform.Member_woonkim.utils.CreateMetaData;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
-import com.C_platform.global.logPaint;
+import com.C_platform.Member_woonkim.utils.LogPaint;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +21,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -28,14 +29,16 @@ import java.util.Map;
 public class MyPageController {
 
     private final MyPageUseCase myPageUseCase;
+    private final MyPageAssembler myPageAssembler;
 
     @PostMapping("/myPage/change_nickname")
     @Operation(summary = "사용자 닉네임 변경", description = "마이 페이지에서 사용자 닉네임을 변경할 때 사용합니다")
-    public ResponseEntity<ApiResponse<Map<String, String>>> changeNickname(
+    // todo : ResponseDto 만들기
+    public ResponseEntity<ApiResponse<ChangeNicknameResponseDto>> changeNickname(
             @Valid @RequestBody ChangeNicknameRequestDto dto,
             @AuthenticationPrincipal CustomOAuth2User customOAuth2User
     ) {
-        logPaint.sep("changeNickname 진입");
+        LogPaint.sep("changeNickname 진입");
         String changeNickname = dto.changeNickname();
         Long memberId = customOAuth2User.getMemberId();
 
@@ -43,16 +46,13 @@ public class MyPageController {
         // todo : 이름 변경 전용 에러 코드 설게
         myPageUseCase.changeMemberNickname(changeNickname, memberId);
 
-        Map<String, String> responseBody = new HashMap<>();
-        responseBody.put("memberId", memberId.toString());
-        responseBody.put("nickname", changeNickname);
-
         // todo : meta에 실리는 로깅 값 넣도록 변경
-        MetaData meta = MetaData.builder()
-                .timestamp(LocalDateTime.now())
-                .build();
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
 
-        logPaint.sep("changeNickname 이탈");
-        return ResponseEntity.ok(ApiResponse.success(responseBody, meta));
+        ChangeNicknameResponseDto changeNicknameResponseDto
+                = myPageAssembler.createChangeNicknameResponseDto(memberId, changeNickname);
+
+        LogPaint.sep("changeNickname 이탈");
+        return ResponseEntity.ok(ApiResponse.success(changeNicknameResponseDto, meta));
     }
 }

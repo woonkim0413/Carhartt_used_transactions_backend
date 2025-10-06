@@ -1,18 +1,21 @@
 package com.C_platform.Member_woonkim.domain.entitys;
 
 import jakarta.persistence.*;
-import lombok.Setter;
+import lombok.*;
 
 @Entity
-@Setter
+@Getter
+@Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE) // Builder는 생성자 호출 막음
 public class Address {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "address_id")
-    private Long id;
+    private Long addressId;
 
     // 예: "집", "회사", "부모님댁" 등
-    @Column(name = "address_name")
+    @Column(name = "address_name", unique = true)
     private String addressName;
 
     // 우편번호

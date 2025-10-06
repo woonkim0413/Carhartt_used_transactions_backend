@@ -1,5 +1,7 @@
-package com.C_platform.Member_woonkim.application.service;
+package com.C_platform.Member_woonkim.domain.service;
 
+import com.C_platform.Member_woonkim.application.port.OauthClientPort;
+import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +19,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
-    private final OAuth2Service oauth2Service;
+    private final OAuth2UseCase oauth2UseCase;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) {
@@ -30,7 +32,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         OAuthProvider provider = OAuthProvider.valueOf(registrationId.toUpperCase());
 
         // 3. 사용자 정보 조회
-        OAuth2UserInfoDto User = oauth2Service.getUserInfo(accessToken, provider);
+        OAuth2UserInfoDto User = oauth2UseCase.getUserInfoForCustom(accessToken, provider);
 
         // 4. 사용자 정보를 attributes에 넣음 (session 용)
         Map<String, Object> attributes = Map.of(
