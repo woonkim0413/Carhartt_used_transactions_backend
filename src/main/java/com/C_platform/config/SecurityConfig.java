@@ -162,6 +162,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             // todo 아직 csrf 비교 구현 전이라 해당 코드로 csrf 비교 껐음 (csrf 구현 후 지우기)
              .ignoringRequestMatchers(
                      "/v1/oauth/logout",
+                     "/v1/oauth/login/check",
                      "/v1/myPage/**",
                      "/h2-console/**",
                      "/v1/orders/**"
@@ -186,7 +187,10 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
 
             .requestMatchers(SWAGGER_WHITELIST).permitAll()
             .requestMatchers(AUTH_WHITELIST).permitAll()
+
+            // 로그인 관련 허용 경로
             .requestMatchers("/v1/oauth/logout").permitAll()
+            .requestMatchers("/v1/oauth/login/check").permitAll()
 
             // ✅ 주문 생성 API 실제 경로 허용
             .requestMatchers("/api/order").permitAll()
@@ -194,6 +198,8 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             // === 깡통 결제 API 전용 전체 허용 ===
             .requestMatchers("/v1/order/*/payment/**").permitAll()
             .requestMatchers("/v1/payment/**").permitAll()
+
+
 
             //마지막으로 anyRequest가 와야 함
             .anyRequest().authenticated()

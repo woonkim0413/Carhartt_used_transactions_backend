@@ -13,10 +13,7 @@ import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.presentation.Assembler.OauthAssembler;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.KakaoCallbackRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.LogoutRequestDto;
-import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.CallBackResponseDto;
-import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LoginProviderResponseDto;
-import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LogoutResponseDto;
-import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.RedirectToKakaoResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.*;
 import com.C_platform.Member_woonkim.utils.CreateMetaData;
 import com.C_platform.Member_woonkim.utils.LogPaint;
 import com.C_platform.global.ApiResponse;
@@ -28,7 +25,9 @@ import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -50,6 +49,9 @@ import java.util.UUID;
 @RequestMapping("/v1")
 @RequiredArgsConstructor
 public class OauthController {
+
+    @Value("${app.identifier}")
+    private String identifier;
 
     private static final String LOGOUT_SUCCESS = "로그인 성공";
 
@@ -82,10 +84,9 @@ public class OauthController {
     @GetMapping("/oauth/login/kakao")
     // todo : responseDto 생성 필요
     @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위한 Oauth server url을 생성하여 내려줍니다")
-    public ResponseEntity<ApiResponse<RedirectToKakaoResponseDto>> redirectToKakao (
+    public ResponseEntity<ApiResponse<RedirectToKakaoResponseDto>> redirectToKakao(
             HttpServletRequest req,
-            HttpSession session)
-    {
+            HttpSession session) {
         LogPaint.sep("redirectToKakao handler 진입");
 
         // TODO : 보안 검증 로직 Filter class로 빼기
@@ -174,10 +175,18 @@ public class OauthController {
                 = oauthAssembler.getCallBackResponseDto(session, userInfo);
 
         LogPaint.sep("kakaoCallback 이탈");
-        return ResponseEntity.ok(ApiResponse.success(callBackResponseDto, meta));
+        // EC2에서 요청을 보내는 경우 반환 (환경 파일에 적혀져 있는 값을 통해서 분기)
+        if ("prod".equalsIgnoreCase(identifier)) {
+            // 302 Redirect (쿠키는 이미 response에 set 되어 있으므로 그대로 전달됨)
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION,
+                            "https://carhartt-usedtransactions-frontend.pages.dev/login/callback")
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store") // 민감 응답 캐싱 방지(선택)
+                    .body(null); // 반환 타입을 유지하기 위해 null 본문
+        }
 
-        // todo : 해당 json 실어서 태규님이 주신 url로 리다이렉트 하는 방법 찾아보기
-        // response.sendRedirect("http://localhost:5173"); // 실제 프론트앤드 배포 origin uri 사용
+        // local: callback url 그대로 반환
+        return ResponseEntity.ok(ApiResponse.success(callBackResponseDto, meta));
     }
 
     // 로그아웃은 꽤나 중요한 서버 데이터 변경 처리이기에 body에 실을 데이터가 없다고 해도 Get보단 Post 방식으로 처리하는 것이 적절하다
@@ -205,7 +214,50 @@ public class OauthController {
         return ResponseEntity.ok(ApiResponse.success(logoutResponseDto, meta));
     }
 
-    // ----------------------------- Helper (static) ---------------------------------------
+    @GetMapping("/oauth/login/check")
+    @Operation(summary = "로그인 확인", description = """
+            현재 사용자가 로그인 상태인지를 확인해 줍니다 <br/>
+            성공 시 : 사용자 정보 반환 <br/>
+            실패 시 : 실패 message 반환 <br/>
+            """)
+    public ResponseEntity<ApiResponse<LoginCheckDto>> loginCheck(
+            HttpSession session
+    ) {
+        LogPaint.sep("loginCheck 진입");
+
+        // 1) 세션에서 로그인 정보 조회
+        Object loginInfoBySession = session.getAttribute("user");
+
+        // TODO : 실패 시 에러 코드 반환하도록 전역 에러 핸들러에서 코드 작성
+        if (loginInfoBySession == null) {
+            throw new KakaoOauthException(KakaoOauthErrorCode.C003);
+        }
+
+        if (!(loginInfoBySession instanceof OAuth2UserInfoDto)) {
+            throw new KakaoOauthException(KakaoOauthErrorCode.C003);
+        }
+
+        // db에서 login session 정보를 바탕으로 member 조회
+        Member member = oauth2UseCase.getMemberBySessionInfo((OAuth2UserInfoDto) loginInfoBySession);
+
+        LoginCheckDto dto = LoginCheckDto.builder()
+                .memberId(member.getMemberId())
+                .memberName(member.getName())
+                .memberNickname(member.getNickname())
+                .loginType(LoginType.OAUTH)
+                .provider(member.getOauthProvider()) // enum OAuthProvider
+                .build();
+
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+
+        LogPaint.sep("loginCheck 이탈");
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.success(dto, meta));
+    }
+
+// ----------------------------- Helper (static) ---------------------------------------
 
     // redirectToKakao handler에서 사용
     private static String nvl(String s) {
@@ -224,7 +276,7 @@ public class OauthController {
     // prefetch 검사
     private static boolean isPrefetchOrPrerender(HttpServletRequest req) {
         String secPurpose = nvl(req.getHeader("Sec-Purpose")); // e.g. "prefetch;prerender"
-        String purpose    = nvl(req.getHeader("Purpose"));     // 일부 UA: "prefetch"
+        String purpose = nvl(req.getHeader("Purpose"));     // 일부 UA: "prefetch"
         return secPurpose.contains("prefetch")
                 || secPurpose.contains("prerender")
                 || purpose.contains("prefetch");
@@ -244,8 +296,8 @@ public class OauthController {
                 List.of(new SimpleGrantedAuthority("ROLE_USER"));
 
         Map<String, Object> attributes = new HashMap<>();
-        attributes.put("id",    member.getMemberId());
-        attributes.put("name",  member.getName());
+        attributes.put("id", member.getMemberId());
+        attributes.put("name", member.getName());
         attributes.put("email", member.getEmail());
 
         CustomOAuth2User principal = new CustomOAuth2User(
