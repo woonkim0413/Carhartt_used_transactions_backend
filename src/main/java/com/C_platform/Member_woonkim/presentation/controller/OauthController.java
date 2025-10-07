@@ -19,6 +19,7 @@ import com.C_platform.Member_woonkim.utils.LogPaint;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -38,6 +39,8 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -53,8 +56,8 @@ public class OauthController {
     @Value("${app.identifier}")
     private String identifier;
 
-    @Value("${app.front-origin}")
-    private String FRONT_ORIGIN;
+    @Value("${app.front-callback-path}")
+    private String FRONT_CALLBACK_PATH;
 
     private static final String LOGOUT_SUCCESS = "로그인 성공";
 
@@ -89,8 +92,13 @@ public class OauthController {
     @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위한 Oauth server url을 생성하여 내려줍니다")
     public ResponseEntity<ApiResponse<RedirectToKakaoResponseDto>> redirectToKakao(
             HttpServletRequest req,
-            HttpSession session) {
+            HttpSession session,
+            @Parameter(hidden = true)
+            @RequestHeader(value = "Referer", required = false) String referer
+    ) {
         LogPaint.sep("redirectToKakao handler 진입");
+
+        log.info("[테스트 목적] referer {}", referer); // 값이 있는지 테스트
 
         // TODO : 보안 검증 로직 Filter class로 빼기
         // 0) 프리페치/프리렌더 차단
@@ -102,6 +110,11 @@ public class OauthController {
 
         // 1) CSRF 핵심 방어: state 생성/세션 저장
         String stateCode = generateAndStoreState(session, "oauth_state");
+
+        // TODO : prod 환경일 때만 저장하도록 변경
+        // 1) 요청 origin 저장 (callback 처리 시점에 oauth_state 검증 후 사용)
+        String origin = extractOriginFromReferer(referer);
+        session.setAttribute("origin", origin);
 
         // 2) 리다이렉트 주소 생성
         String authorizeUrl = oauth2UseCase.AuthorizeUrl(OAuthProvider.KAKAO, stateCode);
@@ -122,9 +135,7 @@ public class OauthController {
     }
 
 
-    // 3. 카카오 콜백 처리 - 사용자 정보 session 저장
     // TODO : (나중에) pathVariable을 보고 OauthProvider에 OAuthProvider.KAKAO를 주입할지 OAuthProvider.NAVER을 주입할지 결정
-    // URL ex) GET /oauth/kakao/callback?code=AUTH_CODE&state=xxx (state는 카카오 로그인 리다이렉트 url에 param으로 붙인 값)
     @Operation(
             summary = "Oauth server callback 처리 (서버 <-> Oauth server 전용)",
             description = "사용자가 Kakao 인증을 끝마치면 보안 코드를 통해 사용자 정보에 접근하여 받고 session에 저장한 뒤 sessionId를 내려줍니다."
@@ -140,6 +151,8 @@ public class OauthController {
         String stateCode = kakaoCallbackRequestDto.code();
         String returnedState = kakaoCallbackRequestDto.state();
         String sessionState = (String) session.getAttribute("oauth_state"); // session에 저장된 state 값 꺼내서 비교 보안 검사 (예외 가능성)
+        String origin = (String) session.getAttribute("origin"); // origin에 따른 분기 시에 사용
+        session.removeAttribute("origin"); // origin 꺼낸 뒤에 session은 파괴
 
         log.info("callback url state parameter : {}", returnedState);
         log.info("client BE session 저장 state : {}", sessionState);
@@ -182,7 +195,7 @@ public class OauthController {
         if ("prod".equalsIgnoreCase(identifier)) {
             // 302 Redirect (쿠키는 이미 response에 set 되어 있으므로 그대로 전달됨)
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header(HttpHeaders.LOCATION, FRONT_ORIGIN) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
+                    .header(HttpHeaders.LOCATION, origin + FRONT_CALLBACK_PATH) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
                     .header(HttpHeaders.CACHE_CONTROL, "no-store") // 민감 응답 캐싱 방지(선택)
                     .body(null); // 반환 타입을 유지하기 위해 null 본문
         }
@@ -349,6 +362,26 @@ public class OauthController {
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private String extractOriginFromReferer(String referer) {
+        if (referer == null || referer.isBlank()) return null;
+
+        try {
+            URI uri = new URI(referer);
+            String scheme = uri.getScheme();  // http, https
+            String host = uri.getHost();      // localhost, example.com
+            int port = uri.getPort();         // -1이면 기본 포트
+
+            String origin = scheme + "://" + host;
+            if (port != -1 && port != 80 && port != 443) {
+                origin += ":" + port;
+            }
+
+            return origin;
+        } catch (URISyntaxException e) {
+            return null;
+        }
     }
 }
 
