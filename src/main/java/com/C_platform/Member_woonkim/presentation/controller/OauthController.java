@@ -53,6 +53,9 @@ public class OauthController {
     @Value("${app.identifier}")
     private String identifier;
 
+    @Value("${app.front-origin}")
+    private String FRONT_ORIGIN;
+
     private static final String LOGOUT_SUCCESS = "로그인 성공";
 
     private final OAuth2UseCase oauth2UseCase; // 주요 로직들 처리
@@ -179,8 +182,7 @@ public class OauthController {
         if ("prod".equalsIgnoreCase(identifier)) {
             // 302 Redirect (쿠키는 이미 response에 set 되어 있으므로 그대로 전달됨)
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header(HttpHeaders.LOCATION,
-                            "https://carhartt-usedtransactions-frontend.pages.dev/login/callback")
+                    .header(HttpHeaders.LOCATION, FRONT_ORIGIN) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
                     .header(HttpHeaders.CACHE_CONTROL, "no-store") // 민감 응답 캐싱 방지(선택)
                     .body(null); // 반환 타입을 유지하기 위해 null 본문
         }
