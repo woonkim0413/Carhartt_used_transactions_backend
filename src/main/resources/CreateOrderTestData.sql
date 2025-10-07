@@ -44,10 +44,13 @@ INSERT INTO ADDRESS (
          );
 
 -- ITEM (id=101)
+-- ITEM (id=1101)
 INSERT INTO ITEM (
-    CHEST, HEM, ITEM_PRICE, RISE_LENGTH, SHOULDER, SLEEVE, THIGH,
+    CHEST, HEM, ITEM_PRICE, RISE_LENGTH, SHOULDER, SLEEVE, THIGH, TOTAL_LENGTH,
+    MEMBER_ID,  -- ← 판매자 ID 추가!
     ITEM_ID, SIGNED_DATE, UPDATE_DATE, DTYPE, ITEM_NAME, ITEM_STATUS
 ) VALUES (
-             100, 45, 50000, 60, 50, 60, 55,
+             100, 45, 50000, 60, 50, 60, 55, 90,
+             1,  -- ← MEMBER_ID (판매자도 1번 회원으로)
              1101, '2025-01-01 10:00:00', NULL, 'Item', '테스트상품', 'FOR_SALE'
          );

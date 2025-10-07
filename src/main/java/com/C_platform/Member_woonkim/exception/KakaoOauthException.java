@@ -9,6 +9,6 @@ public class KakaoOauthException extends RuntimeException {
 
     public KakaoOauthException(ErrorCode code) {
         super(code.getMessage());
-        this.errorCode = getErrorCode();
+        this.errorCode = code;
     }
 }

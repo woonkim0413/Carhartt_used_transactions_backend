@@ -1,7 +1,8 @@
 package com.C_platform.config;
 
-import com.C_platform.Member_woonkim.application.service.CustomOAuth2UserService;
-import com.C_platform.Member_woonkim.application.service.OAuth2Service;
+import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
+import com.C_platform.Member_woonkim.domain.service.CustomOAuth2UserService;
+import com.C_platform.Member_woonkim.domain.service.OAuth2Service;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -46,8 +47,9 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/swagger-resources/**"
-            // "/v1/**"
+            "/swagger-resources/**",
+            "/h2-console/**" // H2 db를 test하기 위해 추가함
+            // "/v1/**" // 로그인 기능을 구현 완료, 로그인 후 api 사용
     };
 
     // 수정: 콜백 경로 추가
@@ -108,8 +110,8 @@ public class SecurityConfig {
 
     // todo 무슨 기능인지 공부 필요
     @Bean
-    public OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService(OAuth2Service oauth2Service) {
-        return new CustomOAuth2UserService(oauth2Service);
+    public OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService(OAuth2UseCase oAuth2UseCase) {
+        return new CustomOAuth2UserService(oAuth2UseCase);
     }
 
     @Bean
@@ -158,8 +160,17 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     http.csrf(csrf -> csrf
              .csrfTokenRepository(repo)
             // todo 아직 csrf 비교 구현 전이라 해당 코드로 csrf 비교 껐음 (csrf 구현 후 지우기)
-             .ignoringRequestMatchers("/v1/oauth/logout", "/v1/myPage/**")
+             .ignoringRequestMatchers(
+                     "/v1/oauth/logout",
+                     "/v1/oauth/login/check",
+                     "/v1/myPage/**",
+                     "/h2-console/**",
+                     "/v1/orders/**"
+             )
     );
+
+    // H2 콘솔이 사용하는 프레임 기능 활성화
+    http.headers(h -> h.frameOptions(f -> f.sameOrigin()));
 
     // GET 진입 시 토큰 쿠키 보장
     http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
@@ -176,7 +187,10 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
 
             .requestMatchers(SWAGGER_WHITELIST).permitAll()
             .requestMatchers(AUTH_WHITELIST).permitAll()
+
+            // 로그인 관련 허용 경로
             .requestMatchers("/v1/oauth/logout").permitAll()
+            .requestMatchers("/v1/oauth/login/check").permitAll()
 
             // ✅ 주문 생성 API 실제 경로 허용
             .requestMatchers("/api/order").permitAll()
@@ -184,6 +198,8 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             // === 깡통 결제 API 전용 전체 허용 ===
             .requestMatchers("/v1/order/*/payment/**").permitAll()
             .requestMatchers("/v1/payment/**").permitAll()
+
+
 
             //마지막으로 anyRequest가 와야 함
             .anyRequest().authenticated()
