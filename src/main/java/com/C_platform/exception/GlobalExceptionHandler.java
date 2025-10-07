@@ -58,7 +58,7 @@ public class GlobalExceptionHandler {
         MetaData meta = MetaData.builder()
                 .timestamp(LocalDateTime.now())
                 .build();
-        return ResponseEntity.badRequest().body(ApiResponse.fail(errorBody, meta));
+        return ResponseEntity.ok(ApiResponse.fail(errorBody, meta));
     }
 
     @ExceptionHandler(InvalidImageExtensionException.class)

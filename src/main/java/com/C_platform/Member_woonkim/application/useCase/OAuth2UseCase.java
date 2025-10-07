@@ -2,9 +2,11 @@ package com.C_platform.Member_woonkim.application.useCase;
 
 import com.C_platform.Member_woonkim.application.port.OauthClientPort;
 import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
+import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.domain.service.MemberJoinService;
 import com.C_platform.Member_woonkim.domain.service.OAuth2Service;
+import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.infrastructure.parser_and_register.ParserRegistry;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LoginProviderResponseDto;
@@ -26,6 +28,9 @@ public class OAuth2UseCase {
     private final ParserRegistry parserRegistry; /// Resource server Json을 Dto로 만들어줄 전용 Parser을 Provider에 따라 반환
 
     private final MemberJoinService memberJoinService; /// 기존 회원 유무에 따른 서비스 제공
+
+    private final MemberRepository MemberRepository;
+    private final MemberRepository memberRepository;
 
     // getLoginProviders에서 호출
     public List<LoginProviderResponseDto> loginProviderList() {
@@ -66,4 +71,9 @@ public class OAuth2UseCase {
         );
     }
 
+    public Member getMemberBySessionInfo (OAuth2UserInfoDto loginInfoBySession) {
+        return memberRepository
+                .findByOauthProviderAndOauthId(loginInfoBySession.getProvider(), loginInfoBySession.getId())
+                .orElse(null);
+    }
 }

@@ -1,5 +1,6 @@
 app:
   base-url: http://43.203.218.247:8080/v1/
+  identifier : local
 
 spring:
   security:
