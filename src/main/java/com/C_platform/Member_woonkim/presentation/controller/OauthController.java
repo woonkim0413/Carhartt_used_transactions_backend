@@ -344,7 +344,7 @@ public class OauthController {
      * https가 아니므로 sucre = false
      **/
     private static void writeSessionCookie(HttpServletResponse response, HttpSession session) {
-        writeSessionCookie(response, session, false, 1209600, "Lax"); // 14일
+        writeSessionCookie(response, session, false, 1209600, "None"); // 14일
     }
 
     // writeSessionCookie에서 호출
@@ -355,7 +355,7 @@ public class OauthController {
             long maxAgeSeconds,
             String sameSite // "Lax" | "Strict" | "None"
     ) {
-        ResponseCookie cookie = ResponseCookie.from("SESSION", session.getId())
+        ResponseCookie cookie = ResponseCookie.from("JSESSIONID", session.getId())
                 .httpOnly(true)
                 .secure(secure)
                 .sameSite(sameSite)

@@ -16,6 +16,12 @@ permissions:
     group: root
 
 hooks:
+  # Nginx 준비 먼저 진행 (없으면 설치 + 심볼릭 링크 보장)
+  BeforeInstall:
+    - location: scripts/nginx_setup.sh
+      timeout: 120
+      runas: root
+
   AfterInstall:
     - location: scripts/deploy.sh # 실행할 스크립트
       timeout: 60
