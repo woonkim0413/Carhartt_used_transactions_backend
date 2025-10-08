@@ -59,7 +59,7 @@ public class OauthController {
     @Value("${app.front-callback-path}")
     private String FRONT_CALLBACK_PATH;
 
-    private static final String LOGOUT_SUCCESS = "로그인 성공";
+    private static final String LOGOUT_SUCCESS = "로그아웃 성공";
 
     private final OAuth2UseCase oauth2UseCase; // 주요 로직들 처리
 
@@ -98,7 +98,8 @@ public class OauthController {
     ) {
         LogPaint.sep("redirectToKakao handler 진입");
 
-        log.info("[테스트 목적] referer {}", referer); // 값이 있는지 테스트
+        log.info("[디버깅 목적] referer {}", referer); // 값이 있는지 테스트
+        log.info("[디버깅 목적] JsessionId {}", session.getId()); // 값이 있는지 테스트
 
         // TODO : 보안 검증 로직 Filter class로 빼기
         // 0) 프리페치/프리렌더 차단
@@ -115,6 +116,7 @@ public class OauthController {
         // 1) 요청 origin 저장 (callback 처리 시점에 oauth_state 검증 후 사용)
         String origin = extractOriginFromReferer(referer);
         session.setAttribute("origin", origin);
+        log.info("[디버깅 목적] origin {}", origin); // 값이 있는지 테스트
 
         // 2) 리다이렉트 주소 생성
         String authorizeUrl = oauth2UseCase.AuthorizeUrl(OAuthProvider.KAKAO, stateCode);
