@@ -2,7 +2,6 @@ package com.C_platform.config;
 
 import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.service.CustomOAuth2UserService;
-import com.C_platform.Member_woonkim.domain.service.OAuth2Service;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,6 +30,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 
 import java.util.List;
 
@@ -51,6 +51,11 @@ public class SecurityConfig {
             "/h2-console/**" // H2 db를 test하기 위해 추가함
             // "/v1/**" // 로그인 기능을 구현 완료, 로그인 후 api 사용
     };
+
+    @Bean
+    ForwardedHeaderFilter forwardedHeaderFilter() {
+        return new ForwardedHeaderFilter();
+    }
 
     // 수정: 콜백 경로 추가
     private static final String[] AUTH_WHITELIST = {
