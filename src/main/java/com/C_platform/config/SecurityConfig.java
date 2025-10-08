@@ -151,9 +151,8 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             CookieCsrfTokenRepository.withHttpOnlyFalse();
     repo.setCookieName("XSRF-TOKEN");
     repo.setCookiePath("/");
-    // todo 아직 https로 통신을 보호하고 있지 않으므로 주석 처리해야 정상 테스트 가능 (https 구현 후 지우기)
-    // repo.setSecure(true);
-    repo.setCookieCustomizer(c -> c.sameSite("Lax"));
+    repo.setSecure(true);
+    repo.setCookieCustomizer(c -> c.sameSite("None"));
 
     // csrf-token을 spring이 관리/검증하도록 인가
     http.csrf(csrf -> csrf
