@@ -7,6 +7,7 @@ import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationProper
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -84,6 +85,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(List.of(
+                "https://carhartt-usedtransactions.com",
+                "http://carhartt-usedtransactions.com",
                 "http://localhost:3000",
                 "http://localhost:8080",
                 // 프론트 서버 Origin 추가 (5713 -> 5173 변경)
@@ -187,7 +190,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
 
     // 인가(인가 규칙)
     http.authorizeHttpRequests(auth -> auth
-
+            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // 상태 변경 요청 전에 “프리플라이트(OPTIONS)에 대해 허용
             .requestMatchers(SWAGGER_WHITELIST).permitAll()
             .requestMatchers(AUTH_WHITELIST).permitAll()
 
@@ -201,8 +204,6 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             // === 깡통 결제 API 전용 전체 허용 ===
             .requestMatchers("/v1/order/*/payment/**").permitAll()
             .requestMatchers("/v1/payment/**").permitAll()
-
-
 
             //마지막으로 anyRequest가 와야 함
             .anyRequest().authenticated()
