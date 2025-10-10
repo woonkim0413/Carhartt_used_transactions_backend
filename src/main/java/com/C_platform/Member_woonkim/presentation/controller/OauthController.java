@@ -93,13 +93,13 @@ public class OauthController {
     public ResponseEntity<ApiResponse<RedirectToKakaoResponseDto>> redirectToKakao(
             HttpServletRequest req,
             HttpSession session,
-            @Parameter(hidden = true)
+            @Parameter(hidden = true) // swwagger ui에 표시 안 함
             @RequestHeader(value = "Referer", required = false) String referer
     ) {
         LogPaint.sep("redirectToKakao handler 진입");
 
         log.info("[디버깅 목적] referer {}", referer); // 값이 있는지 테스트
-        log.info("[디버깅 목적] JsessionId {}", session.getId()); // 값이 있는지 테스트
+        log.info("[디버깅 목적] redirectUrl handler JSESSIONID {}", session.getId()); // 값이 있는지 테스트
 
         // TODO : 보안 검증 로직 Filter class로 빼기
         // 0) 프리페치/프리렌더 차단
@@ -156,8 +156,8 @@ public class OauthController {
         String origin = (String) session.getAttribute("origin"); // origin에 따른 분기 시에 사용
         session.removeAttribute("origin"); // origin 꺼낸 뒤에 session은 파괴
 
-        log.info("callback url state parameter : {}", returnedState);
-        log.info("client BE session 저장 state : {}", sessionState);
+        log.info("[디버깅 목적] callback url query parameter oauth_state 값 : {}", returnedState);
+        log.info("[디버깅 목적] server session에 저장했던 oauth_state 값 : {}", sessionState);
 
         // TODO : 예외 생성
         checkStateValidation(sessionState, returnedState); // req param과 session state 비교
@@ -178,12 +178,13 @@ public class OauthController {
         // 3. 사용자 정보 세션에 저장
         session.setAttribute("user", userInfo);
 
+        log.info("[디버깅 목적] callback handler JSESSIONID {}", session.getId());
         log.info("[새로 가입한 회원 : {}] / [이름 {}] / [닉네임 {}] [sessionId : {}]",
                 isNew, member.getName(), member.getNickname(), session.getId());
 
-        // TODO : 세션 로직 따로 클래스 빼기
-        // 5. set-cookies header 추가하기 위한 객체 생성
-        writeSessionCookie(response, session);
+        // TODO : 필요 없다면 주석 처리 + 필요 하다면 local, prod 환경에 따라 분기하도록 작성
+        // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
+        // writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
 
         // 공통 응답 생성을 위한 meta 생성
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
@@ -304,7 +305,7 @@ public class OauthController {
     private static String generateAndStoreState(HttpSession session, String sessionName) {
         String state = UUID.randomUUID().toString();
         session.setAttribute(sessionName, state);
-        log.info("session에 state 저장 완료 : {}", state);
+        log.info("[디버깅 목적] session에 저장한 oauth_state 값 : {}", state);
         return state;
     }
 
@@ -345,7 +346,7 @@ public class OauthController {
      * https가 아니므로 sucre = false
      **/
     private static void writeSessionCookie(HttpServletResponse response, HttpSession session) {
-        writeSessionCookie(response, session, false, 1209600, "None"); // 14일
+        writeSessionCookie(response, session, true, 1209600, "None"); // 14일
     }
 
     // writeSessionCookie에서 호출
