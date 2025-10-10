@@ -1,8 +1,20 @@
+# prod 메타 정보
 app:
   base-url: https://carhartt-usedtransactions.com/v1/
   identifier : prod
   front-callback-path : /login/callback
 
+# prod 세션 관련 설정
+server:
+  servlet:
+    session:
+      cookie:
+        name: JSESSIONID
+        http-only: true
+        secure: true
+        same-site: none
+
+# prod 세션 관련 설정
 spring:
   security:
     oauth2:
