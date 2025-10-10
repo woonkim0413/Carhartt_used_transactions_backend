@@ -104,7 +104,7 @@ public class SecurityConfig {
                 "http://localhost:5173"
         ));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(List.of("Content-Type", "X-Requested-With", "X-XSRF-TOKEN", "Authorization"));
+        cfg.setAllowedHeaders(List.of("*"));
         cfg.setAllowCredentials(true); // 세션/쿠키 쓰므로 true
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
