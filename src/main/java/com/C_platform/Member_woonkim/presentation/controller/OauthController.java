@@ -196,6 +196,7 @@ public class OauthController {
         // EC2에서 요청을 보내는 경우 반환 (환경 파일에 적혀져 있는 값을 통해서 분기)
         if ("prod".equalsIgnoreCase(identifier)) {
             // 302 Redirect (쿠키는 이미 response에 set 되어 있으므로 그대로 전달됨)
+            log.info("[(로그인 후) redirect origin] = {}", origin + FRONT_CALLBACK_PATH);
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header(HttpHeaders.LOCATION, origin + FRONT_CALLBACK_PATH) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
                     .header(HttpHeaders.CACHE_CONTROL, "no-store") // 민감 응답 캐싱 방지(선택)
