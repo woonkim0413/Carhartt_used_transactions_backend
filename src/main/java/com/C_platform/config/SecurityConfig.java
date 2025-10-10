@@ -4,6 +4,7 @@ import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.service.CustomOAuth2UserService;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -43,6 +44,9 @@ import java.util.List;
 })
 public class SecurityConfig {
 
+    @Value("${app.identifier}")
+    private String identifier;
+
     // === 화이트리스트 ===
     private static final String[] SWAGGER_WHITELIST = {
             "/v3/api-docs/**",
@@ -52,6 +56,11 @@ public class SecurityConfig {
             "/h2-console/**" // H2 db를 test하기 위해 추가함
             // "/v1/**" // 로그인 기능을 구현 완료, 로그인 후 api 사용
     };
+
+    // 현재 환경이 local인지 ec2인지 검사
+    private boolean isLocal() {
+        return "local".equalsIgnoreCase(identifier);
+    }
 
     @Bean
     ForwardedHeaderFilter forwardedHeaderFilter() {
@@ -159,7 +168,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             CookieCsrfTokenRepository.withHttpOnlyFalse();
     repo.setCookieName("XSRF-TOKEN");
     repo.setCookiePath("/");
-    repo.setSecure(true);
+    repo.setSecure(!isLocal()); // 배포 환경에 따라 분기 (local - false / prod - true)
     repo.setCookieCustomizer(c -> c.sameSite("None"));
 
     // csrf-token을 spring이 관리/검증하도록 인가
