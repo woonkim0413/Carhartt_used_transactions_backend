@@ -15,6 +15,7 @@ import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.KakaoCallbac
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.LogoutRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.*;
 import com.C_platform.Member_woonkim.utils.CreateMetaData;
+import com.C_platform.Member_woonkim.utils.InMemoryOauthSateStore;
 import com.C_platform.Member_woonkim.utils.LogPaint;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
@@ -67,6 +68,8 @@ public class OauthController {
 
     private final OauthAssembler oauthAssembler; // 응답 dto 생성
 
+    private final InMemoryOauthSateStore inMemoryOauthSateStore;
+
     // Kakao/Naver 로그인 공급자 목록 반환
     @GetMapping("/oauth/login")
     @Operation(summary = "로그인 방식 (Oauths, local) 목록 출력", description = " 서비스가 지원하는 로그인 방식을 조회 합니다.")
@@ -92,14 +95,12 @@ public class OauthController {
     @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위한 Oauth server url을 생성하여 내려줍니다")
     public ResponseEntity<ApiResponse<RedirectToKakaoResponseDto>> redirectToKakao(
             HttpServletRequest req,
-            HttpSession session,
             @Parameter(hidden = true) // swwagger ui에 표시 안 함
             @RequestHeader(value = "Referer", required = false) String referer
     ) {
         LogPaint.sep("redirectToKakao handler 진입");
 
         log.info("[디버깅 목적] referer {}", referer); // 값이 있는지 테스트
-        log.info("[디버깅 목적] redirectUrl handler JSESSIONID {}", session.getId()); // 값이 있는지 테스트
 
         // TODO : 보안 검증 로직 Filter class로 빼기
         // 0) 프리페치/프리렌더 차단
@@ -109,14 +110,15 @@ public class OauthController {
                     .build(); // 204
         }
 
-        // 1) CSRF 핵심 방어: state 생성/세션 저장
-        String stateCode = generateAndStoreState(session, "oauth_state");
 
         // TODO : prod 환경일 때만 저장하도록 변경
         // 1) 요청 origin 저장 (callback 처리 시점에 oauth_state 검증 후 사용)
         String origin = extractOriginFromReferer(referer);
-        session.setAttribute("origin", origin);
         log.info("[디버깅 목적] origin {}", origin); // 값이 있는지 테스트
+
+        // 1) CSRF 핵심 방어: state 생성/세션 저장
+        // TODO : oauth , origin 값 session 저장 -> InMemory 저장 구조로 바꿔서 서브 파티션에서 쿠키 미적재 문제 우회
+        String stateCode = generateAndStoreState(inMemoryOauthSateStore, origin);
 
         // 2) 리다이렉트 주소 생성
         String authorizeUrl = oauth2UseCase.AuthorizeUrl(OAuthProvider.KAKAO, stateCode);
@@ -145,22 +147,19 @@ public class OauthController {
     @GetMapping("/oauth/kakao/callback")
     public ResponseEntity<ApiResponse<CallBackResponseDto>> kakaoCallback(
             @Valid @ModelAttribute KakaoCallbackRequestDto kakaoCallbackRequestDto,
-            HttpSession session,
-            HttpServletResponse response
+            HttpSession session
     ) throws IOException {
         LogPaint.sep("kakaoCallback 진입");
 
-        String stateCode = kakaoCallbackRequestDto.code();
-        String returnedState = kakaoCallbackRequestDto.state();
-        String sessionState = (String) session.getAttribute("oauth_state"); // session에 저장된 state 값 꺼내서 비교 보안 검사 (예외 가능성)
-        String origin = (String) session.getAttribute("origin"); // origin에 따른 분기 시에 사용
-        session.removeAttribute("origin"); // origin 꺼낸 뒤에 session은 파괴
+        String stateCode = kakaoCallbackRequestDto.code(); // 카카오 Authorization code
+        String returnedState = kakaoCallbackRequestDto.state(); // CSRF 보안 목적 oauth_state code
+        String origin = inMemoryOauthSateStore.get(returnedState); // session에 저장된 state 값 꺼내서 비교 보안 검사 (예외 가능성)
 
         log.info("[디버깅 목적] callback url query parameter oauth_state 값 : {}", returnedState);
-        log.info("[디버깅 목적] server session에 저장했던 oauth_state 값 : {}", sessionState);
+        log.info("[디버깅 목적] origin {}", origin);
 
         // TODO : 예외 생성
-        checkStateValidation(sessionState, returnedState); // req param과 session state 비교
+        checkStateValidation(origin); // req param과 session state 비교
 
         session.removeAttribute("oauth_state"); // state는 더 이상 쓸모없으니 세션에서 제거, session 이름은 redirect에서 만든 세션 이름과 동일해야 함
 
@@ -284,8 +283,8 @@ public class OauthController {
     }
 
     // kakaoCallback handler에서 사용
-    private static void checkStateValidation(String sessionState, String returnedState) {
-        if (sessionState == null || !sessionState.equals(returnedState)) {
+    private static void checkStateValidation(String origin) {
+        if (origin == null) {
             log.warn("❌ CSRF 의심: 세션의 state와 리턴된 state가 다릅니다.");
             // 실패 resopnse 만들어 반환하기
             throw new KakaoOauthException(KakaoOauthErrorCode.C002);
@@ -302,11 +301,11 @@ public class OauthController {
     }
 
     // (1) state 생성 후 세션 저장
-    private static String generateAndStoreState(HttpSession session, String sessionName) {
-        String state = UUID.randomUUID().toString();
-        session.setAttribute(sessionName, state);
-        log.info("[디버깅 목적] session에 저장한 oauth_state 값 : {}", state);
-        return state;
+    private static String generateAndStoreState (InMemoryOauthSateStore inMemoryOauthSateStore, String origin) {
+        String oauth_state = UUID.randomUUID().toString();
+        inMemoryOauthSateStore.put(oauth_state, origin);
+        log.info("[디버깅 목적] InMemory에 저장한 oauth_state 값 : {}", oauth_state);
+        return oauth_state;
     }
 
     // 로그인 정보를 확인하기 위해 customOAuth2User에 정보 등록
