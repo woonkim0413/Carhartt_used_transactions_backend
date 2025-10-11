@@ -5,6 +5,7 @@ import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.order.domain.Order;
+import com.C_platform.wish.domain.Wish;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

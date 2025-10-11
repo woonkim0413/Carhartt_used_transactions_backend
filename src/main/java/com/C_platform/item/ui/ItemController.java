@@ -9,7 +9,10 @@ import com.C_platform.item.ui.dto.CreateItemRequestDto;
 import com.C_platform.item.ui.dto.ItemDetailResponseDto;
 import com.C_platform.global.PageResponseDto;
 import com.C_platform.item.ui.dto.ItemListResponseDto;
+import com.C_platform.item.ui.dto.MySoldItemResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,11 +25,13 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/v1")
 @RequiredArgsConstructor
+@Tag(name = "Item", description = "아이템 API")
 public class ItemController {
 
     private final ItemUseCase itemUseCase;
@@ -103,6 +108,21 @@ public class ItemController {
         Page<ItemListResponseDto> items = itemUseCase.findItems(keyword, pageable);
         PageResponseDto<ItemListResponseDto> responseDto = PageResponseDto.of(items);
         return ResponseEntity.ok().body(ApiResponse.success(responseDto, getMetaData()));
+    }
+
+    //TODO 회원이 본인이 판매 및 판매완료 한 제품 정보 표시
+    @GetMapping("/items/mysolditems")
+    @Operation(summary = "회원 본인이 판매 및 판매 완료한 상품 목록 조회", description = "인증된 회원이 판매했거나 판매 완료한 상품 목록을 조회합니다.")
+    public ResponseEntity<ApiResponse<?>> getMySoldItems(
+            @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
+
+        extracted(customOAuth2User);
+
+        Long memberId = customOAuth2User.getMemberId();
+
+        List<MySoldItemResponseDto> mySoldItems = itemUseCase.getMySoldItems(memberId);
+
+        return ResponseEntity.ok().body(ApiResponse.success(mySoldItems, getMetaData()));
     }
 
 
