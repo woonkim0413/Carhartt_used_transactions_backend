@@ -95,7 +95,6 @@ public class SecurityConfig {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(List.of(
                 "https://carhartt-usedtransactions.com",
-                "http://carhartt-usedtransactions.com",
                 "http://localhost:3000",
                 "http://localhost:8080",
                 // 프론트 서버 Origin 추가 (5713 -> 5173 변경)

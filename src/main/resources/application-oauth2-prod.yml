@@ -13,6 +13,10 @@ server:
         http-only: true
         secure: true
         same-site: none
+  # 프록시가 붙여주는 헤더들을 spring이 신뢰하도록 하는 설정
+  forward-headers-strategy: framework
+
+
 
 # prod 세션 관련 설정
 spring:
