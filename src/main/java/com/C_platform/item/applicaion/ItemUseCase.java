@@ -13,6 +13,7 @@ import com.C_platform.item.infrastructure.ItemRepository;
 import com.C_platform.item.ui.dto.CreateItemRequestDto;
 import com.C_platform.item.ui.dto.ItemDetailResponseDto;
 import com.C_platform.item.ui.dto.ItemListResponseDto;
+import com.C_platform.item.ui.dto.MySoldItemResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +22,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -149,4 +152,17 @@ public class ItemUseCase {
         }
         return items.map(ItemListResponseDto::of);
     }
+
+    @Transactional(readOnly = true)
+    public List<MySoldItemResponseDto> getMySoldItems(Long memberId) {
+        Member findMember = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalStateException("존재하지 않는 회원입니다."));
+
+        List<Item> items = itemRepository.findByMemberAndStatusIn(findMember, List.of(ItemStatus.FOR_SALE, ItemStatus.SOLD_OUT));
+
+        return items.stream()
+                .map(MySoldItemResponseDto::from)
+                .collect(Collectors.toList());
+    }
+
 }

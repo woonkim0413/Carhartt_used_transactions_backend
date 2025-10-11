@@ -40,6 +40,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ApiResponse.fail(errorBody, meta));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        log.error("Illegal argument error: {}", ex.getMessage());
+        ArrayList<Detail> details = new ArrayList<>();
+        details.add(new Detail("argument", ex.getMessage()));
+
+        ErrorBody<ErrorCode> errorBody = new ErrorBody<>(CommonErrorCode.INVALID_PARAMETER, details);
+        MetaData meta = MetaData.builder()
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.badRequest().body(ApiResponse.fail(errorBody, meta));
+    }
+
     @ExceptionHandler(NoHandlerFoundException.class)
     public void handleNoHandlerFoundException(NoHandlerFoundException ex) {
         log.error("No handler found: {}", ex.getMessage());
@@ -93,5 +106,8 @@ public class GlobalExceptionHandler {
         log.error("Payment error: {}", ex.getMessage());
         return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
     }
+
+
+
 }
 
