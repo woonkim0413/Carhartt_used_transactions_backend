@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.presentation.Assembler;
+package com.C_platform.Member_woonkim.presentation.dtoAssembler;
 
 import com.C_platform.Member_woonkim.domain.entitys.Address;
 import com.C_platform.Member_woonkim.presentation.dto.address.response.AddressItemDto;

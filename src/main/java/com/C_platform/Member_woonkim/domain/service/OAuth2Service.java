@@ -24,6 +24,8 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 
+import static org.springframework.web.reactive.function.server.RequestPredicates.queryParam;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -61,7 +63,7 @@ public class OAuth2Service {
                 .fromUriString(providerConfig.authorizationUri())
                 .queryParam("response_type", "code")
                 .queryParam("client_id", registration.clientId())
-                .queryParam("redirect_uri", baseUrl + "oauth/kakao/callback")
+                .queryParam("redirect_uri", registration.redirectUri())
                 .queryParam("state", state);
 
         // 쿠키에 sessionId가 있을 때를 test하기 위해서 주석

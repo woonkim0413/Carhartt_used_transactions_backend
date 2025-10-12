@@ -4,7 +4,7 @@ package com.C_platform.Member_woonkim.presentation.controller;
 import com.C_platform.Member_woonkim.application.useCase.AddressUseCase;
 import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
 import com.C_platform.Member_woonkim.domain.entitys.Address;
-import com.C_platform.Member_woonkim.presentation.Assembler.AddressAssembler;
+import com.C_platform.Member_woonkim.presentation.dtoAssembler.AddressAssembler;
 import com.C_platform.Member_woonkim.presentation.dto.address.request.AddAddressRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.address.response.AddAddressResponseDto;
 import com.C_platform.Member_woonkim.presentation.dto.address.response.DeleteAddressResponseDto;

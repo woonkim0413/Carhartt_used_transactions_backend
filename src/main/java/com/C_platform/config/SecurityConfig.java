@@ -72,7 +72,7 @@ public class SecurityConfig {
             "/v1",
             "/v1/main",
             "/v1/oauth/login",
-            "/v1/oauth/login/kakao",
+            "/v1/oauth/login/*",
             "/v1/oauth/login/local",
             "/v1/oauth/kakao/callback"
     };

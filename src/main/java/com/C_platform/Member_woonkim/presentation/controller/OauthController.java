@@ -10,7 +10,7 @@ import com.C_platform.Member_woonkim.domain.interfaces.Provider;
 import com.C_platform.Member_woonkim.exception.KakaoOauthErrorCode;
 import com.C_platform.Member_woonkim.exception.KakaoOauthException;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
-import com.C_platform.Member_woonkim.presentation.Assembler.OauthAssembler;
+import com.C_platform.Member_woonkim.presentation.dtoAssembler.OauthAssembler;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.KakaoCallbackRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.LogoutRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.*;
@@ -93,12 +93,13 @@ public class OauthController {
     @GetMapping("/oauth/login/{provider}")
     // todo : responseDto 생성 필요
     @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위한 Oauth server url을 생성하여 내려줍니다")
-    public ResponseEntity<ApiResponse<RedirectToKakaoResponseDto>> redirect(
+    public ResponseEntity<ApiResponse<CreateRedirectUriResponseDto>> createRedirectUri(
+            @PathVariable String provider,
             HttpServletRequest req,
             @Parameter(hidden = true) // swwagger ui에 표시 안 함
             @RequestHeader(value = "Referer", required = false) String referer
     ) {
-        LogPaint.sep("redirectToKakao handler 진입");
+        LogPaint.sep("createRedirectUri handler 진입");
 
         log.info("[디버깅 목적] referer {}", referer); // 값이 있는지 테스트
 
@@ -110,7 +111,7 @@ public class OauthController {
                     .build(); // 204
         }
 
-        // TODO : prod 환경일 때만 저장하도록 변경
+        // TODO : cors 환경일 때만 저장하도록 변경
         // 1) 요청 origin 저장 (callback 처리 시점에 oauth_state 검증 후 사용)
         String origin = extractOriginFromReferer(referer);
         log.info("[디버깅 목적] origin {}", origin); // 값이 있는지 테스트
@@ -119,13 +120,14 @@ public class OauthController {
         // TODO : oauth , origin 값 session 저장 -> InMemory 저장 구조로 바꿔서 서브 파티션에서 쿠키 미적재 문제 우회
         String stateCode = generateAndStoreState(inMemoryOauthSateStore, origin);
 
-        // 2) 리다이렉트 주소 생성
-        String authorizeUrl = oauth2UseCase.AuthorizeUrl(OAuthProvider.KAKAO, stateCode);
+        // 2) 리다이렉트 주소 생성 ; oauthProvider 값에 맞춰서 uri 생성
+        OAuthProvider oauthProvider = getOauthProvider(provider);
+        String authorizeUrl = oauth2UseCase.AuthorizeUrl(oauthProvider, stateCode);
         log.info("카카오 로그인 리다이렉트 생성 : {}", authorizeUrl);
 
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
 
-        RedirectToKakaoResponseDto redirectToKakaoResponseDto =
+        CreateRedirectUriResponseDto redirectToKakaoResponseDto =
                 assembler.getRedirectToKakaoResponseDto(authorizeUrl);
 
         LogPaint.sep("redirectToKakao handler 이탈");
@@ -136,7 +138,6 @@ public class OauthController {
                 .header(HttpHeaders.PRAGMA, "no-cache")
                 .body(ApiResponse.success(redirectToKakaoResponseDto, meta));
     }
-
 
     // TODO : (나중에) pathVariable을 보고 OauthProvider에 OAuthProvider.KAKAO를 주입할지 OAuthProvider.NAVER을 주입할지 결정
     @Operation(
@@ -280,6 +281,16 @@ public class OauthController {
     private static String nvl(String s) {
         return s == null ? "" : s;
     }
+
+    // pathVariable로 들어온 provider에 따라 OauthProvider Enum을 반환하는 method
+    private static OAuthProvider getOauthProvider(String provider) {
+        return switch (provider) {
+            case "kakao" -> OAuthProvider.KAKAO;
+            case "naver" -> OAuthProvider.NAVER;
+            default -> throw new IllegalArgumentException("current Unsupported provider: " + provider);
+        };
+    }
+
 
     // kakaoCallback handler에서 사용
     private static void checkStateValidation(String origin) {

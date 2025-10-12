@@ -2,7 +2,7 @@ package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.MyPageUseCase;
 import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
-import com.C_platform.Member_woonkim.presentation.Assembler.MyPageAssembler;
+import com.C_platform.Member_woonkim.presentation.dtoAssembler.MyPageAssembler;
 import com.C_platform.Member_woonkim.presentation.dto.myPage.request.ChangeNicknameRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.myPage.response.ChangeNicknameResponseDto;
 import com.C_platform.Member_woonkim.utils.CreateMetaData;
