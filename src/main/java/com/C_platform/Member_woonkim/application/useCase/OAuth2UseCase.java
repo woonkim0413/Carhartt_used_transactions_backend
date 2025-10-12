@@ -25,11 +25,12 @@ public class OAuth2UseCase {
     // TODO : (나중에) Runtime에 OauthProvider에 의해 DI를 다르게 주입 받는 방식 찾기
     private final OauthClientPort oauthClientPort;
 
-    private final ParserRegistry parserRegistry; /// Resource server Json을 Dto로 만들어줄 전용 Parser을 Provider에 따라 반환
+    private final ParserRegistry parserRegistry;
+    /// Resource server Json을 Dto로 만들어줄 전용 Parser을 Provider에 따라 반환
 
-    private final MemberJoinService memberJoinService; /// 기존 회원 유무에 따른 서비스 제공
+    private final MemberJoinService memberJoinService;
+    /// 기존 회원 유무에 따른 서비스 제공
 
-    private final MemberRepository MemberRepository;
     private final MemberRepository memberRepository;
 
     // getLoginProviders에서 호출
@@ -63,7 +64,7 @@ public class OAuth2UseCase {
     }
 
     public JoinOrLoginResult ensureOAuthMember(OAuth2UserInfoDto userInfo, OAuthProvider provider) {
-        return memberJoinService.ensureOAuthMember (
+        return memberJoinService.ensureOAuthMember(
                 provider,
                 userInfo.getId(),
                 userInfo.getName(),
@@ -71,7 +72,7 @@ public class OAuth2UseCase {
         );
     }
 
-    public Member getMemberBySessionInfo (OAuth2UserInfoDto loginInfoBySession) {
+    public Member getMemberBySessionInfo(OAuth2UserInfoDto loginInfoBySession) {
         return memberRepository
                 .findByOauthProviderAndOauthId(loginInfoBySession.getProvider(), loginInfoBySession.getId())
                 .orElse(null);

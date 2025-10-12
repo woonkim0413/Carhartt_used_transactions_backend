@@ -4,8 +4,6 @@ import com.C_platform.Member_woonkim.application.port.OauthClientPort;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
-import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
-import com.C_platform.Member_woonkim.infrastructure.parser_and_register.ParserRegistry;
 import com.C_platform.Member_woonkim.utils.OauthProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,8 +27,6 @@ public class KakaoOAuthClient implements OauthClientPort {
 
     private final RestTemplate restTemplate; /// Request API와 관련된 Utils 객체
 
-    private final ParserRegistry parserRegistry; /// Resource server Json을 Dto로 만들어줄 전용 Parser을 Provider에 따라 반환
-
     @Override
     public OAuthProvider getProvider() {
         return OAuthProvider.KAKAO;
@@ -51,7 +47,7 @@ public class KakaoOAuthClient implements OauthClientPort {
         String body = UriComponentsBuilder.newInstance()
                 .queryParam("grant_type", "authorization_code")
                 .queryParam("client_id", registration.clientId())
-                .queryParam("redirect_uri", registration.redirectUri())
+                .queryParam("redirect_uri", registration.redirectUri()) // 되돌아올 서버 url
                 .queryParam("code", stateCode)
                 .queryParam("client_secret", registration.clientSecret())
                 .build()

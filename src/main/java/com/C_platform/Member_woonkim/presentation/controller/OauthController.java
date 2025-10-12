@@ -88,12 +88,12 @@ public class OauthController {
         return ResponseEntity.ok(ApiResponse.success(providers, meta));
     }
 
-    // 2. 카카오 로그인 리다이렉트 url 생성
+    // 2. oauth 리다이렉트 url 생성
     // response.redirect()에서 IOException check error가 발생할 수 있기에 throws 선언 필수
-    @GetMapping("/oauth/login/kakao")
+    @GetMapping("/oauth/login/{provider}")
     // todo : responseDto 생성 필요
     @Operation(summary = "카카오 로그인", description = "카카오 로그인을 위한 Oauth server url을 생성하여 내려줍니다")
-    public ResponseEntity<ApiResponse<RedirectToKakaoResponseDto>> redirectToKakao(
+    public ResponseEntity<ApiResponse<RedirectToKakaoResponseDto>> redirect(
             HttpServletRequest req,
             @Parameter(hidden = true) // swwagger ui에 표시 안 함
             @RequestHeader(value = "Referer", required = false) String referer
@@ -109,7 +109,6 @@ public class OauthController {
                     .header(HttpHeaders.CACHE_CONTROL, "no-store")
                     .build(); // 204
         }
-
 
         // TODO : prod 환경일 때만 저장하도록 변경
         // 1) 요청 origin 저장 (callback 처리 시점에 oauth_state 검증 후 사용)
