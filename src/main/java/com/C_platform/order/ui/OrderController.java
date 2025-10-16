@@ -37,6 +37,8 @@ public class OrderController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<CreateOrderResponse>> createOrder(
             @Valid @RequestBody CreateOrderRequest req,
+            //인증/인가 구현 이후 주석 풀기
+            //@AuthenticationPrincipal CustomUserDetails userDetails)
             HttpSession session,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId,
             @RequestHeader(value = "X-Dev-User-Id", required = false) Long devUserId,  // 임시 우회용
@@ -89,7 +91,7 @@ public class OrderController {
 
     @Operation(summary = "결제 완료된 주문의 상세 상품 정보 조회")
     // 💡 GET /v1/orders/{orderId}/item 패턴 사용
-    @GetMapping("/order/{orderId}/item")
+    @GetMapping("/v1/order/{orderId}/item")
     public ResponseEntity<OrderCompletionResponse> getCompletedOrderItem(
             @PathVariable Long orderId
             //@Authentication Long currentUserId // 현재 로그인한 사용자 (권한 검사용)

@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Payment", description = "PG 연동 결제 API")
@@ -25,6 +26,8 @@ public class PaymentController {
     public ResponseEntity<AttemptPaymentResponse> attempt(
             @Valid @RequestBody AttemptPaymentRequest body,
             @RequestHeader("X-Dev-User-Id") Long currentUserId
+            //@AuthenticationPrincipal CustomUserDetails userDetails
+            //인증/인가 끝나면 주석 빼기
     ) {
         var resp = paymentService.ready(body, currentUserId);
         return ResponseEntity.ok(resp);
@@ -32,17 +35,18 @@ public class PaymentController {
 
     @Operation(summary = "결제 승인 완료")
     // 🚨 요청 URL 패턴과 정확히 일치하도록 경로를 수정했습니다.
-    @PostMapping(value = "/order/{orderId}/payment/{pgToken}/approve")
+    @PostMapping(value = "/order/{orderId}/payment/{provider}/{pgToken}/approve")
     public ResponseEntity<CompletePaymentResponse> complete(
             // 🚨 @RequestBody 대신 URL 경로 변수에서 필수 값을 추출합니다.
             @PathVariable Long orderId,
+            @PathVariable String provider, // KAKAOPAY or NAVERPAY
             @PathVariable String pgToken,
             @RequestHeader("X-Dev-User-Id") Long currentUserId // 또는 @Authentication
     ) {
         // 🚨 URL에서 추출한 값으로 서비스 레이어에 필요한 DTO를 생성합니다.
         // CompletePaymentRequest는 provider, orderId, pgToken만 있다고 가정합니다.
         CompletePaymentRequest req = new CompletePaymentRequest(
-                "KAKAOPAY",         // provider (PG사 코드)
+                provider, // provider (PG사 코드)
                 orderId,            // partner_order_id
                 pgToken             // pg_token
         );
