@@ -4,6 +4,8 @@ import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
+import com.C_platform.Member_woonkim.exception.OauthErrorCode;
+import com.C_platform.Member_woonkim.exception.OauthException;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,7 +30,7 @@ public class MemberJoinService {
     // local 기반으로 회원가입을 한 member가 있는지 검사
     public JoinOrLoginResult ensureLocalMember(LocalProvider localProvider, String email, String encodedPassword, String name) {
         if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("email is required for LOCAL");
+            throw new OauthException(OauthErrorCode.C008);
         }
         return memberRepository.findByLocalProviderAndEmail(localProvider, email)
                 .map(found -> new JoinOrLoginResult(found, false))

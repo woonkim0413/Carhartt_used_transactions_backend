@@ -1,19 +1,17 @@
-package com.C_platform.Member_woonkim.presentation.Assembler;
+package com.C_platform.Member_woonkim.presentation.dtoAssembler;
 
-import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.CallBackResponseDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LogoutResponseDto;
-import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.RedirectToKakaoResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.CreateRedirectUriResponseDto;
 import jakarta.servlet.http.HttpSession;
-import org.hibernate.Session;
 import org.springframework.stereotype.Component;
 
 @Component
 public class OauthAssembler {
-    public RedirectToKakaoResponseDto getRedirectToKakaoResponseDto(String authorizeUrl) {
-        return RedirectToKakaoResponseDto.builder()
-                .authorizeKakaoUrl(authorizeUrl)
+    public CreateRedirectUriResponseDto getCreateRedirectUriResponseDto(String authorizeUrl) {
+        return CreateRedirectUriResponseDto.builder()
+                .authorizeUrl(authorizeUrl)
                 .build();
     }
 

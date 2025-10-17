@@ -4,11 +4,10 @@ import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.global.error.CategoryErrorCode;
 import com.C_platform.global.error.ErrorBody;
-import com.C_platform.item.applicaion.CategoryUseCase;
+import com.C_platform.item.application.CategoryUseCase;
 import com.C_platform.item.ui.dto.CategoryResponseDto;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

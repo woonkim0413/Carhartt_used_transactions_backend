@@ -6,10 +6,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
-// main push test중 123
+// main push test중 1
 @SpringBootApplication
 @EnableConfigurationProperties(FileConfig.class)
-@ConfigurationPropertiesScan("com.C_platform.Member_woonkim.domain.Oauth")
+@ConfigurationPropertiesScan("com.C_platform.Member_woonkim.infrastructure.dto")
 public class CPlatformApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(CPlatformApplication.class, args);

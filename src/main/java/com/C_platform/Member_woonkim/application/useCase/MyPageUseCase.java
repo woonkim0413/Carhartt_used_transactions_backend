@@ -21,5 +21,12 @@ public class MyPageUseCase {
 
         return member.getMemberId();
     }
+
+    @Transactional
+    public void updateProfileImage(Long memberId, String profileImageUrl) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+        member.changeProfileImage(profileImageUrl);
+    }
 }
 

@@ -1,5 +1,6 @@
 package com.C_platform.order.application;
 
+import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.exception.CreateOrderException;
 import com.C_platform.global.error.CreateOrderErrorCode;
@@ -51,6 +52,16 @@ public class CreateOrderService {
         var order = Order.createDraft(shipping, cmd.detailMessage(), snapshot);
         orderRepository.save(order);
 
+        // ✅ 4) buyer 조회
+        //Member buyer = memberRepository.findById(cmd.buyerId())
+        //        .orElseThrow(() -> new CreateOrderException(CreateOrderErrorCode.O006));
+
+        // ✅ 5) seller 조회 (ItemView에 sellerId 있다고 가정)
+       // Member seller = memberRepository.findById(item.sellerId())
+        //        .orElseThrow(() -> new CreateOrderException(CreateOrderErrorCode.O007));
+
+        // ✅ 6) buyer/seller 포함해서 Order 생성
+        //var order = Order.createOrder(buyer, seller, shipping, cmd.detailMessage(), snapshot);
         return order.getId();
     }
 

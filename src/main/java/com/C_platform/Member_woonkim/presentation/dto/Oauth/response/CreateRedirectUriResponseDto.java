@@ -5,8 +5,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
 @Builder
-public record RedirectToKakaoResponseDto (
-        @JsonProperty("authorize_kakao_url")
-        @Schema(description = "카카오 Oauth 승인 URL")
-        String authorizeKakaoUrl
+public record CreateRedirectUriResponseDto(
+        @JsonProperty("authorize_url")
+        @Schema(description = "Oauth 승인 URL")
+        String authorizeUrl
 ) {}

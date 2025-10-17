@@ -72,9 +72,10 @@ public class SecurityConfig {
             "/v1",
             "/v1/main",
             "/v1/oauth/login",
-            "/v1/oauth/login/kakao",
+            "/v1/oauth/login/*", // kakao, naver
             "/v1/oauth/login/local",
-            "/v1/oauth/kakao/callback"
+            "/favicon.ico",
+            "/v1/oauth/*/callback" // kakao, naver
     };
 
     // local login password 암호화 객체
@@ -89,11 +90,11 @@ public class SecurityConfig {
         return new HttpSessionOAuth2AuthorizationRequestRepository();
     }
 
-    @Bean
     // cors 설정 return
+    @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(List.of(
+        cfg.setAllowedOrigins(List.of( // cors 요청을 허용하는 origin들 목록
                 "https://carhartt-usedtransactions.com",
                 "http://localhost:3000",
                 "http://localhost:8080",

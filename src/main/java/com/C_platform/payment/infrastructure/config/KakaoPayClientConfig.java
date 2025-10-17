@@ -1,4 +1,4 @@
-package com.C_platform.payment.infrastructure.kakao;
+package com.C_platform.payment.infrastructure.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
