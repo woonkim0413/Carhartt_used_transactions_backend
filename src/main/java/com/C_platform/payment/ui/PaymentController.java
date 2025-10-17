@@ -1,5 +1,7 @@
 package com.C_platform.payment.ui;
 
+import com.C_platform.global.ApiResponse;
+import com.C_platform.global.MetaData;
 import com.C_platform.payment.application.PaymentService;
 import com.C_platform.payment.ui.dto.AttemptPaymentRequest;
 import com.C_platform.payment.ui.dto.AttemptPaymentResponse;
@@ -10,49 +12,72 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Tag(name = "Payment", description = "PG 연동 결제 API")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/v1/payment")  // ← 경로 변경
+@RequestMapping("/v1")
 public class PaymentController {
 
     private final PaymentService paymentService;
 
     @Operation(summary = "결제 요청(ready)")
-    @PostMapping(value = "/ready")  // → /v1/payment/ready
-    public ResponseEntity<AttemptPaymentResponse> attempt(
+    @PostMapping(value = "/order/{orderId}/payment/ready")
+    public ResponseEntity<ApiResponse<AttemptPaymentResponse>> attempt(
+            @PathVariable Long orderId,
             @Valid @RequestBody AttemptPaymentRequest body,
-            @RequestHeader("X-Dev-User-Id") Long currentUserId
-            //@AuthenticationPrincipal CustomUserDetails userDetails
-            //인증/인가 끝나면 주석 빼기
+            @RequestHeader("X-Dev-User-Id") Long currentUserId,
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId
     ) {
-        var resp = paymentService.ready(body, currentUserId);
-        return ResponseEntity.ok(resp);
+        if (!orderId.equals(body.orderId())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        var data = paymentService.ready(body, currentUserId);
+        var meta = MetaData.builder()
+                .timestamp(LocalDateTime.now())
+                .xRequestId(effectiveReqId(requestId))
+                .build();
+        var response = ApiResponse.success(data, meta);
+
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "결제 승인 완료")
-    // 🚨 요청 URL 패턴과 정확히 일치하도록 경로를 수정했습니다.
     @PostMapping(value = "/order/{orderId}/payment/{provider}/{pgToken}/approve")
-    public ResponseEntity<CompletePaymentResponse> complete(
-            // 🚨 @RequestBody 대신 URL 경로 변수에서 필수 값을 추출합니다.
+    public ResponseEntity<ApiResponse<CompletePaymentResponse>> complete(
             @PathVariable Long orderId,
-            @PathVariable String provider, // KAKAOPAY or NAVERPAY
+            @PathVariable String provider,
             @PathVariable String pgToken,
-            @RequestHeader("X-Dev-User-Id") Long currentUserId // 또는 @Authentication
+            @RequestHeader("X-Dev-User-Id") Long currentUserId,
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId
     ) {
-        // 🚨 URL에서 추출한 값으로 서비스 레이어에 필요한 DTO를 생성합니다.
-        // CompletePaymentRequest는 provider, orderId, pgToken만 있다고 가정합니다.
         CompletePaymentRequest req = new CompletePaymentRequest(
-                provider, // provider (PG사 코드)
-                orderId,            // partner_order_id
-                pgToken             // pg_token
+                provider,
+                orderId,
+                pgToken
         );
 
-        var resp = paymentService.complete(req, currentUserId);
-        return ResponseEntity.ok(resp);
+        var data = paymentService.complete(req, currentUserId);
+        var meta = MetaData.builder()
+                .timestamp(LocalDateTime.now())
+                .xRequestId(effectiveReqId(requestId))
+                .build();
+        var response = ApiResponse.success(data, meta);
+
+        return ResponseEntity.ok(response);
+    }
+
+    private static String effectiveReqId(String reqId) {
+        return (reqId != null && !reqId.isBlank()) ? reqId : "req-" + UUID.randomUUID();
+    }
+
+    private static String genTraceId() {
+        return "trc-" + UUID.randomUUID();
     }
 }
 
