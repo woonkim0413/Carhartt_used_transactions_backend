@@ -1,7 +1,7 @@
 package com.C_platform.exception;
 
 
-import com.C_platform.Member_woonkim.exception.KakaoOauthException;
+import com.C_platform.Member_woonkim.exception.OauthException;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.Detail;
 import com.C_platform.global.MetaData;
@@ -94,9 +94,9 @@ public class GlobalExceptionHandler {
     }
 
     // KakaoOauth Exception 관련 처리 handler
-    @ExceptionHandler(KakaoOauthException.class)
-    public ResponseEntity<ApiResponse<Object>> handleKakaoOauthException(KakaoOauthException ex) {
-        log.error("KakaoOauth error: {}", ex.getMessage());
+    @ExceptionHandler(OauthException.class)
+    public ResponseEntity<ApiResponse<Object>> handleOauthException(OauthException ex) {
+        log.error("Oauth error: {}", ex.getMessage());
         return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
     }
 
