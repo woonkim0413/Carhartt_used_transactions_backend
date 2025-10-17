@@ -1,4 +1,4 @@
-package com.C_platform.item.applicaion;
+package com.C_platform.item.application;
 
 import com.C_platform.item.ui.dto.CategoryResponseDto;
 import com.C_platform.item.infrastructure.CategoryRepository;
