@@ -8,7 +8,8 @@ import com.C_platform.Member_woonkim.domain.service.MemberJoinService;
 import com.C_platform.Member_woonkim.domain.service.OAuth2Service;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
-import com.C_platform.Member_woonkim.infrastructure.parser_and_register.ParserRegistry;
+import com.C_platform.Member_woonkim.infrastructure.register_and_oauthClients.OauthClientRegister;
+import com.C_platform.Member_woonkim.infrastructure.register_and_userInfoParsers.OAuthUserInfoParserRegister;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LoginProviderResponseDto;
 import com.C_platform.annotation.UseCase;
 import lombok.RequiredArgsConstructor;
@@ -22,16 +23,15 @@ public class OAuth2UseCase {
 
     private final OAuth2Service oauth2Service;
 
-    // TODO : (나중에) Runtime에 OauthProvider에 의해 DI를 다르게 주입 받는 방식 찾기
-    private final OauthClientPort oauthClientPort;
-
-    private final ParserRegistry parserRegistry;
+    private final OAuthUserInfoParserRegister OAuthUserInfoParserRegister;
     /// Resource server Json을 Dto로 만들어줄 전용 Parser을 Provider에 따라 반환
 
     private final MemberJoinService memberJoinService;
     /// 기존 회원 유무에 따른 서비스 제공
 
     private final MemberRepository memberRepository;
+
+    private final OauthClientRegister oauthClientRegister;
 
     // getLoginProviders에서 호출
     public List<LoginProviderResponseDto> loginProviderList() {
@@ -44,23 +44,25 @@ public class OAuth2UseCase {
     }
 
     // kakaoCallback에서 호출
-    public OAuth2UserInfoDto getUserInfo(String stateCode, OAuthProvider provider) {
-        // 1. Authorization server에 접근하여 accessToken 획득
-        String accessToken = oauthClientPort.getAccessToken(stateCode, provider);
+    public OAuth2UserInfoDto getUserInfo(String stateCode, String oauthCode, OAuthProvider provider) {
+        // provider을 보고 runtime에 알맞은 OauthClient 구현체 반환
+        OauthClientPort oauthClientPort = oauthClientRegister.get(provider);
+        String accessToken = oauthClientPort.getAccessToken(stateCode, oauthCode, provider);
 
         // 2. Resource server에 접근하여 사용자 정보 획득
         Map<String, Object> userInfo = oauthClientPort.getUserInfo(accessToken, provider);
 
         // 3. provider에 맞는 parser을 반환, parser는 userInfo를 Dto로 전환
-        return parserRegistry.of(provider).parse(userInfo);
+        return OAuthUserInfoParserRegister.of(provider).parse(userInfo);
     }
 
     public OAuth2UserInfoDto getUserInfoForCustom(String accessToken, OAuthProvider provider) {
         // 1. Resource server에 접근하여 사용자 정보 획득
+        OauthClientPort oauthClientPort = oauthClientRegister.get(provider);
         Map<String, Object> userInfo = oauthClientPort.getUserInfo(accessToken, provider);
 
         // 2. provider에 맞는 parser을 반환, parser는 userInfo를 Dto로 전환
-        return parserRegistry.of(provider).parse(userInfo);
+        return OAuthUserInfoParserRegister.of(provider).parse(userInfo);
     }
 
     public JoinOrLoginResult ensureOAuthMember(OAuth2UserInfoDto userInfo, OAuthProvider provider) {

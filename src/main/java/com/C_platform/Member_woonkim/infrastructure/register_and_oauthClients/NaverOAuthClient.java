@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.infrastructure.adapter;
+package com.C_platform.Member_woonkim.infrastructure.register_and_oauthClients;
 
 import com.C_platform.Member_woonkim.application.port.OauthClientPort;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
@@ -18,7 +18,7 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class KakaoOAuthClient implements OauthClientPort {
+public class NaverOAuthClient implements OauthClientPort {
 
     @Value("${app.base-url}") // application-oauth2-{환경 profils}.yml에서 값 가져옴
     private String baseUrl; // 예: https://api.your-domain.com/v1/
@@ -29,12 +29,14 @@ public class KakaoOAuthClient implements OauthClientPort {
 
     @Override
     public OAuthProvider getProvider() {
-        return OAuthProvider.KAKAO;
+        return OAuthProvider.NAVER;
     }
 
     @Override
-    // Authorization Code + client Secret을 조합한 값을 통해서 kakao Authorization Server에 값을 요청한다
-    public String getAccessToken(String stateCode, OAuthProvider provider) {
+    // TODO :  MultiValueMap이 인코딩 안전성이 더 좋음 (권장).
+    // Authorization Code + client Secret을 조합한 값을 통해서 naver Authorization Server에 값을 요청한다
+    // stateCode : Authorization code / oauthCode : Authorize uri에 실었던 oauth state
+    public String getAccessToken(String stateCode, String oauthCode, OAuthProvider provider) {
         // 설정 파일에 저장된 provider에 따른 oauth 관련 정보 가져옴
         OAuth2RegistrationPropertiesDto.RegistrationConfig registration = oauthProperties.getRegistrationConfig(provider); // clientId, redirectUri, scope(List<String>) 등
         OAuth2ProviderPropertiesDto.ProviderConfig providerConfig = oauthProperties.getProviderConfig(provider);   // authorizationUri 등
@@ -49,6 +51,7 @@ public class KakaoOAuthClient implements OauthClientPort {
                 .queryParam("client_id", registration.clientId())
                 .queryParam("redirect_uri", registration.redirectUri()) // 되돌아올 서버 url
                 .queryParam("code", stateCode)
+                .queryParam("state", oauthCode)
                 .queryParam("client_secret", registration.clientSecret())
                 .build()
                 .toUri()
@@ -104,9 +107,20 @@ public class KakaoOAuthClient implements OauthClientPort {
         }
 
         // response에 실린 사용자 정보 획득
-        Map<String, Object> userInfo = response.getBody();
+        Map<String, Object> userInfoBody = response.getBody();
+
+        // 응답 코드 확인 후 정상 코드인 "00" 아니면 에러 생성
+        Object rc = userInfoBody.get("resultcode");
+        if (rc != null && !"00".equals(rc.toString())) {
+            throw new IllegalStateException("NAVER userinfo error: " + userInfoBody);
+        }
+
+        Object payload = userInfoBody.get("response");
+        if (!(payload instanceof Map)) {
+            throw new IllegalStateException("NAVER userinfo 'response' missing: " + userInfoBody);
+        }
 
         // parserRegistry는 provider에 따라 알맞은 Parser를 반환한다 (switch -> Registry 변경)
-        return userInfo;
+        return (Map<String, Object>) payload;
     }
 }

@@ -5,22 +5,14 @@ import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderProperties
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
-import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
-import com.C_platform.Member_woonkim.infrastructure.parser_and_register.ParserRegistry;
-import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LoginProviderResponseDto;
 import com.C_platform.Member_woonkim.utils.OauthProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URI;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 

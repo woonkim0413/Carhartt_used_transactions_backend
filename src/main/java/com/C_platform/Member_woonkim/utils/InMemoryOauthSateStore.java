@@ -1,5 +1,6 @@
 package com.C_platform.Member_woonkim.utils;
 
+import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -17,9 +18,8 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class InMemoryOauthSateStore {
 
-    private static final long TTL_SECONDS = 300; // 🔒 매직넘버: 300초 고정
-
-    private final Map<String, Entry> store = new ConcurrentHashMap<>();
+    private static final long TTL_SECONDS = 300; // 5분
+    private final Map<String, StateInfo> store = new ConcurrentHashMap<>();
     private final ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "oauth-state-cleaner");
         t.setDaemon(true);
@@ -27,60 +27,57 @@ public class InMemoryOauthSateStore {
     });
 
     public InMemoryOauthSateStore() {
-        // 60초마다 만료 스윕
         cleaner.scheduleAtFixedRate(this::evictExpired, 60, 60, TimeUnit.SECONDS);
     }
 
-    /** 저장(동일 state면 덮어씀) */
-    public void put(String oauthState, String origin) {
-        if (isBlank(oauthState)) return;
-        Instant expiresAt = Instant.now().plusSeconds(TTL_SECONDS);
-        store.put(oauthState, new Entry(origin, expiresAt));
+    /** 저장: state -> (origin, provider, issuedAt, expiresAt) */
+    public void put(String state, String origin, OAuthProvider provider) {
+        if (isBlank(state)) return;
+        long issuedAtMs = System.currentTimeMillis();
+        Instant expiresAt = Instant.ofEpochMilli(issuedAtMs).plusSeconds(TTL_SECONDS);
+        store.put(state, new StateInfo(origin, provider, issuedAtMs, expiresAt));
     }
 
-    /** 존재 여부(만료면 false 반환하며 내부에서 제거) */
-    public boolean exists(String oauthState) {
-        if (oauthState == null) return false;
-        Entry e = store.get(oauthState);
-        if (e == null) return false;
-        if (Instant.now().isAfter(e.expiresAt)) {
-            store.remove(oauthState);
-            return false;
-        }
-        return true;
+    /** 1회성 소비 + 검증을 내부에서 수행, 성공 시 origin만 반환 */
+    public String consumeOrigin(String state, OAuthProvider expectedProvider) {
+        if (state == null) return null;
+        StateInfo info = store.remove(state);   // ★ 1회성 제거
+        if (info == null) return null;
+        if (Instant.now().isAfter(info.expiresAt)) return null; // 만료
+        if (info.provider != expectedProvider) return null;     // 제공자 불일치
+        return info.origin; // 성공: origin만 반환
     }
 
-    /** 저장된 origin 반환(만료면 null 반환하며 내부에서 제거) */
-    public String get(String oauthState) {
-        if (oauthState == null) return null;
-        Entry e = store.get(oauthState);
-        if (e == null) return null;
-        if (Instant.now().isAfter(e.expiresAt)) {
-            store.remove(oauthState);
+    /** (선택) 조회 전용: 만료면 제거하고 null, 아니면 origin만 반환(소비 X) */
+    public String getOrigin(String state) {
+        if (state == null) return null;
+        StateInfo info = store.get(state);
+        if (info == null) return null;
+        if (Instant.now().isAfter(info.expiresAt)) {
+            store.remove(state);
             return null;
         }
-        return e.origin;
+        return info.origin;
     }
 
-    /** 명시적 삭제(원타임 소비용) */
-    public void remove(String oauthState) {
-        if (oauthState != null) store.remove(oauthState);
-    }
-
-    // ---------- 내부 헬퍼 ----------
+    // --- 내부 ---
 
     private void evictExpired() {
         Instant now = Instant.now();
-        store.entrySet().removeIf(ent -> now.isAfter(ent.getValue().expiresAt));
+        store.entrySet().removeIf(e -> now.isAfter(e.getValue().expiresAt));
     }
 
     private static boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
 
-    private static final class Entry {
+    private static final class StateInfo {
         final String origin;
+        final OAuthProvider provider;
+        final long issuedAtMs;
         final Instant expiresAt;
-        Entry(String origin, Instant expiresAt) {
+        StateInfo(String origin, OAuthProvider provider, long issuedAtMs, Instant expiresAt) {
             this.origin = origin == null ? "" : origin;
+            this.provider = provider;
+            this.issuedAtMs = issuedAtMs;
             this.expiresAt = expiresAt;
         }
     }

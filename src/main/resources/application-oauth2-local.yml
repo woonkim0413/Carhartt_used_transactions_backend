@@ -2,7 +2,7 @@
 app:
   base-url: http://localhost:8080/v1/
   identifier : local
-  front-callback-path : empty
+  front-callback-path : /login/callback
 
 # local 세션 관련 설정
 server:

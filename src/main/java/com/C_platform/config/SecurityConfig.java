@@ -72,9 +72,10 @@ public class SecurityConfig {
             "/v1",
             "/v1/main",
             "/v1/oauth/login",
-            "/v1/oauth/login/*",
+            "/v1/oauth/login/*", // kakao, naver
             "/v1/oauth/login/local",
-            "/v1/oauth/kakao/callback"
+            "/favicon.ico",
+            "/v1/oauth/*/callback" // kakao, naver
     };
 
     // local login password 암호화 객체

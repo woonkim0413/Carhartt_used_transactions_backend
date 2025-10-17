@@ -6,7 +6,7 @@ import lombok.Builder;
 
 @Builder
 public record CreateRedirectUriResponseDto(
-        @JsonProperty("authorize_kakao_url")
+        @JsonProperty("authorize_url")
         @Schema(description = "Oauth 승인 URL")
-        String authorizeKakaoUrl
+        String authorizeUrl
 ) {}

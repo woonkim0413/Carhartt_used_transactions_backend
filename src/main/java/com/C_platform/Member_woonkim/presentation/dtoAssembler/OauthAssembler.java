@@ -9,9 +9,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class OauthAssembler {
-    public CreateRedirectUriResponseDto getRedirectToKakaoResponseDto(String authorizeUrl) {
+    public CreateRedirectUriResponseDto getCreateRedirectUriResponseDto(String authorizeUrl) {
         return CreateRedirectUriResponseDto.builder()
-                .authorizeKakaoUrl(authorizeUrl)
+                .authorizeUrl(authorizeUrl)
                 .build();
     }
 

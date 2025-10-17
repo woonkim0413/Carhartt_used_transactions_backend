@@ -7,6 +7,6 @@ import java.util.Map;
 
 public interface OauthClientPort {
     OAuthProvider getProvider();
-    String getAccessToken(String stateCode, OAuthProvider provider);
+    String getAccessToken(String stateCode, String oauthCode, OAuthProvider provider);
     Map<String, Object> getUserInfo(String accessToken, OAuthProvider provider);
 }

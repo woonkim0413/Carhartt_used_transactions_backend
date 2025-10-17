@@ -8,7 +8,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum OAuthProvider implements Provider {
     KAKAO("KAKAO"),
-    NAVER("NAVAER");
+    NAVER("NAVER");
 
     private final String providerName;
 }
