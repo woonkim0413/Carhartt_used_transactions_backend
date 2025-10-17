@@ -10,7 +10,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-@ConditionalOnProperty(name = "cloud.aws.s3.enabled", havingValue = "true")
 @Configuration
 public class S3Config {
     @Value("${aws.accessKey}")

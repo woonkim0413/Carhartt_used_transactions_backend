@@ -1,6 +1,5 @@
 package com.C_platform.images.application;
 
-import com.C_platform.config.FileConfig;
 import com.C_platform.images.domain.ImagePreSignedUrlListRequestDto;
 import com.C_platform.images.domain.ImagePreSignedUrlRequestDto;
 import com.C_platform.images.domain.ImagePreSignedUrlResponseDto;
@@ -9,7 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.http.SdkHttpMethod;
-import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
@@ -20,7 +18,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@ConditionalOnProperty(name = "cloud.aws.s3.enabled", havingValue = "true")
 @Service
 @RequiredArgsConstructor
 public class ImageUseCase {
@@ -29,8 +26,6 @@ public class ImageUseCase {
     private String bucketName;
 
     private final S3Presigner s3Presigner;
-
-    private final FileConfig fileConfig;
 
     /**
      * 이미지 업로드 URL 생성
