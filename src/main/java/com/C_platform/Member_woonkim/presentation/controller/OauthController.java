@@ -135,6 +135,7 @@ public class OauthController {
         CreateRedirectUriResponseDto createRedirectUriResponseDto =
                 assembler.getCreateRedirectUriResponseDto(authorizeUrl);
 
+        log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
         LogPaint.sep("createRedirectUri handler 이탈");
 
         // 4) 어떤 요청이든 항상 JSON 반환 (리다이렉트 절대 안 함)
@@ -161,7 +162,8 @@ public class OauthController {
         String stateCode = callbackRequestDto.code(); // 네이버 Authorization code
         String returnedState = callbackRequestDto.state(); // CSRF 보안 목적 oauth_state code
         OAuthProvider oauthProvider = getOauthProvider(provider);
-        String origin = inMemoryOauthSateStore.consumeOrigin(returnedState, oauthProvider); // InMemory에 state와 대응되는 key가 있으면 key와 쌍을 이루는 origin return
+        // InMemory에 state와 대응되는 key가 있으면 key와 쌍을 이루는 origin (createRedirectUri을 호출한 origin) return
+        String origin = inMemoryOauthSateStore.consumeOrigin(returnedState, oauthProvider);
 
         wirte_debug_log(request);
 
@@ -196,6 +198,7 @@ public class OauthController {
         // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
         // writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
 
+        log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
         log.info("[(로그인 후) redirect origin] = {}", origin + FRONT_CALLBACK_PATH);
         LogPaint.sep("Callback handler 이탈");
         return ResponseEntity.status(HttpStatus.FOUND)
