@@ -4,7 +4,7 @@ import com.C_platform.exception.InvalidImageExtensionException;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.global.error.ImageErrorCode;
-import com.C_platform.images.applicaion.ImageUseCase;
+import com.C_platform.images.application.ImageUseCase;
 import com.C_platform.images.domain.ImagePreSignedUrlListRequestDto;
 import com.C_platform.images.domain.ImagePreSignedUrlRequestDto;
 import com.C_platform.images.domain.ImagePreSignedUrlResponseDto;

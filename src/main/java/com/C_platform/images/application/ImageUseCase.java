@@ -1,4 +1,4 @@
-package com.C_platform.images.applicaion;
+package com.C_platform.images.application;
 
 import com.C_platform.config.FileConfig;
 import com.C_platform.images.domain.ImagePreSignedUrlListRequestDto;
