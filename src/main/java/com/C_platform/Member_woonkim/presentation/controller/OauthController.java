@@ -7,8 +7,8 @@ import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.domain.interfaces.Provider;
-import com.C_platform.Member_woonkim.exception.KakaoOauthErrorCode;
-import com.C_platform.Member_woonkim.exception.KakaoOauthException;
+import com.C_platform.Member_woonkim.exception.OauthErrorCode;
+import com.C_platform.Member_woonkim.exception.OauthException;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.CallbackRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.LogoutRequestDto;
@@ -54,17 +54,19 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OauthController {
 
+
     @Value("${app.identifier}")
     private String envIdentifier;
 
     @Value("${app.front-callback-path}")
     private String FRONT_CALLBACK_PATH;
 
+    @Value("${app.base-url}")
+    private String base_base;
+
     private static final String LOGOUT_SUCCESS = "로그아웃 성공";
 
     private final OAuth2UseCase oauth2UseCase; // 주요 로직들 처리
-
-    private final OauthAssembler assembler; // 응답/요청 Dto 생성
 
     private final OauthAssembler oauthAssembler; // 응답 dto 생성
 
@@ -94,7 +96,6 @@ public class OauthController {
     // 2. oauth 리다이렉트 url 생성
     // response.redirect()에서 IOException check error가 발생할 수 있기에 throws 선언 필수
     @GetMapping("/oauth/login/{provider}")
-    // todo : responseDto 생성 필요
     @Operation(summary = "Oauth 로그인", description = "Oauth 로그인을 위한 Oauth server url을 생성하여 내려줍니다")
     public ResponseEntity<ApiResponse<CreateRedirectUriResponseDto>> createRedirectUri(
             @PathVariable String provider,
@@ -122,7 +123,6 @@ public class OauthController {
                     .build(); // 204
         }
 
-        // TODO : local 환경이어도 origin 값이 satate 검증에 사용되기에 로직 유지
         // 1) 요청 origin 저장 (callback 처리 시점에 oauth_state 검증 후 사용)
         String origin = extractOriginFromReferer(referer, originHeader);
         log.info("[디버깅 목적] origin {}", origin); // 값이 있는지 테스트
@@ -139,9 +139,9 @@ public class OauthController {
 
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
 
-        // TODO : assember도 생성자 주입이 아니라 register로 런타임에 찾도록 변경
+        // TODO : 생성자 주입 -> assember도 생성자 주입이 아니라 register로 런타임에 찾도록 변경
         CreateRedirectUriResponseDto createRedirectUriResponseDto =
-                assembler.getCreateRedirectUriResponseDto(authorizeUrl);
+                oauthAssembler.getCreateRedirectUriResponseDto(authorizeUrl);
 
         log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
         LogPaint.sep("createRedirectUri handler 이탈");
@@ -266,11 +266,11 @@ public class OauthController {
 
         // TODO : 실패 시 에러 코드 반환하도록 전역 에러 핸들러에서 코드 작성
         if (loginInfoBySession == null) {
-            throw new KakaoOauthException(KakaoOauthErrorCode.C003);
+            throw new OauthException(OauthErrorCode.C003);
         }
 
         if (!(loginInfoBySession instanceof OAuth2UserInfoDto)) {
-            throw new KakaoOauthException(KakaoOauthErrorCode.C003);
+            throw new OauthException(OauthErrorCode.C003);
         }
 
         // db에서 login session 정보를 바탕으로 member 조회
@@ -305,7 +305,7 @@ public class OauthController {
         return switch (provider) {
             case "kakao" -> OAuthProvider.KAKAO;
             case "naver" -> OAuthProvider.NAVER;
-            default -> throw new IllegalArgumentException("current Unsupported provider: " + provider);
+            default -> throw new OauthException(OauthErrorCode.C009);
         };
     }
 
@@ -314,9 +314,7 @@ public class OauthController {
     private static void checkStateValidation(String origin) {
         if (origin == null) {
             log.warn("❌ CSRF 의심: 세션의 state와 리턴된 state가 다릅니다.");
-            // 실패 resopnse 만들어 반환하기
-            // TODO : Oauth error로 전환하기
-            throw new KakaoOauthException(KakaoOauthErrorCode.C002);
+            throw new OauthException(OauthErrorCode.C004);
         }
     }
 

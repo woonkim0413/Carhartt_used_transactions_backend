@@ -11,6 +11,7 @@ public class AddressService {
     public void addressNumberCheck_MaxFive(List<Address> addressList) {
         final int MAX = 5;
         if (addressList != null && addressList.size() >= MAX) {
+            // todo : 현재 구조에선 에러 생성 시점에 에러 메세지를 생성하는 것이 불가능함 가능하게 구조 만들기
             throw new RuntimeException("주소는 최대 " + MAX + "개까지만 등록 가능합니다. (현재: " + addressList.size() + ")");
         }
     }

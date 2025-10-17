@@ -4,10 +4,10 @@ import com.C_platform.global.error.ErrorCode;
 import lombok.Getter;
 
 @Getter
-public class KakaoOauthException extends RuntimeException {
+public class OauthException extends RuntimeException {
     private final ErrorCode errorCode;
 
-    public KakaoOauthException(ErrorCode code) {
+    public OauthException(ErrorCode code) {
         super(code.getMessage());
         this.errorCode = code;
     }

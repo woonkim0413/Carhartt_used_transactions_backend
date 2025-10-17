@@ -2,6 +2,8 @@ package com.C_platform.Member_woonkim.infrastructure.register_and_oauthClients;
 
 import com.C_platform.Member_woonkim.application.port.OauthClientPort;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
+import com.C_platform.Member_woonkim.exception.OauthErrorCode;
+import com.C_platform.Member_woonkim.exception.OauthException;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
 import com.C_platform.Member_woonkim.utils.OauthProperties;
@@ -77,10 +79,10 @@ public class NaverOAuthClient implements OauthClientPort {
             if (responseBody != null && responseBody.containsKey("access_token")) {
                 return responseBody.get("access_token").toString();
             } else {
-                throw new RuntimeException("Access Token을 응답에서 찾을 수 없습니다: " + responseBody);
+                throw new OauthException(OauthErrorCode.C005);
             }
         } catch (RestClientException e) {
-            throw new RuntimeException("OAuth Access Token 요청 실패", e);
+            throw new OauthException(OauthErrorCode.C005);
         }
     }
 
@@ -103,7 +105,7 @@ public class NaverOAuthClient implements OauthClientPort {
             // restTemplate.exchainge()가 실행되는 시점에 요청이 보내짐
             response = restTemplate.exchange(request, Map.class);
         } catch (RestClientException e) {
-            throw new RuntimeException("OAuth 사용자 정보 요청 실패", e);
+            throw new OauthException(OauthErrorCode.C006);
         }
 
         // response에 실린 사용자 정보 획득
@@ -112,12 +114,12 @@ public class NaverOAuthClient implements OauthClientPort {
         // 응답 코드 확인 후 정상 코드인 "00" 아니면 에러 생성
         Object rc = userInfoBody.get("resultcode");
         if (rc != null && !"00".equals(rc.toString())) {
-            throw new IllegalStateException("NAVER userinfo error: " + userInfoBody);
+            throw new OauthException(OauthErrorCode.C006);
         }
 
         Object payload = userInfoBody.get("response");
         if (!(payload instanceof Map)) {
-            throw new IllegalStateException("NAVER userinfo 'response' missing: " + userInfoBody);
+            throw new OauthException(OauthErrorCode.C007);
         }
 
         // parserRegistry는 provider에 따라 알맞은 Parser를 반환한다 (switch -> Registry 변경)

@@ -1,6 +1,8 @@
 package com.C_platform.Member_woonkim.infrastructure.register_and_userInfoParsers;
 
 import com.C_platform.Member_woonkim.domain.interfaces.Provider;
+import com.C_platform.Member_woonkim.exception.OauthErrorCode;
+import com.C_platform.Member_woonkim.exception.OauthException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -25,7 +27,8 @@ public class OAuthUserInfoParserRegister {
 
     public OAuth2UserInfoParser of(Provider provider) {
         var p = byProvider.get(provider);
-        if (p == null) throw new UnsupportedOperationException("Unsupported provider: " + provider);
+        if (p == null)
+            throw new OauthException(OauthErrorCode.C010);
         return p;
     }
 }

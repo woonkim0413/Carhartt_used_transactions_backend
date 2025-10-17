@@ -2,6 +2,8 @@ package com.C_platform.Member_woonkim.infrastructure.register_and_oauthClients;
 
 import com.C_platform.Member_woonkim.application.port.OauthClientPort;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
+import com.C_platform.Member_woonkim.exception.OauthErrorCode;
+import com.C_platform.Member_woonkim.exception.OauthException;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
 import com.C_platform.Member_woonkim.utils.OauthProperties;
@@ -75,10 +77,10 @@ public class KakaoOAuthClient implements OauthClientPort {
             if (responseBody != null && responseBody.containsKey("access_token")) {
                 return responseBody.get("access_token").toString();
             } else {
-                throw new RuntimeException("Access Token을 응답에서 찾을 수 없습니다: " + responseBody);
+                throw new OauthException(OauthErrorCode.C005);
             }
         } catch (RestClientException e) {
-            throw new RuntimeException("OAuth Access Token 요청 실패", e);
+            throw new OauthException(OauthErrorCode.C005);
         }
     }
 
@@ -101,7 +103,7 @@ public class KakaoOAuthClient implements OauthClientPort {
             // restTemplate.exchainge()가 실행되는 시점에 요청이 보내짐
             response = restTemplate.exchange(request, Map.class);
         } catch (RestClientException e) {
-            throw new RuntimeException("OAuth 사용자 정보 요청 실패", e);
+            throw new RuntimeException("OAuth 사용자 정보 요청 실패", e); // TODO : 필요한 에러인지 확인
         }
 
         // response에 실린 사용자 정보 획득
