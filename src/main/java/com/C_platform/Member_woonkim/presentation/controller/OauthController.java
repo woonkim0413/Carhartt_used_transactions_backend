@@ -211,7 +211,7 @@ public class OauthController {
 
         log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
         log.info("[(로그인 후) redirect origin] = {}", origin + FRONT_CALLBACK_PATH);
-        LogPaint.sep("Callback handler 이탈");
+        LogPaint.sep("git Callback handler 이탈");
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, origin + FRONT_CALLBACK_PATH) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
                 .header(HttpHeaders.CACHE_CONTROL, "no-store") // 민감 응답 캐싱 방지(선택)
