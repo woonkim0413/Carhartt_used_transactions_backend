@@ -10,7 +10,6 @@ import com.C_platform.images.application.ImageUseCase;
 import com.C_platform.images.domain.ImagePreSignedUrlRequestDto;
 import com.C_platform.images.domain.ImagePreSignedUrlResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
