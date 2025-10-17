@@ -7,6 +7,7 @@ INSERT INTO "MEMBER" (
     IMAGE_URL,
     LOGIN_PASSWORD,
     MEMBER_NAME,
+    NICKNAME,
     OAUTH_ID,
     COUNT_BANK,
     LOGIN_TYPE,
@@ -18,7 +19,8 @@ INSERT INTO "MEMBER" (
              'test@test.com',  -- EMAIL
              NULL,             -- IMAGE_URL (없으면 NULL)
              'pass1234',       -- LOGIN_PASSWORD
-             '테스트구매자',     -- MEMBER_NAME
+             '테스트구매자',
+          '테스트닉네임',-- MEMBER_NAME
              NULL,             -- OAUTH_ID
              '농협은행',        -- COUNT_BANK (enum 값 중 하나)
              'LOCAL',          -- LOGIN_TYPE (enum: LOCAL / OAUTH)
