@@ -73,11 +73,16 @@ public class OauthController {
     // Kakao/Naver 로그인 공급자 목록 반환
     @GetMapping("/oauth/login")
     @Operation(summary = "로그인 방식 (Oauths, local) 목록 출력", description = " 서비스가 지원하는 로그인 방식을 조회 합니다.")
-    public ResponseEntity<ApiResponse<List<LoginProviderResponseDto>>> getLoginProviders() {
+    public ResponseEntity<ApiResponse<List<LoginProviderResponseDto>>> getLoginProviders(
+            @Parameter(example = "req-129")
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
+    ) {
 
         LogPaint.sep("로그인 방식 목록 호출 진입");
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
+
         // meta 생성
-        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
 
         // 로그인 리스트 획득
         List<LoginProviderResponseDto> providers = oauth2UseCase.loginProviderList();
@@ -97,11 +102,14 @@ public class OauthController {
             @Parameter(hidden = true) // swwagger ui에 표시 안 함
             @RequestHeader(value = "Referer", required = false) String referer,
             @Parameter(hidden = true) // swwagger ui에 표시 안 함
-            @RequestHeader(value = "Origin", required = false) String originHeader
+            @RequestHeader(value = "Origin", required = false) String originHeader,
+            @Parameter(example = "req-129")
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
         LogPaint.sep("createRedirectUri handler 진입");
 
         log.info("[디버깅 목적] origin : {}", originHeader); // 값이 있는지 테스트
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
         log.info("[디버깅 목적] referer : {}", referer); // 값이 있는지 테스트
         log.info("[디버깅 목적] provider : {}", provider); // 값이 있는지 테스트
 
@@ -129,7 +137,7 @@ public class OauthController {
         String authorizeUrl = oauth2UseCase.AuthorizeUrl(oauthProvider, stateCode);
         log.info("Oauth 로그인 리다이렉트 생성 : {}", authorizeUrl);
 
-        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
 
         // TODO : assember도 생성자 주입이 아니라 register로 런타임에 찾도록 변경
         CreateRedirectUriResponseDto createRedirectUriResponseDto =
@@ -154,6 +162,8 @@ public class OauthController {
     public ResponseEntity<ApiResponse<CallBackResponseDto>> Callback(
             @PathVariable String provider,
             @Valid @ModelAttribute CallbackRequestDto callbackRequestDto,
+            @Parameter(example = "req-129")
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpServletRequest request,
             HttpSession session
     ) throws IOException {
@@ -167,6 +177,7 @@ public class OauthController {
 
         wirte_debug_log(request);
 
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
         log.info("[디버깅 목적] Authorization Code 값 : {}", stateCode);
         log.info("[디버깅 목적] callback url query parameter oauth_state 값 : {}", returnedState);
         log.info("[디버깅 목적] [origin이 있다는 말은 state 값 정상 저장됐다는 뜻] origin : {}", origin);
@@ -212,6 +223,8 @@ public class OauthController {
     @Operation(summary = "로그아웃", description = " 로그아웃을 지원합니다.")
     public ResponseEntity<ApiResponse<LogoutResponseDto>> logout(
             @Valid @RequestBody LogoutRequestDto logoutDto,
+            @Parameter(example = "req-129")
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpSession session
     ) {
         LogPaint.sep("logOut handler 진입");
@@ -219,11 +232,12 @@ public class OauthController {
         LoginType type = logoutDto.getType();
         Provider provider = logoutDto.getProvider();
         log.info("logout request - type: {}, provider: {}", type, provider);
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
         session.invalidate();
 
         // 응답 data 생성
-        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
 
         LogoutResponseDto logoutResponseDto
                 = oauthAssembler.getLogoutResponseDto(LOGOUT_SUCCESS);
@@ -239,9 +253,13 @@ public class OauthController {
             실패 시 : 실패 message 반환 <br/>
             """)
     public ResponseEntity<ApiResponse<LoginCheckDto>> loginCheck(
+            @Parameter(example = "req-129")
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpSession session
     ) {
         LogPaint.sep("loginCheck 진입");
+
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
         // 1) 세션에서 로그인 정보 조회
         Object loginInfoBySession = session.getAttribute("user");
@@ -266,7 +284,7 @@ public class OauthController {
                 .provider(member.getOauthProvider()) // enum OAuthProvider
                 .build();
 
-        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
 
         LogPaint.sep("loginCheck 이탈");
 

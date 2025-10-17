@@ -14,6 +14,7 @@ import com.C_platform.Member_woonkim.utils.LogPaint;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,16 +44,20 @@ public class AddressController {
     // TODO : address name 유니크 속성 넣기 + address가 5개 이상이면 추가 생성 불가
     public ResponseEntity<ApiResponse<AddAddressResponseDto>> addAddress (
             @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
-            @Valid @RequestBody AddAddressRequestDto dto
+            @Valid @RequestBody AddAddressRequestDto dto,
+            @Parameter(example = "req-129")
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
         LogPaint.sep("주소 생성 API 진입");
         Long member_id = customOAuth2User.getMemberId();
+
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
         // db에 저장한 address 반환
         Address address = addressUseCase.addAddress(member_id, dto);
 
         // metaData 생성
-        MetaData metaData = CreateMetaData.createMetaData(LocalDateTime.now());
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
 
         LogPaint.sep("주소 생성 API 이탈");
 
@@ -61,16 +66,20 @@ public class AddressController {
                 AddAddressResponseDto.builder()
                         .memberId(member_id.toString())
                         .addressId(address.getAddressId().toString())
-                        .build(), metaData));
+                        .build(), meta));
     }
 
     @GetMapping("orders/address")
     @Operation(summary = "주소 목록 반환", description = "현재 로그인되어 있는 사용자의 주소지 목록을 반환합니다")
     public ResponseEntity<ApiResponse<GetAddressListResponseDto>> getAddressList (
-            @AuthenticationPrincipal CustomOAuth2User customOAuth2User
+            @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
+            @Parameter(example = "req-129")
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
         LogPaint.sep("주소 목록 반환 API 진입");
         Long member_id = customOAuth2User.getMemberId();
+
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
         List<Address> addressList = addressUseCase.getAddressList(member_id);
 
@@ -78,29 +87,33 @@ public class AddressController {
         GetAddressListResponseDto getAddressListResponseDto
                 = addressAssembler.createGetAddressListResponseDto(member_id, addressList);
 
-        MetaData metaData = CreateMetaData.createMetaData(LocalDateTime.now());
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
 
         LogPaint.sep("주소 목록 반환 API 이탈");
-        return ResponseEntity.ok(ApiResponse.success(getAddressListResponseDto, metaData));
+        return ResponseEntity.ok(ApiResponse.success(getAddressListResponseDto, meta));
     }
 
     @DeleteMapping("orders/address/{address_id}")
     @Operation(summary = "주소 삭제", description = "주소ID가 현재 로그인한 멤버에 포함된 주소인 경우 ")
     public ResponseEntity<ApiResponse<DeleteAddressResponseDto>> deleteAddress(
             @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
-            @PathVariable Long address_id
+            @PathVariable Long address_id,
+            @Parameter(example = "req-129")
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
         LogPaint.sep("주소 삭제 API 진입");
         Long addresId = address_id;
         Long memberId = customOAuth2User.getMemberId();
 
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
+
         addressUseCase.deleteAddress(memberId, addresId);
 
-        MetaData metaData = CreateMetaData.createMetaData(LocalDateTime.now());
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
         DeleteAddressResponseDto deleteAddressResponseDto =
                 addressAssembler.createDeleteAddressResponseDto();
 
         LogPaint.sep("주소 삭제 API 이탈");
-        return ResponseEntity.ok(ApiResponse.success(deleteAddressResponseDto, metaData));
+        return ResponseEntity.ok(ApiResponse.success(deleteAddressResponseDto, meta));
     }
 }

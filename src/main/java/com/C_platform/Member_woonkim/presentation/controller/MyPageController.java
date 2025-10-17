@@ -10,15 +10,13 @@ import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.Member_woonkim.utils.LogPaint;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 
@@ -36,18 +34,21 @@ public class MyPageController {
     // todo : ResponseDto 만들기
     public ResponseEntity<ApiResponse<ChangeNicknameResponseDto>> changeNickname(
             @Valid @RequestBody ChangeNicknameRequestDto dto,
-            @AuthenticationPrincipal CustomOAuth2User customOAuth2User
+            @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
+            @Parameter(example = "req-129")
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
         LogPaint.sep("changeNickname 진입");
         String changeNickname = dto.changeNickname();
         Long memberId = customOAuth2User.getMemberId();
 
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
+
         // todo : UseCase Annotation 생성
         // todo : 이름 변경 전용 에러 코드 설게
         myPageUseCase.changeMemberNickname(changeNickname, memberId);
 
-        // todo : meta에 실리는 로깅 값 넣도록 변경
-        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
 
         ChangeNicknameResponseDto changeNicknameResponseDto
                 = myPageAssembler.createChangeNicknameResponseDto(memberId, changeNickname);
