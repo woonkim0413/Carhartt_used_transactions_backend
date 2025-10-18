@@ -130,7 +130,11 @@ public class KakaoPayAdapter implements PaymentGatewayPort  {
      * - pg_token: SUCCESS일 때만 필수
      */
     @Transactional
-    public CompletePaymentResponse complete(CompletePaymentRequest req, Long currentUserId) {
+    public CompletePaymentResponse complete(
+            Long orderId,  // ✅ orderId 파라미터 추가
+            CompletePaymentRequest req,
+            Long currentUserId
+    ) {
         if (!"KAKAOPAY".equalsIgnoreCase(req.provider())) {
             throw new IllegalArgumentException("provider mismatch (expected KAKAOPAY): " + req.provider());
         }
@@ -138,8 +142,8 @@ public class KakaoPayAdapter implements PaymentGatewayPort  {
         // ── [주문/결제 찾기] ─────────────────────────────────────────
         // merchantUid → Order 로 resolve 하는 방식은 너 스키마에 맞춰 구현.
         // 1) 만약 Order에 merchantUid 필드가 있다면:
-        Order order = orderRepository.findById(req.orderId())
-                .orElseThrow(() -> new IllegalArgumentException("order not found by merchantUid: " + req.orderId()));
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("order not found by merchantUid: " + orderId));
 
         // 2) Payment는 Order 기준으로 잠금 조회
         var payment = paymentRepository.findByOrderIdForUpdate(order.getId())
