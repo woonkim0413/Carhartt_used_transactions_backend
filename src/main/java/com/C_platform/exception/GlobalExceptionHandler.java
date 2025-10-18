@@ -1,6 +1,7 @@
 package com.C_platform.exception;
 
 
+import com.C_platform.Member_woonkim.exception.AddressException;
 import com.C_platform.Member_woonkim.exception.OauthException;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.Detail;
@@ -74,6 +75,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.ok(ApiResponse.fail(errorBody, meta));
     }
 
+    // (운강) 공통 에러 응답 생성 utils method (예외 생성 시점에 message 주입)
+    private static ResponseEntity<ApiResponse<Object>> getApiResponseResponseEntity(ErrorCode ex, String message) {
+        ErrorBody<ErrorCode> errorBody = new ErrorBody<>(ex, message);
+        MetaData meta = MetaData.builder()
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.ok(ApiResponse.fail(errorBody, meta));
+    }
+
+    // Address Exception 관련 처리 handler
+    @ExceptionHandler(AddressException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAddressException(OauthException ex) {
+        log.error("Oauth error: {}", ex.getMessage());
+        return getApiResponseResponseEntity(ex.getErrorCode(), ex.getMessage()); // ← 공통 포맷 + HTTP 200 고정
+    }
+
     @ExceptionHandler(InvalidImageExtensionException.class)
     public ResponseEntity<ApiResponse<Object>> handleInvalidImageExtensionException(InvalidImageExtensionException ex) {
         log.error("Invalid image extension: {}", ex.getMessage());
@@ -93,12 +110,13 @@ public class GlobalExceptionHandler {
         return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
     }
 
-    // KakaoOauth Exception 관련 처리 handler
+    // Oauth Exception 관련 처리 handler
     @ExceptionHandler(OauthException.class)
     public ResponseEntity<ApiResponse<Object>> handleOauthException(OauthException ex) {
         log.error("Oauth error: {}", ex.getMessage());
         return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
     }
+
 
     //결제 관련
     @ExceptionHandler(PaymentException.class)

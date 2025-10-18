@@ -20,10 +20,14 @@ public class ErrorBody {
         this.message = code.getMessage();
     }
 
+    public ErrorBody(ProductErrorCode code, String message) {
+        this.code = code.getCode();
+        this.message = message;
+    }
+
     public ErrorBody(ProductErrorCode code, ArrayList<Detail> details) {
         this.code = code.getCode();
         this.message = code.getMessage();
         this.details = details;
-
     }
 }
