@@ -11,7 +11,7 @@ public interface PaymentGatewayPort {
     AttemptPaymentResponse ready(AttemptPaymentRequest req, Long currentUserId);
 
     /** 승인(approve) 처리 */
-    CompletePaymentResponse complete(CompletePaymentRequest req, Long currentUserId);
+    CompletePaymentResponse complete(Long orderId, CompletePaymentRequest request, Long currentUserId);
 }
 
 

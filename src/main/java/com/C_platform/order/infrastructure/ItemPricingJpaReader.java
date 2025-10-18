@@ -20,8 +20,8 @@ public class ItemPricingJpaReader implements ItemPricingReader {
         return em.createQuery("""
             select new com.C_platform.order.application.port.ItemPricingReader$ItemView(
                 i.id,
-                cast(null as long),         
-                cast(i.price as big_decimal)  
+                i.member.memberId,         
+                i.price
             )
             from com.C_platform.item.domain.Item i
             where i.id = :id

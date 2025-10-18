@@ -179,8 +179,8 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
                      "/v1/oauth/logout",
                      "/v1/oauth/login/check",
                      "/v1/myPage/**",
-                     "/h2-console/**",
-                     "/v1/orders/**"
+                     "/h2-console/**"
+                     //"/v1/orders/**"
              )
     );
 
@@ -208,11 +208,11 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             .requestMatchers("/v1/oauth/login/check").permitAll()
 
             // ✅ 주문 생성 API 실제 경로 허용
-            .requestMatchers("/api/order").permitAll()
+            //.requestMatchers("/api/order").permitAll()
 
             // === 깡통 결제 API 전용 전체 허용 ===
-            .requestMatchers("/v1/order/*/payment/**").permitAll()
-            .requestMatchers("/v1/payment/**").permitAll()
+            //.requestMatchers("/v1/order/*/payment/**").permitAll()
+            //.requestMatchers("/v1/payment/**").permitAll()
 
             //마지막으로 anyRequest가 와야 함
             .anyRequest().authenticated()
