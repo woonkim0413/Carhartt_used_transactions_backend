@@ -1,5 +1,7 @@
 package com.C_platform.order.application;
 
+import com.C_platform.item.domain.Item;
+import com.C_platform.item.infrastructure.ItemRepository;
 import com.C_platform.order.domain.Order;
 import com.C_platform.order.domain.OrderRepository;
 import com.C_platform.order.domain.OrderStatus;
@@ -8,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
@@ -16,6 +19,7 @@ import java.util.NoSuchElementException;
 public class OrderCompletionService {
 
     private final OrderRepository orderRepository;
+    private final ItemRepository itemRepository;
 
     /**
      * GetOrderDetailsQuery: 결제 승인된 주문 ID로 주문 상세 정보를 조회합니다.
@@ -27,16 +31,35 @@ public class OrderCompletionService {
      */
     public OrderCompletionResponse getOrderDetailsQuery(Long orderId) {
 
-        // 1. Order 엔티티 조회
+        // Order 엔티티 조회
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new NoSuchElementException("주문 ID " + orderId + "에 해당하는 주문을 찾을 수 없습니다."));
 
-        // 2. 상태 검증: 반드시 'PAID' 상태여야 합니다.
+        // 상태 검증: 반드시 'PAID' 상태여야 합니다.
         if (order.getOrderStatus() != OrderStatus.PAID) {
             throw new IllegalStateException("주문 ID " + orderId + "는 결제 승인(PAID) 상태가 아닙니다. 현재 상태: " + order.getOrderStatus());
         }
 
-        // 3. DTO로 변환
+        // ItemSnapshot에서 itemId 가져오기
+        Long itemId = order.getItemSnapshot().getItemId();
+
+        // Item 조회 (이미지 정보 가져오기 위해)
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new NoSuchElementException("Item not found: " + itemId));
+
+        // 이미지 URL 추출
+        List<String> imageUrls = item.getImages().stream()
+                .map(image -> image.getImageUrl())
+                .toList();
+
+        // 대표 이미지 URL 추출
+        String representImageUrl = item.getImages().stream()
+                .filter(image -> image.getRepresentUrl() != null)
+                .map(image -> image.getRepresentUrl())
+                .findFirst()
+                .orElse(imageUrls.isEmpty() ? null : imageUrls.get(0));
+
+        // DTO로 변환
         return new OrderCompletionResponse(
                 order.getId(),
 
@@ -47,6 +70,9 @@ public class OrderCompletionService {
                 // 실제 프로젝트에서는 ItemSnapshot에 itemName 필드를 추가해야 합니다.
                 null,
                 order.getItemSnapshot().getPrice(),
+
+                imageUrls,
+                representImageUrl,
 
                 // OrderAddress 정보 매핑
 

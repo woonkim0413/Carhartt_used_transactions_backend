@@ -1,5 +1,8 @@
 package com.C_platform.order.ui;
 
+import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
+import com.C_platform.Member_woonkim.domain.entitys.Member;
+import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.order.application.CreateOrderService;
@@ -28,30 +31,32 @@ import java.util.UUID;
 @RequestMapping("/v1")
 public class OrderController {
 
-    private static final String SESSION_KEY_MEMBER_ID = "LOGIN_MEMBER_ID";
-
     private final CreateOrderService createOrderService;
     private final OrderCompletionService getOrderDetailsQuery;
     private final OrderCompletionService orderCompletionService;
+    private final OAuth2UseCase oauth2UseCase;  // ✅ 추가
 
     @PostMapping(value = "/order",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<CreateOrderResponse>> createOrder(
             @Valid @RequestBody CreateOrderRequest req,
-            HttpSession session,
-            @RequestHeader(value = "X-Request-Id", required = false) String requestId,
-            @RequestHeader(value = "X-Dev-User-Id", required = false) Long devUserId,
-            @RequestHeader(value = "X-Env", required = false) String env
+            HttpSession session, // X-Env X-Dev-User-Id 헤더 제거
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId
     ) {
-        Long buyerId = (Long) session.getAttribute(SESSION_KEY_MEMBER_ID);
-        if (buyerId == null) {
-            if ("dev".equalsIgnoreCase(env) && devUserId != null) {
-                buyerId = devUserId;
-            } else {
-                return unauthorized(requestId);
-            }
+        // ✅ 세션에서 user 가져오기
+        OAuth2UserInfoDto userInfo = (OAuth2UserInfoDto) session.getAttribute("user");
+        if (userInfo == null) {
+            return unauthorized(requestId);
         }
+
+        // ✅ DB에서 Member 조회
+        Member member = oauth2UseCase.getMemberBySessionInfo(userInfo);
+        if (member == null) {
+            return unauthorized(requestId);
+        }
+
+        Long buyerId = member.getMemberId();
 
         Long orderId = createOrderService.create(req.toOrderCommand(buyerId));
 
@@ -75,7 +80,6 @@ public class OrderController {
                 .timestamp(LocalDateTime.now())
                 .xRequestId(effectiveReqId(requestId))
                 .build();
-        // TODO: ErrorBody 구조에 맞게 수정 필요
         var body = ApiResponse.<CreateOrderResponse>fail(null, meta);
         return ResponseEntity.status(401).body(body);
     }
@@ -84,9 +88,7 @@ public class OrderController {
         return (reqId != null && !reqId.isBlank()) ? reqId : "req-" + UUID.randomUUID();
     }
 
-    private static String genTraceId() {
-        return "trc-" + UUID.randomUUID();
-    }
+
 
     @Operation(summary = "결제 완료된 주문의 상세 상품 정보 조회")
     @GetMapping("/order/{orderId}/item")

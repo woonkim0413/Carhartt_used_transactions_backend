@@ -27,20 +27,21 @@ import java.util.NoSuchElementException;
 public class CreateOrderService {
 
     private final OrderRepository orderRepository;
-    private final MemberRepository memberRepository;     // 향후 buyer/seller 연동 시 사용
-    private final ItemPricingReader itemReader;          // 아이템 가격/판매자 정보
-    private final AddressReader addressReader;           // 배송지 스냅샷 조회
+    private final MemberRepository memberRepository;
+    private final ItemPricingReader itemReader;
+    private final AddressReader addressReader;
 
     public Long create(CreateOrderCommand cmd) {
         log.info("REQ buyerId={}, itemId={}, addressId={}",
                 cmd.buyerId(), cmd.itemId(), cmd.addressId());
 
-        // 1) 아이템 조회 실패 → O004
+        // 1) 아이템 조회
         log.info("STEP getItemOrThrow in");
         ItemView item = getItemOrThrow(cmd.itemId());
-        log.info("STEP getItemOrThrow out: id={}, price={}", item.id(), item.price());
+        log.info("STEP getItemOrThrow out: id={}, price={}, sellerId={}",
+                item.id(), item.price(), item.sellerId());
 
-        // 2) 배송지 스냅샷 실패 → O004
+        // 2) 배송지 스냅샷
         log.info("STEP getShippingOrThrow in");
         var shipping = getShippingOrThrow(cmd.buyerId(), cmd.addressId());
         log.info("STEP getShippingOrThrow out: {}", shipping);
@@ -48,20 +49,21 @@ public class CreateOrderService {
         // 3) 가격 스냅샷
         var snapshot = ItemSnapshot.of(item.id(), item.price());
 
-        // 4) (임시) buyer/seller 미연동 → Draft 저장
-        var order = Order.createDraft(shipping, cmd.detailMessage(), snapshot);
-        orderRepository.save(order);
-
         // ✅ 4) buyer 조회
-        //Member buyer = memberRepository.findById(cmd.buyerId())
-        //        .orElseThrow(() -> new CreateOrderException(CreateOrderErrorCode.O006));
+        Member buyer = memberRepository.findById(cmd.buyerId())
+                .orElseThrow(() -> new CreateOrderException(CreateOrderErrorCode.O006));
 
-        // ✅ 5) seller 조회 (ItemView에 sellerId 있다고 가정)
-       // Member seller = memberRepository.findById(item.sellerId())
-        //        .orElseThrow(() -> new CreateOrderException(CreateOrderErrorCode.O007));
+        // ✅ 5) seller 조회
+        Member seller = memberRepository.findById(item.sellerId())
+                .orElseThrow(() -> new CreateOrderException(CreateOrderErrorCode.O007));
 
         // ✅ 6) buyer/seller 포함해서 Order 생성
-        //var order = Order.createOrder(buyer, seller, shipping, cmd.detailMessage(), snapshot);
+        var order = Order.createOrder(buyer, seller, shipping, cmd.detailMessage(), snapshot);
+        orderRepository.save(order);
+
+        log.info("주문 생성 완료: orderId={}, buyerId={}, sellerId={}",
+                order.getId(), buyer.getMemberId(), seller.getMemberId());
+
         return order.getId();
     }
 
@@ -71,15 +73,13 @@ public class CreateOrderService {
         try {
             var item = itemReader.getById(itemId);
             if (item == null) throw new CreateOrderException(CreateOrderErrorCode.O004);
-            // item.id(), item.price() 등을 서비스에서 사용하므로 null 방어
             if (item.id() == null) throw new CreateOrderException(CreateOrderErrorCode.O004);
             return item;
         } catch (EntityNotFoundException | NoSuchElementException e) {
-            log.warn("itemReader not found: {}", itemId, e);   // ★스택 찍기
+            log.warn("itemReader not found: {}", itemId, e);
             throw new CreateOrderException(CreateOrderErrorCode.O004);
         } catch (RuntimeException e) {
-            // 어댑터에서 다른 런타임을 던지더라도 FE 규칙에 맞춘 코드로 매핑
-            log.warn("itemReader runtime error: {}", itemId, e); // ★스택 찍기
+            log.warn("itemReader runtime error: {}", itemId, e);
             throw new CreateOrderException(CreateOrderErrorCode.O004);
         }
     }
@@ -95,7 +95,6 @@ public class CreateOrderService {
             throw new CreateOrderException(CreateOrderErrorCode.O004);
         }
     }
-
 }
 
 

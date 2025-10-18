@@ -32,7 +32,7 @@ public class NaverPayAdapter implements PaymentGatewayPort {
     private final PaymentRepository paymentRepository;
 
     public NaverPayAdapter(
-            @Qualifier("naverPayWebClient") WebClient naverPayWebClient,  // ← 생성자 파라미터에!
+            @Qualifier("naverPayWebClient") WebClient naverPayWebClient,
             OrderRepository orderRepository,
             PaymentRepository paymentRepository
     ) {
@@ -41,31 +41,26 @@ public class NaverPayAdapter implements PaymentGatewayPort {
         this.paymentRepository = paymentRepository;
     }
 
-    // === 1️⃣ READY 단계 ===
     @Override
     @Transactional
     public AttemptPaymentResponse ready(AttemptPaymentRequest req, Long currentUserId) {
-        // 주문 조회
         Order order = orderRepository.findById(req.orderId())
                 .orElseThrow(() -> new IllegalArgumentException("order not found: " + req.orderId()));
         ItemSnapshot snapshot = order.getItemSnapshot();
 
-        // 결제 금액
         int totalAmount = snapshot.getPrice().intValueExact();
         String itemName = "ITEM-" + snapshot.getItemId();
 
-        // 네이버 reserve 요청 조립
-// 네이버 reserve 요청 조립
         var nReq = NaverAttemptRequest.from(
-                "ORDER-" + order.getId(),  // userKey → orderKey로 변경
+                "ORDER-" + order.getId(),
                 itemName,
                 totalAmount,
                 req.returnUrl()
         );
+
         System.out.println("=== 네이버페이 API 호출 시작 ===");
         System.out.println("=== Request: " + nReq);
 
-        // API 호출
         NaverAttemptResponse nRes = naverPayWebClient.post()
                 .uri("/v2.2/reserve")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -76,14 +71,8 @@ public class NaverPayAdapter implements PaymentGatewayPort {
                         response -> response.bodyToMono(String.class)
                                 .doOnNext(error -> {
                                     System.err.println("=== NaverPay API Error Response ===");
-                                    System.err.println(error);  // ← 에러 상세 출력
+                                    System.err.println(error);
                                 })
-                                .flatMap(error -> Mono.error(new IllegalStateException("Naver API error: " + error)))
-                )
-                .onStatus(
-                        status -> status.is4xxClientError() || status.is5xxServerError(),
-                        response -> response.bodyToMono(String.class)
-                                .doOnNext(error -> System.err.println("=== NaverPay Error: " + error))
                                 .flatMap(error -> Mono.error(new IllegalStateException("Naver API error: " + error)))
                 )
                 .bodyToMono(NaverAttemptResponse.class)
@@ -99,12 +88,10 @@ public class NaverPayAdapter implements PaymentGatewayPort {
             throw new IllegalStateException("Naver reserve failed: reserveId is missing");
         }
 
-        // Payment 생성 및 PENDING 상태로 전이
         Payment payment = Payment.newReady(order, PaymentMethod.NAVERPAY, totalAmount);
         payment.markPending(nRes.reserveId());
         paymentRepository.save(payment);
 
-        // FE로 리다이렉트 URL 반환
         return new AttemptPaymentResponse(
                 null, null,
                 nRes.paymentUrl().pc(),
@@ -112,17 +99,20 @@ public class NaverPayAdapter implements PaymentGatewayPort {
         );
     }
 
-    // === 2️⃣ APPROVE 단계 ===
     @Override
     @Transactional
-    public CompletePaymentResponse complete(CompletePaymentRequest req, Long currentUserId) {
+    public CompletePaymentResponse complete(
+            Long orderId,  // ✅ orderId 파라미터 추가
+            CompletePaymentRequest req,
+            Long currentUserId
+    ) {
         if (!"NAVERPAY".equalsIgnoreCase(req.provider())) {
             throw new IllegalArgumentException("provider mismatch (expected NAVERPAY): " + req.provider());
         }
 
-        // 주문 조회
-        Order order = orderRepository.findById(req.orderId())
-                .orElseThrow(() -> new IllegalArgumentException("order not found: " + req.orderId()));
+        // ✅ req.orderId() → orderId
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("order not found: " + orderId));
 
         Payment payment = paymentRepository.findByOrderIdForUpdate(order.getId())
                 .orElseThrow(() -> new IllegalArgumentException("payment not found by orderId: " + order.getId()));
@@ -132,11 +122,9 @@ public class NaverPayAdapter implements PaymentGatewayPort {
             throw new IllegalStateException("missing reserveId for orderId=" + order.getId());
         }
 
-        // FE에서 받은 paymentId (pgToken 필드에 담겨옴)
         String paymentId = req.pgToken();
         var approveReq = new NaverCompleteRequest(paymentId);
 
-        // API 호출
         NaverCompleteResponse nRes = naverPayWebClient.post()
                 .uri("/v2.2/apply/payment")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -151,7 +139,6 @@ public class NaverPayAdapter implements PaymentGatewayPort {
                 .bodyToMono(NaverCompleteResponse.class)
                 .block();
 
-        // 응답 검증
         if (nRes == null || nRes.body() == null) {
             throw new IllegalStateException("Naver approve failed: null response");
         }
@@ -160,7 +147,6 @@ public class NaverPayAdapter implements PaymentGatewayPort {
             throw new IllegalStateException("amount mismatch");
         }
 
-        // 상태 전이
         if (payment.getPaymentStatus() != PaymentStatus.PAID) {
             payment.approve();
             paymentRepository.save(payment);
@@ -172,4 +158,3 @@ public class NaverPayAdapter implements PaymentGatewayPort {
         return new CompletePaymentResponse(order.getId());
     }
 }
-
