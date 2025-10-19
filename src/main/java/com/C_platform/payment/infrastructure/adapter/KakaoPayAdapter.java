@@ -60,7 +60,7 @@ public class KakaoPayAdapter implements PaymentGatewayPort  {
         ItemSnapshot snapshot = order.getItemSnapshot();
 
         // 2) 금액/항목명/수량 (중고거래: 1 고정)
-        int totalAmount = snapshot.getPrice().intValueExact();
+        int totalAmount = snapshot.getPrice();
         String itemName = "ITEM-" + snapshot.getItemId();
         int quantity = 1;
         int taxFreeAmount = 0;

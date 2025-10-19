@@ -48,7 +48,7 @@ public class NaverPayAdapter implements PaymentGatewayPort {
                 .orElseThrow(() -> new IllegalArgumentException("order not found: " + req.orderId()));
         ItemSnapshot snapshot = order.getItemSnapshot();
 
-        int totalAmount = snapshot.getPrice().intValueExact();
+        int totalAmount = snapshot.getPrice();
         String itemName = "ITEM-" + snapshot.getItemId();
 
         var nReq = NaverAttemptRequest.from(
