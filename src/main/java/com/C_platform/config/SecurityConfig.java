@@ -178,8 +178,8 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
                      "/v1/oauth/logout",
                      "/v1/oauth/login/check",
                      "/v1/myPage/**",
-                     "/h2-console/**"
-                     //"/v1/orders/**"
+                     "/h2-console/**",
+                     "/v1/order/**"
              )
     );
 
