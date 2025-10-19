@@ -1,6 +1,5 @@
 package com.C_platform.order.ui.dto;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -10,7 +9,7 @@ public record OrderCompletionResponse(
         // 상품 스냅샷 정보
         Long itemId,
         String itemName,
-        BigDecimal itemPrice,
+        Integer itemPrice,
 
         // ✅ 상품 이미지 정보 추가
         List<String> imageUrls,          // 상품 이미지 URL 리스트
