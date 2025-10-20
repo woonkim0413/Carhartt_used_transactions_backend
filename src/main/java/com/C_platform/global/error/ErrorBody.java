@@ -21,6 +21,11 @@ public class ErrorBody<T extends ErrorCode> {
         this.message = code.getMessage();
     }
 
+    public ErrorBody(T code, String message) {
+        this.code = code.getCode();
+        this.message = message;
+    }
+
     public ErrorBody(T code, ArrayList<Detail> details) {
         this.code = code.getCode();
         this.message = code.getMessage();

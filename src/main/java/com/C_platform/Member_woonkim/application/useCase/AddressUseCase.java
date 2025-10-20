@@ -26,7 +26,7 @@ public class AddressUseCase {
 
         // todo : 에러 만들기
         Member member = memberRepository.findById(member_id)
-                .orElseThrow(() -> new RuntimeException());
+                .orElseThrow(() -> new RuntimeException("member가 존재하지 않습니다"));
 
         // member에 속한 주소 목록 반환
         List<Address> addressList = getAddressList(member.getMemberId());
