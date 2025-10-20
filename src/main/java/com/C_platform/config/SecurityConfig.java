@@ -101,7 +101,8 @@ public class SecurityConfig {
                 // 프론트 서버 Origin 추가 (5713 -> 5173 변경)
                 "https://carhartt-usedtransactions-frontend.pages.dev",
                 "https://carhartt-usedtransactions-frontend.pages.dev:5173",
-                "http://localhost:5173"
+                "http://localhost:5173",
+                "https://localhost:5173"
         ));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));

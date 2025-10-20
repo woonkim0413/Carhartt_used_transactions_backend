@@ -234,7 +234,12 @@ public class OauthController {
         log.info("logout request - type: {}, provider: {}", type, provider);
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
-        session.invalidate();
+        // 세션 파괴;
+        try {
+            session.invalidate();
+        } catch (IllegalStateException ignored) {
+            throw new OauthException(OauthErrorCode.C011);
+        }
 
         // 응답 data 생성
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);

@@ -7,11 +7,16 @@ import lombok.Builder;
 @Builder
 // addAddress handler에서 사용
 public record AddAddressResponseDto(
+        @JsonProperty("member_id")
+        @Schema(description = "멤버ID", example = "1")
+        String memberId,
+
         @JsonProperty("address_id")
-        @Schema(description = "주소ID", example = "주소를 식별할 수 있는 고유 값")
+        @Schema(description = "주소ID", example = "1")
         String addressId,
 
-        @JsonProperty("member_id")
-        @Schema(description = "멤버ID", example = "해당 주소를 갖고 있는 member의 고유 ID")
-        String memberId
+        @JsonProperty("address_name")
+        @Schema(description = "주소 이름", example = "본가")
+        String addressName
+
 ) {}

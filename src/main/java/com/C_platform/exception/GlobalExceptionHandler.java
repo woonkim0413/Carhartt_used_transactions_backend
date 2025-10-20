@@ -86,8 +86,8 @@ public class GlobalExceptionHandler {
 
     // Address Exception 관련 처리 handler
     @ExceptionHandler(AddressException.class)
-    public ResponseEntity<ApiResponse<Object>> handleAddressException(OauthException ex) {
-        log.error("Oauth error: {}", ex.getMessage());
+    public ResponseEntity<ApiResponse<Object>> handleAddressException(AddressException ex) {
+        log.error("Address error: {}", ex.getMessage());
         return getApiResponseResponseEntity(ex.getErrorCode(), ex.getMessage()); // ← 공통 포맷 + HTTP 200 고정
     }
 

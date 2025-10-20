@@ -53,7 +53,7 @@ public class AddressController {
 
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
-        // db에 저장한 address 반환
+        // 현재 db에 저장한 address 반환
         Address address = addressUseCase.addAddress(member_id, dto);
 
         // metaData 생성
@@ -66,6 +66,7 @@ public class AddressController {
                 AddAddressResponseDto.builder()
                         .memberId(member_id.toString())
                         .addressId(address.getAddressId().toString())
+                        .addressName(address.getAddressName())
                         .build(), meta));
     }
 
