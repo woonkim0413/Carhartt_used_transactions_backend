@@ -6,9 +6,11 @@ import lombok.Getter;
 @Getter
 public class AddressException extends RuntimeException {
     private final ErrorCode errorCode;
+    private final String message;
 
-    public AddressException(ErrorCode errorCode) {
-        super(errorCode.getMessage());
+    public AddressException(ErrorCode errorCode, String message) {
+        super(message);
         this.errorCode = errorCode;
+        this.message = message;
     }
 }

@@ -183,7 +183,7 @@ public class OauthController {
         log.info("[디버깅 목적] [origin이 있다는 말은 state 값 정상 저장됐다는 뜻] origin : {}", origin);
         log.info("[디버깅 목적] provider : {}", provider); // 값이 있는지 테스트
 
-        // TODO : 예외 생성
+        // TODO : 예외 생성 , 추가로직 구현
         checkStateValidation(origin); // origin이 null이 아니면 state값이 저장되어 있었다고 판단
 
         // oauth provider 값에 따라 알맞은 oauth server에 접근하여 사용자 정보 획득
@@ -234,7 +234,12 @@ public class OauthController {
         log.info("logout request - type: {}, provider: {}", type, provider);
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
-        session.invalidate();
+        // 세션 파괴;
+        try {
+            session.invalidate();
+        } catch (IllegalStateException ignored) {
+            throw new OauthException(OauthErrorCode.C011);
+        }
 
         // 응답 data 생성
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);

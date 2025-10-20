@@ -15,12 +15,12 @@ public enum OauthErrorCode implements ErrorCode {
     C008("C010", "local 기반 로그인 시 email을 필수로 넣어주어야 합니다"),
     C009("C010", "해당 로그인을 처리할 수 있는 provider을 지원하지 않습니다"),
     C010("C010", "해당 로그인을 처리할 수 있는 userForm을 지원하지 않습니다"),
+    C011("C001", "세션이 만료됐거나 security 내부 처리 에러가 발생했습니다"),
 
     // Oauth naver 특화
     C007("C010", "[naver] Oauth 사용자 정보가 양식과 맞지 않습니다");
 
     // Oauth kakao 특화
-
     private final String code;
     private final String messageKey;
 
