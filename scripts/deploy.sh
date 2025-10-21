@@ -27,9 +27,8 @@ else
   echo "> 종료할것 없음."
 fi
 
-echo "> 새 어플리케이션 배포"
-JAR_PATH="$(ls -tr "$REPOSITORY"/*.jar | tail -n 1)"
 echo "> JAR: $JAR_PATH"
+JAR_PATH="$(ls -tr "$REPOSITORY"/*.jar | tail -n 1)"
 
 echo "> 실행권한 추가"
 chmod +x "$JAR_PATH"
