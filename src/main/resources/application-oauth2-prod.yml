@@ -49,7 +49,7 @@ spring:
             # client-secret: R8ppGlLLEG (운영용)
             client-id: v2MpZi1jsRTED3WGkHcw
             client-secret: R8ppGlLLEG
-            redirect-uri: http://localhost:8080/v1/oauth/naver/callback
+            redirect-uri: http://carhartt-usedtransactions.com/v1/oauth/naver/callback
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
             client-name: naver
