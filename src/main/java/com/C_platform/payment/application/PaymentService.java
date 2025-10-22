@@ -48,13 +48,17 @@ public class PaymentService {
      * 결제 완료(approve/cancel/fail): PG별로 라우팅하여 승인/취소 처리
      */
     @Transactional
-    public CompletePaymentResponse complete(CompletePaymentRequest req, Long currentUserId) {
+    public CompletePaymentResponse complete(
+            Long orderId,  // ✅ orderId 파라미터 추가
+            CompletePaymentRequest req,
+            Long currentUserId
+    ) {
         try {
             String key = normalize(req.provider()); // "KAKAOPAY" | "NAVERPAY"
             PaymentGatewayPort gateway = gateways.get(key);
             if (gateway == null) throw new PaymentException(PaymentErrorCode.P003); // UNSUPPORTED_PROVIDER 등
 
-            return gateway.complete(req, currentUserId);
+            return gateway.complete(orderId, req, currentUserId);
 
         } catch (PaymentException e) {
             throw e;

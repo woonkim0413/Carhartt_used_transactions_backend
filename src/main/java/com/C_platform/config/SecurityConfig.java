@@ -212,11 +212,11 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             .requestMatchers("/v1/oauth/login/check").permitAll()
 
             // ✅ 주문 생성 API 실제 경로 허용
-            .requestMatchers("/api/order").permitAll()
+            //.requestMatchers("/api/order").permitAll()
 
             // === 깡통 결제 API 전용 전체 허용 ===
-            .requestMatchers("/v1/order/*/payment/**").permitAll()
-            .requestMatchers("/v1/payment/**").permitAll()
+            //.requestMatchers("/v1/order/*/payment/**").permitAll()
+            //.requestMatchers("/v1/payment/**").permitAll()
 
             // 🔽 디버깅을 위해 임시 제외
             .requestMatchers("/v1/debug/**").permitAll()
