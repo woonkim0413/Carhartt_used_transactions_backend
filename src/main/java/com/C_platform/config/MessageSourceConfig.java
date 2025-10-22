@@ -1,9 +1,6 @@
 package com.C_platform.config;
 
-import com.C_platform.global.error.CategoryErrorCode;
-import com.C_platform.global.error.CreateOrderErrorCode;
-import com.C_platform.global.error.ProductErrorCode;
-import com.C_platform.global.error.PaymentErrorCode;  // ← 추가!
+import com.C_platform.global.error.*;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.MessageSource;
@@ -17,11 +14,15 @@ public class MessageSourceConfig {
         this.messageSource = messageSource;
     }
 
+
     @PostConstruct
     public void init() {
         // Item domain
         ProductErrorCode.setMessageSource(messageSource);
         CategoryErrorCode.setMessageSource(messageSource);
+        ItemErrorCode.setMessageSource(messageSource);
+        ImageErrorCode.setMessageSource(messageSource);
+        WishErrorCode.setMessageSource(messageSource);
         // member domain
         // NameChangeErrorCode.setMessageSource(messageSource);
         //Order domain

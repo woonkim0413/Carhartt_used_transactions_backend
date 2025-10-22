@@ -2,6 +2,10 @@ package com.C_platform.wish.applicaion;
 
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
+import com.C_platform.exception.ItemException;
+import com.C_platform.exception.WishException;
+import com.C_platform.global.error.ItemErrorCode;
+import com.C_platform.global.error.WishErrorCode;
 import com.C_platform.item.domain.Item;
 import com.C_platform.item.infrastructure.ItemRepository;
 import com.C_platform.wish.domain.Wish;
@@ -27,10 +31,10 @@ public class WishUseCase {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("Member not found"));
         Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
+                .orElseThrow(() -> new ItemException(ItemErrorCode.I001));
 
         if (wishRepository.existsByMemberMemberIdAndItemId(memberId, itemId)) {
-            throw new IllegalArgumentException("Item already in wishlist");
+            throw new WishException(WishErrorCode.W003);
         }
 
         Wish wish = Wish.builder()
@@ -43,7 +47,7 @@ public class WishUseCase {
     @Transactional
     public void removeWish(Long memberId, Long itemId) {
         Wish wish = wishRepository.findByMemberMemberIdAndItemId(memberId, itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Wish not found"));
+                .orElseThrow(() -> new WishException(WishErrorCode.W001));
         wishRepository.delete(wish);
     }
 

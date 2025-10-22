@@ -18,6 +18,12 @@ server:
 
 # oauth 정보 설정
 spring:
+  messages:
+    encoding: UTF-8
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:categorydata.sql
   security:
     oauth2:
       client:
@@ -57,3 +63,9 @@ spring:
             scope: # Resource server에 받고자 하는 사용자 정보 범위
               - nickname
               - email
+
+aws:
+  bucket: dummy-bucket
+  accessKey: dummy-access-key
+  secretKey: dummy-secret-key
+  region: ap-northeast-2

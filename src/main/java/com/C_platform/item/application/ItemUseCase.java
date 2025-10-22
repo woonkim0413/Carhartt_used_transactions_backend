@@ -87,10 +87,10 @@ public class ItemUseCase {
     @Transactional
     public Item updateItem(Long itemId, Long memberId, com.C_platform.item.ui.dto.UpdateItemRequestDto requestDto) {
         Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalStateException("존재하지 않는 상품입니다."));
+                .orElseThrow(() -> new ItemException(ItemErrorCode.I001));
 
         Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalStateException("존재하지 않는 회원입니다."));
+                .orElseThrow(() -> new ItemException(ItemErrorCode.I001));
 
 
         if (!item.getMember().getMemberId().equals(member.getMemberId())) {
@@ -137,7 +137,7 @@ public class ItemUseCase {
     @Transactional(readOnly = true)
     public ItemDetailResponseDto findItemDetailById(Long itemId) {
         Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new ItemException(ItemErrorCode.I002));
+                .orElseThrow(() -> new ItemException(ItemErrorCode.I001));
 
         return ItemDetailResponseDto.of(item);
     }

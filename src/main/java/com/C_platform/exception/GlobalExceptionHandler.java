@@ -125,7 +125,17 @@ public class GlobalExceptionHandler {
         return getApiResponseResponseEntity(ex.getErrorCode()); // ← 공통 포맷 + HTTP 200 고정
     }
 
+    @ExceptionHandler(ItemException.class)
+    public ResponseEntity<ApiResponse<Object>> handleItemException(ItemException ex) {
+        log.error("Item error: {}", ex.getMessage());
+        return getApiResponseResponseEntity(ex.getErrorCode());
+    }
 
+    @ExceptionHandler(WishException.class)
+    public ResponseEntity<ApiResponse<Object>> handleWishException(WishException ex) {
+        log.error("Wish error: {}", ex.getMessage());
+        return getApiResponseResponseEntity(ex.getErrorCode());
+    }
 
 }
 
