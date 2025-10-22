@@ -18,10 +18,19 @@ server:
   # 프록시가 붙여주는 헤더들을 spring이 신뢰하도록 하는 설정
   forward-headers-strategy: framework
 
-
+jpa:
+  show-sql: true
+  hibernate:
+    ddl-auto: create
 
 # prod 세션 관련 설정
 spring:
+  messages:
+    encoding: UTF-8
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:categorydata.sql
   security:
     oauth2:
       client:
