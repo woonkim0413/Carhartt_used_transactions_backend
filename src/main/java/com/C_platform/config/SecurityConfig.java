@@ -183,7 +183,8 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
                      "/v1/oauth/login/check",
                      "/v1/myPage/**",
                      "/h2-console/**",
-                     "/v1/order/**"
+                     "/v1/orders/**",
+                     "/v1/debug/**" // 🔽 디버깅을 위해 임시 제외
              )
     );
 
@@ -216,6 +217,9 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             // === 깡통 결제 API 전용 전체 허용 ===
             //.requestMatchers("/v1/order/*/payment/**").permitAll()
             //.requestMatchers("/v1/payment/**").permitAll()
+
+            // 🔽 디버깅을 위해 임시 제외
+            .requestMatchers("/v1/debug/**").permitAll()
 
             //마지막으로 anyRequest가 와야 함
             .anyRequest().authenticated()
