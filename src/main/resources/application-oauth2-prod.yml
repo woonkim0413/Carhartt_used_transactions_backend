@@ -27,10 +27,6 @@ spring:
       ddl-auto: create
   messages:
     encoding: UTF-8
-  sql:
-    init:
-      mode: always
-      data-locations: classpath:categorydata.sql
   security:
     oauth2:
       client:
