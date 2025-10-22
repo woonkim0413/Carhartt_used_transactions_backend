@@ -22,6 +22,12 @@ server:
 
 # prod 세션 관련 설정
 spring:
+  messages:
+    encoding: UTF-8
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:categorydata.sql
   security:
     oauth2:
       client:
