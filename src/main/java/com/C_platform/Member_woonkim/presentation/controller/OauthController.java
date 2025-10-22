@@ -236,11 +236,13 @@ public class OauthController {
 
         try {
             session.invalidate(); // server login session 삭제
+            log.info("로그인 세션 삭제 완료");
         } catch (IllegalStateException ignored) {
             throw new OauthException(OauthErrorCode.C011);
         }
 
         final String expiredSessionCookie = buildExpiredSessionCookieForEnv(isProd()); // brwoser JSESSIONID 쿠키 삭제
+        log.info("browser cookie Max-age = 0으로 설정 (자연 삭제 목적)");
 
         // 응답 data 생성
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
