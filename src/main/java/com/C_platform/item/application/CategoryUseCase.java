@@ -27,23 +27,30 @@ public class CategoryUseCase {
             return Optional.empty();
         }
 
-        // 상위 카테고리 를 기준으로 자식 카테고리를 갖는 MAP 생성
-        Map<Long, List<com.C_platform.item.domain.Category>> parentIdToChildren = new HashMap<>();
-        for (com.C_platform.item.domain.Category category : allCategories) {
-            if (category.getParent() != null) {  // 상위 카테고리가 있다면
-                Long parentId = category.getParent().getId(); // 상위 카테고리 ID 를 가져오고
-                // 상위 카테고리 id 를 키로 자식 카테고리 리스트를 추출
-                parentIdToChildren.computeIfAbsent(parentId, k -> new ArrayList<>()).add(category);
-            }
-        }
+        //        // 상위 카테고리 를 기준으로 자식 카테고리를 갖는 MAP 생성
+        //        Map<Long, List<com.C_platform.item.domain.Category>> parentIdToChildren = new HashMap<>();
+        //        for (com.C_platform.item.domain.Category category : allCategories) {
+        //            if (category.getParent() != null) {  // 상위 카테고리가 있다면
+        //                Long parentId = category.getParent().getId(); // 상위 카테고리 ID 를 가져오고
+        //                // 상위 카테고리 id 를 키로 자식 카테고리 리스트를 추출
+        //                parentIdToChildren.computeIfAbsent(parentId, k -> new ArrayList<>()).add(category);
+        //            }
+        //        }
+        Map<Long, List<com.C_platform.item.domain.Category>> parentIdToChildren = allCategories.stream()
+                .filter(category -> category.getParent() != null)
+                .collect(Collectors.groupingBy(category -> category.getParent().getId()));
 
 
-        List<CategoryResponseDto> topLevelDtos = new ArrayList<>();
-        for (com.C_platform.item.domain.Category category : allCategories) {
-            if (category.getParent() == null) {
-                topLevelDtos.add(convertToDto(category, parentIdToChildren, true));
-            }
-        }
+        //        List<CategoryResponseDto> topLevelDtos = new ArrayList<>();
+        //        for (com.C_platform.item.domain.Category category : allCategories) {
+        //            if (category.getParent() == null) {
+        //                topLevelDtos.add(convertToDto(category, parentIdToChildren, true));
+        //            }
+        //        }
+        List<CategoryResponseDto> topLevelDtos = allCategories.stream()
+                .filter(category -> category.getParent() == null)
+                .map(category -> convertToDto(category, parentIdToChildren, true))
+                .collect(Collectors.toList());
 
         CategoryResponseDto root = CategoryResponseDto.builder()
                 .categoryId(0L)

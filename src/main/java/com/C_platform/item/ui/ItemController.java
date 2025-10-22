@@ -5,11 +5,8 @@ import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.item.application.ItemUseCase;
 import com.C_platform.item.domain.Item;
-import com.C_platform.item.ui.dto.CreateItemRequestDto;
-import com.C_platform.item.ui.dto.ItemDetailResponseDto;
+import com.C_platform.item.ui.dto.*;
 import com.C_platform.global.PageResponseDto;
-import com.C_platform.item.ui.dto.ItemListResponseDto;
-import com.C_platform.item.ui.dto.MySoldItemResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -38,6 +35,7 @@ public class ItemController {
     @PostMapping("/items")
     @Operation(summary = "상품 및 이미지 정보 저장", description = "S3에 업로드된 이미지의 URL과 상품 정보를 DB에 저장합니다.")
     public ResponseEntity<ApiResponse<?>> createItemWithImages(@RequestBody @Valid CreateItemRequestDto requestDto ,
+                                                               @RequestHeader("X-Request-Id") String x_request_id,
                                                                @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
 
         extracted(customOAuth2User);
@@ -46,21 +44,23 @@ public class ItemController {
 
         Item createdItem = itemUseCase.createItem(requestDto , memberId);
 
-        Map<String, Long> response = new HashMap<>();
-        response.put("item_id", createdItem.getId());
+        //        Map<String, Long> response = new HashMap<>();
+        //        response.put("item_id", createdItem.getId());
+        Map<String, Long> response = Map.of("item_id", createdItem.getId());
 
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(createdItem.getId())
-                .toUri();
-        return ResponseEntity.created(location).body(ApiResponse.success(response, getMetaData()));
+//        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+//                .path("/{id}")
+//                .buildAndExpand(createdItem.getId())
+//                .toUri();
+        return ResponseEntity.ok().body(ApiResponse.success(response, getMetaData(x_request_id)));
     }
 
     @PutMapping("/items/{itemId}")
     @Operation(summary = "상품 정보 수정", description = "상품 정보를 수정합니다.")
     public ResponseEntity<ApiResponse<?>> updateItem(@PathVariable Long itemId,
-                                                   @RequestBody @Valid com.C_platform.item.ui.dto.UpdateItemRequestDto requestDto,
-                                                   @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
+                                                     @RequestBody @Valid UpdateItemRequestDto requestDto,
+                                                     @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
+                                                     @RequestHeader("X-Request-Id") String x_request_id) {
 
         extracted(customOAuth2User);
 
@@ -68,16 +68,18 @@ public class ItemController {
 
         Item updatedItem = itemUseCase.updateItem(itemId, memberId, requestDto);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("updated", true);
-        response.put("item_id", updatedItem.getId());
-        return ResponseEntity.ok().body(ApiResponse.success(response, getMetaData()));
+        //        Map<String, Object> response = new HashMap<>();
+        //        response.put("updated", true);
+        //        response.put("item_id", updatedItem.getId());
+        Map<String, Object> response = Map.of("updated", true, "item_id", updatedItem.getId());
+        return ResponseEntity.ok().body(ApiResponse.success(response, getMetaData(x_request_id)));
     }
 
     @DeleteMapping("/items/{itemId}")
     @Operation(summary = "상품 정보 삭제", description = "상품 정보를 삭제합니다.")
     public ResponseEntity<ApiResponse<?>> deleteItem(@PathVariable Long itemId,
-                                                   @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
+                                                     @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
+                                                     @RequestHeader("X-Request-Id") String x_request_id) {
 
         extracted(customOAuth2User);
 
@@ -85,35 +87,39 @@ public class ItemController {
 
         itemUseCase.deleteItem(itemId, memberId);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("deleted", true);
-        response.put("item_id", itemId);
+        //        Map<String, Object> response = new HashMap<>();
+        //        response.put("deleted", true);
+        //        response.put("item_id", itemId);
+        Map<String, Object> response = Map.of("deleted", true, "item_id", itemId);
 
-        return ResponseEntity.ok().body(ApiResponse.success(response, getMetaData()));
+        return ResponseEntity.ok().body(ApiResponse.success(response, getMetaData(x_request_id)));
     }
 
     @GetMapping("/items/{itemId}")
     @Operation(summary = "상품 상세 정보 조회", description = "상품의 상세 정보를 조회합니다.")
-    public ResponseEntity<ApiResponse<?>> findItemDetail(@PathVariable Long itemId) {
+    public ResponseEntity<ApiResponse<?>> findItemDetail(@PathVariable Long itemId,
+                                                         @RequestHeader("X-Request-Id") String x_request_id) {
+
         ItemDetailResponseDto itemDetail = itemUseCase.findItemDetailById(itemId);
-        return ResponseEntity.ok().body(ApiResponse.success(itemDetail, getMetaData()));
+        return ResponseEntity.ok().body(ApiResponse.success(itemDetail, getMetaData(x_request_id)));
     }
 
     @GetMapping("/items")
     @Operation(summary = "상품 목록 조회", description = "상품 목록을 페이지네이션하여 조회합니다. 키워드 검색이 가능합니다.")
-    public ResponseEntity<ApiResponse<PageResponseDto<ItemListResponseDto>>> findItems(
-            @RequestParam(required = false) String keyword,
-            Pageable pageable) {
+    public ResponseEntity<ApiResponse<PageResponseDto<ItemListResponseDto>>> findItems(@RequestParam(required = false) String keyword,
+                                                                                       @RequestHeader("X-Request-Id") String x_request_id,
+                                                                                       Pageable pageable) {
         Page<ItemListResponseDto> items = itemUseCase.findItems(keyword, pageable);
         PageResponseDto<ItemListResponseDto> responseDto = PageResponseDto.of(items);
-        return ResponseEntity.ok().body(ApiResponse.success(responseDto, getMetaData()));
+        return ResponseEntity.ok().body(ApiResponse.success(responseDto, getMetaData(x_request_id)));
     }
+
 
     //TODO 회원이 본인이 판매 및 판매완료 한 제품 정보 표시
     @GetMapping("/items/mysolditems")
     @Operation(summary = "회원 본인이 판매 및 판매 완료한 상품 목록 조회", description = "인증된 회원이 판매했거나 판매 완료한 상품 목록을 조회합니다.")
-    public ResponseEntity<ApiResponse<?>> getMySoldItems(
-            @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
+    public ResponseEntity<ApiResponse<?>> getMySoldItems(@AuthenticationPrincipal CustomOAuth2User customOAuth2User ,
+                                                         @RequestHeader("X-Request-Id") String x_request_id) {
 
         extracted(customOAuth2User);
 
@@ -121,7 +127,7 @@ public class ItemController {
 
         List<MySoldItemResponseDto> mySoldItems = itemUseCase.getMySoldItems(memberId);
 
-        return ResponseEntity.ok().body(ApiResponse.success(mySoldItems, getMetaData()));
+        return ResponseEntity.ok().body(ApiResponse.success(mySoldItems, getMetaData(x_request_id)));
     }
 
 
@@ -129,9 +135,10 @@ public class ItemController {
      * 메타데이터 생성
      * @return
      */
-    private static MetaData getMetaData() {
+    private static MetaData getMetaData(String requestId) {
         return MetaData.builder()
                 .timestamp(LocalDateTime.now())
+                .xRequestId(requestId)
                 .build();
     }
 
