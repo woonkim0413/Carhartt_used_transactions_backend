@@ -30,64 +30,72 @@ public class WishController {
 
     @PostMapping("/wishes")
     @Operation(summary = "아이템 찜하기", description = "특정 아이템을 회원의 찜 목록에 추가합니다.")
-    public ResponseEntity<ApiResponse<?>> addWish(
-            @Valid @RequestBody AddWishRequestDto addWishRequestDto,
-            @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
+    public ResponseEntity<ApiResponse<?>> addWish(@Valid @RequestBody AddWishRequestDto addWishRequestDto,
+                                                  @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
+                                                  @RequestHeader("X-Request-Id") String x_request_id) {
 
         extracted(customOAuth2User);
         Long memberId = customOAuth2User.getMemberId();
 
         wishUseCase.addWish(memberId, addWishRequestDto.getItemId());
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of("message", "Item added to wishlist"), getMetaData()));
+        return ResponseEntity.ok().body(ApiResponse.success(Map.of("message", "찜 등록에 성공했습니다."), getMetaData(x_request_id)));
     }
 
     @DeleteMapping("/wishes/{itemId}")
     @Operation(summary = "아이템 찜 해제", description = "특정 아이템을 회원의 찜 목록에서 제거합니다.")
-    public ResponseEntity<ApiResponse<?>> removeWish(
-            @Schema(description = "상품 ID") @PathVariable Long itemId,
-            @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
+    public ResponseEntity<ApiResponse<?>> removeWish(@Schema(description = "상품 ID") @PathVariable Long itemId,
+                                                     @RequestHeader("X-Request-Id") String x_request_id,
+                                                     @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
 
         extracted(customOAuth2User);
         Long memberId = customOAuth2User.getMemberId();
 
         wishUseCase.removeWish(memberId, itemId);
 
-        return ResponseEntity.ok().body(ApiResponse.success(Map.of("message", "Item removed from wishlist"), getMetaData()));
+        return ResponseEntity.ok().body(ApiResponse.success(Map.of("message", "찜 목록에서 삭제되었습니다."), getMetaData(x_request_id)));
     }
 
     @GetMapping("/wishes")
     @Operation(summary = "회원의 찜 목록 조회", description = "인증된 회원의 찜 목록을 조회합니다.")
-    public ResponseEntity<ApiResponse<List<WishResponseDto>>> getMyWishlist(
-            @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
+    public ResponseEntity<ApiResponse<List<WishResponseDto>>> getMyWishlist(@AuthenticationPrincipal CustomOAuth2User customOAuth2User,
+                                                                            @RequestHeader("X-Request-Id") String x_request_id) {
 
         extracted(customOAuth2User);
         Long memberId = customOAuth2User.getMemberId();
 
         List<WishResponseDto> wishlist = wishUseCase.getMyWishlist(memberId);
 
-        return ResponseEntity.ok().body(ApiResponse.success(wishlist, getMetaData()));
+        return ResponseEntity.ok().body(ApiResponse.success(wishlist, getMetaData(x_request_id)));
     }
 
     @GetMapping("/wishes/{itemId}/status")
     @Operation(summary = "아이템 찜 상태 확인", description = "특정 아이템이 현재 회원의 찜 목록에 있는지 확인합니다.")
-    public ResponseEntity<ApiResponse<?>> checkWishStatus(
-            @Schema(description = "상품 ID") @PathVariable Long itemId,
-            @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
+    public ResponseEntity<ApiResponse<?>> checkWishStatus(@Schema(description = "상품 ID") @PathVariable Long itemId,
+                                                          @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
+                                                          @RequestHeader("X-Request-Id") String x_request_id) {
 
         extracted(customOAuth2User);
         Long memberId = customOAuth2User.getMemberId();
 
         boolean isWished = wishUseCase.isItemWished(memberId, itemId);
 
-        return ResponseEntity.ok().body(ApiResponse.success(Map.of("isWished", isWished), getMetaData()));
+        return ResponseEntity.ok().body(ApiResponse.success(Map.of("isWished", isWished), getMetaData(x_request_id)));
     }
 
-    private static MetaData getMetaData() {
+
+    /**
+     * 메타데이터 생성
+     * @return
+     */
+    private static MetaData getMetaData(String requestId) {
         return MetaData.builder()
                 .timestamp(LocalDateTime.now())
+                .xRequestId(requestId)
                 .build();
     }
+
+
 
     private static void extracted(CustomOAuth2User customOAuth2User) {
         if (customOAuth2User == null) {

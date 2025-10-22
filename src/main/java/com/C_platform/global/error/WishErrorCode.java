@@ -5,18 +5,18 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 
 @Getter
-public enum ItemErrorCode implements ErrorCode {
+public enum WishErrorCode implements ErrorCode {
 
-    I001("I001", "item.not.found"),
-    I002("I002", "item.delete.failed"),
-    I103("I103","item.update.auth.failed");
+    W001("W001", "wish.not.found"),
+    W002("W002", "wish.add.failed"),
+    W003("W003","wish.add.already");
 
     private final String code;
     private final String messageKey;
 
     private static MessageSource messageSource;
 
-    ItemErrorCode(String code, String messageKey) {
+    WishErrorCode(String code, String messageKey) {
         this.code = code;
         this.messageKey = messageKey;
     }
