@@ -234,12 +234,13 @@ public class OauthController {
         log.info("logout request - type: {}, provider: {}", type, provider);
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
-        // 세션 파괴;
         try {
-            session.invalidate();
+            session.invalidate(); // server login session 삭제
         } catch (IllegalStateException ignored) {
             throw new OauthException(OauthErrorCode.C011);
         }
+
+        final String expiredSessionCookie = buildExpiredSessionCookieForEnv(isProd()); // brwoser JSESSIONID 쿠키 삭제
 
         // 응답 data 생성
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
@@ -248,7 +249,11 @@ public class OauthController {
                 = oauthAssembler.getLogoutResponseDto(LOGOUT_SUCCESS);
 
         LogPaint.sep("logOut handler 이탈");
-        return ResponseEntity.ok(ApiResponse.success(logoutResponseDto, meta));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, expiredSessionCookie) // Max-age = 0 cookie를 통해 browser 쿠키 삭제
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .body(ApiResponse.success(logoutResponseDto, meta));
     }
 
     @GetMapping("/oauth/login/check")
@@ -298,6 +303,35 @@ public class OauthController {
                 .body(ApiResponse.success(dto, meta));
     }
 
+// ----------------------------- Helper (instance) ---------------------------------------
+
+    private boolean isProd() {
+        return "prod".equalsIgnoreCase(envIdentifier);
+    }
+
+    // origin이 null이 아니면 그대로 반환, origin이 없다면 referer parsing, referer도 없다면 null 반환
+    private String extractOriginFromReferer(String referer, String originHeader) {
+        if (originHeader != null) {
+            return originHeader;
+        } else if (referer == null || referer.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = new URI(referer);
+            String scheme = uri.getScheme();  // http, https
+            String host = uri.getHost();      // localhost, example.com
+            int port = uri.getPort();         // -1이면 기본 포트
+
+            String origin = scheme + "://" + host;
+            if (port != -1 && port != 80 && port != 443) {
+                origin += ":" + port;
+            }
+            return origin;
+        } catch (URISyntaxException e) {
+            return null;
+        }
+    }
+
 // ----------------------------- Helper (static) ---------------------------------------
 
     // redirectToKakao handler에서 사용
@@ -314,6 +348,20 @@ public class OauthController {
         };
     }
 
+    // 배포 환경에 따라 session 설정 분기
+    private static String buildExpiredSessionCookieForEnv(boolean isProd) {
+        final boolean secure   = isProd;
+        final String  sameSite = isProd ? "None" : "Lax";
+
+        return ResponseCookie.from("JSESSIONID", "")
+                .path("/")
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite(sameSite)
+                .maxAge(0)
+                .build()
+                .toString();
+    }
 
     // kakaoCallback handler에서 사용
     private static void checkStateValidation(String origin) {
@@ -398,27 +446,16 @@ public class OauthController {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
-    // origin이 null이 아니면 그대로 반환, origin이 없다면 referer parsing, referer도 없다면 null 반환
-    private String extractOriginFromReferer(String referer, String originHeader) {
-        if (originHeader != null) {
-            return originHeader;
-        } else if (referer == null || referer.isBlank()) {
-            return null;
-        }
-        try {
-            URI uri = new URI(referer);
-            String scheme = uri.getScheme();  // http, https
-            String host = uri.getHost();      // localhost, example.com
-            int port = uri.getPort();         // -1이면 기본 포트
+    private static void expireSessionCookie(HttpServletResponse response) {
+        ResponseCookie sessionClear = ResponseCookie.from("JSESSIONID", "")
+                .path("/")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Lax")
+                .maxAge(0) // 삭제 유도
+                .build();
 
-            String origin = scheme + "://" + host;
-            if (port != -1 && port != 80 && port != 443) {
-                origin += ":" + port;
-            }
-            return origin;
-        } catch (URISyntaxException e) {
-            return null;
-        }
+        response.addHeader(HttpHeaders.SET_COOKIE, sessionClear.toString());
     }
 
     private static void wirte_debug_log(HttpServletRequest request) {
