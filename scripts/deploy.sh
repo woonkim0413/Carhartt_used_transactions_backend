@@ -1,38 +1,23 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-REPOSITORY="/home/ubuntu/carhartt_platform"
-LOG="$REPOSITORY/server_log"
+APP_HOME="/home/ubuntu/carhartt_platform"
+IMAGE_URI="$(cat "$APP_HOME/IMAGE_URI")"        # CI가 넣어준 완전한 ECR 이미지 URI
+CONTAINER_NAME="carhartt-platform"              # 컨테이너 이름(원하는 이름)
+AWS_REGION="ap-northeast-2"                     # 또는 환경/파일로 주입
 
-cd "$REPOSITORY"
+echo "[deploy] Using image: $IMAGE_URI"
 
-# 권한 정리(필요 시)
-chown -R ubuntu:ubuntu "$REPOSITORY"
+# 1) ECR 로그인 (EC2 인스턴스 롤에 ecr:GetAuthorizationToken 등 Pull 권한 필수)
+aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$(echo "$IMAGE_URI" | awk -F/ '{print $1}')"
 
-# 로그 파일 보장
-touch "$LOG"
-chmod 664 "$LOG"
+# 2) 최신 이미지 Pull
+docker pull "$IMAGE_URI"
 
-echo "> Build 파일 복사"
-cp ./build/libs/*.jar "$REPOSITORY"/
+# 3) 기존 컨테이너 중지/삭제(있다면)
+docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
-echo "> 현재 구동중인 애플리케이션 pid 확인"
-PID="$(pgrep -f "$REPOSITORY/.*\.jar" || true)"
-if [ -n "$PID" ]; then
-  echo "> kill -15 $PID"
-  kill -15 "$PID" || true
-  sleep 5
-  ps -p "$PID" > /dev/null 2>&1 && { echo "> kill -9 $PID"; kill -9 "$PID" || true; }
-else
-  echo "> 종료할것 없음."
-fi
+# 4) 새 컨테이너 실행 (포트/환경변수는 서비스에 맞게 조정)
+docker run -d --name "$CONTAINER_NAME" --restart=always -p 8080:8080 "$IMAGE_URI"
 
-echo "> JAR: $JAR_PATH"
-JAR_PATH="$(ls -tr "$REPOSITORY"/*.jar | tail -n 1)"
-
-echo "> 실행권한 추가"
-chmod +x "$JAR_PATH"
-
-echo "> 실행 시작"
-nohup java -jar "$JAR_PATH" >> "$LOG" 2>&1 < /dev/null &
-echo "> started (pid $!)"
+echo "[deploy] Container $CONTAINER_NAME started."

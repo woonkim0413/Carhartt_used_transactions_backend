@@ -9,7 +9,14 @@ env:
   BUCKET_NAME: storage-for-ci-cd
   CODE_DEPLOY_APP_NAME: for_CICD
   DEPLOYMENT_GROUP_NAME: for_CICD
-# ---------------------
+  AWS_REGION: ap-northeast-2
+  # 🔧 ECR 리포지토리 이름
+  ECR_REPOSITORY: c-platform
+  # 커밋 SHA를 이미지/배포 태그로 사용
+  COMMIT_SHA: ${{ github.sha }}
+
+# ------------------------------- 기본 셋팅 ------------------------------------
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,6 +46,7 @@ jobs:
         run: chmod +x ./gradlew
         shell: bash
 
+      # secret action variable에 저장된 .properties를 쓰기 위해 기존꺼 삭제
       - name: Remove test application.properties (for main branch only)
         if: contains(github.ref, 'main') # main 브랜치에서만 실행
         run: |
@@ -51,6 +59,7 @@ jobs:
           fi
         shell: bash
 
+      # secret action variable에서 .properties를 가져옴
       - name: Make application-prod.properties
         if: contains(github.ref, 'main') # branch가 main 일 때
         run: |
@@ -59,22 +68,7 @@ jobs:
           echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./application.properties
         shell: bash
 
-      # 스크립트 권한 부여
-      - name: Make scripts executable (and fix line endings)
-        run: |
-          sudo apt-get update && sudo apt-get install -y dos2unix
-          chmod +x scripts/*.sh
-          dos2unix scripts/*.sh
-        shell: bash
-
-      - name: Build with Gradle
-        run: ./gradlew build -x test
-        shell: bash
-      # 추가
-      - name: Make Zip File
-        run: zip -qq -r ./$GITHUB_SHA.zip .
-        shell: bash
-
+      # AWS 접근 권한 부여 (계정 rule)
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -82,9 +76,62 @@ jobs:
           aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
+      # ECR 로그인 뒤에 추가
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ------------------------------- ECR에 Docker Image push ------------------------------------
+
+      # ECR 로그인 (레지스트리 URI를 outputs로 제공)
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Docker Image를 build 후 바로 push
+      - name: Build and Push (arm64)
+        run: |
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          docker buildx build --platform linux/arm64 -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA} --push .
+
+      # ------------------------------- CD 사용 bundle s3에 전송 ------------------------------------
+
+      # 스크립트 권한 부여 / 개행 표준화
+      # dos2unix는 줄바꿈 형식을 unix가 사용하는 LF로 표준화
+      # 이후 step을 위해 zip Package도 설치
+      - name: Make scripts executable (and fix line endings)
+        run: |
+          sudo apt-get update && sudo apt-get install -y dos2unix zip
+          chmod +x scripts/*.sh
+          dos2unix scripts/*.sh
+        shell: bash
+
+      # 디렉토리 구성 (appspec.yml + 필요한 스크립트만 수집)
+      # CD에서 사용하기 위해 COMMIT_SHA, IMAGE_URI 각각의 값을 저장하고 있는 파일 생성
+      - name: Stage bundle (appspec.yml + scripts)
+        run: |
+          mkdir -p bundle/scripts
+          cp ./appspec.yml bundle/appspec.yml
+          cp ./scripts/deploy.sh bundle/scripts/deploy.sh
+          cp ./scripts/nginx_setup.sh bundle/scripts/nginx_setup.sh
+          
+          echo "${COMMIT_SHA}" > bundle/COMMIT_SHA
+          echo "${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:${COMMIT_SHA}" > bundle/IMAGE_URI
+        shell: bash
+
+      # ZIP 생성
+      - name: Create bundle zip
+        run: |
+          cd bundle
+          zip -qq -r ${COMMIT_SHA}.zip .
+          mv ./${COMMIT_SHA}.zip ../${COMMIT_SHA}.zip
+        shell: bash
+
       - name: Upload to S3
-        run: aws s3 cp --region ap-northeast-2 ./$GITHUB_SHA.zip s3://$BUCKET_NAME/$PROJECT_NAME/$GITHUB_SHA.zip
+        run: aws s3 cp --region ap-northeast-2 ./${COMMIT_SHA}.zip s3://$BUCKET_NAME/$PROJECT_NAME/${COMMIT_SHA}.zip
 
       - name: Code Deploy
-        run: aws deploy create-deployment --application-name $CODE_DEPLOY_APP_NAME --deployment-config-name CodeDeployDefault.OneAtATime --deployment-group-name $DEPLOYMENT_GROUP_NAME --s3-location bucket=$BUCKET_NAME,bundleType=zip,key=$PROJECT_NAME/$GITHUB_SHA.zip
+        run: aws deploy create-deployment --application-name $CODE_DEPLOY_APP_NAME --deployment-config-name CodeDeployDefault.OneAtATime --deployment-group-name $DEPLOYMENT_GROUP_NAME --s3-location bucket=$BUCKET_NAME,bundleType=zip,key=$PROJECT_NAME/${COMMIT_SHA}.zip
 # ---------------------
