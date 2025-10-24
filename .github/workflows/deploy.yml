@@ -9,6 +9,11 @@ env:
   BUCKET_NAME: storage-for-ci-cd
   CODE_DEPLOY_APP_NAME: for_CICD
   DEPLOYMENT_GROUP_NAME: for_CICD
+  AWS_REGION: ap-northeast-2
+  # 🔧 ECR 리포지토리 이름
+  ECR_REPOSITORY: c-platform
+  # 이미지 태그는 커밋 SHA 사용
+  IMAGE_TAG: ${{ github.sha }}
 # ---------------------
 jobs:
   build:
@@ -39,6 +44,7 @@ jobs:
         run: chmod +x ./gradlew
         shell: bash
 
+      # secret action variable에 저장된 .properties를 쓰기 위해 기존꺼 삭제
       - name: Remove test application.properties (for main branch only)
         if: contains(github.ref, 'main') # main 브랜치에서만 실행
         run: |
@@ -51,6 +57,7 @@ jobs:
           fi
         shell: bash
 
+      # secret action variable에서 .properties를 가져옴
       - name: Make application-prod.properties
         if: contains(github.ref, 'main') # branch가 main 일 때
         run: |
@@ -60,19 +67,12 @@ jobs:
         shell: bash
 
       # 스크립트 권한 부여
+      # doe2unix는 줄바꿈 형식을 unix가 사용하는 LF로 표준화
       - name: Make scripts executable (and fix line endings)
         run: |
           sudo apt-get update && sudo apt-get install -y dos2unix
           chmod +x scripts/*.sh
           dos2unix scripts/*.sh
-        shell: bash
-
-      - name: Build with Gradle
-        run: ./gradlew build -x test
-        shell: bash
-      # 추가
-      - name: Make Zip File
-        run: zip -qq -r ./$GITHUB_SHA.zip .
         shell: bash
 
       - name: Configure AWS credentials
@@ -81,6 +81,23 @@ jobs:
           aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
+
+      # ECR 로그인 (레지스트리 URI를 outputs로 제공)
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Docker 이미지 빌드 & 태깅
+      - name: Build Docker image
+        run: |
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
+        shell: bash
+
+      # .jar을 zip으로 압축
+      - name: Make Zip File
+        run: zip -qq -r ./$GITHUB_SHA.zip .
+        shell: bash
 
       - name: Upload to S3
         run: aws s3 cp --region ap-northeast-2 ./$GITHUB_SHA.zip s3://$BUCKET_NAME/$PROJECT_NAME/$GITHUB_SHA.zip
