@@ -66,7 +66,7 @@ INSERT INTO ADDRESS (
     ZIP
 ) VALUES (
              101,          -- ADDRESS_ID
-             1,            -- MEMBER_ID (MEMBER 테이블의 PK)
+             2,            -- MEMBER_ID (MEMBER 테이블의 PK)
              '집',          -- ADDRESS_NAME
              '101호',       -- DETAIL_ADDRESS
              '서울시 강남구 테스트로', -- ROAD_ADDRESS
