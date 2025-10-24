@@ -42,7 +42,7 @@ INSERT INTO "MEMBER" (
     OAUTH_PROVIDER
 ) VALUES (
              102,              -- DEFAULT_ADDRESS_ID
-             3,                -- MEMBER_ID (PK, 직접 지정도 가능)
+             100,                -- MEMBER_ID (PK, 직접 지정도 가능)
              '124-456-7890',   -- COUNT_NUMBER
              'test2@test2.com',  -- EMAIL
              NULL,             -- IMAGE_URL (없으면 NULL)
@@ -66,7 +66,7 @@ INSERT INTO ADDRESS (
     ZIP
 ) VALUES (
              101,          -- ADDRESS_ID
-             2,            -- MEMBER_ID (MEMBER 테이블의 PK)
+             100,            -- MEMBER_ID (MEMBER 테이블의 PK)
              '집',          -- ADDRESS_NAME
              '101호',       -- DETAIL_ADDRESS
              '서울시 강남구 테스트로', -- ROAD_ADDRESS
@@ -81,7 +81,7 @@ INSERT INTO ITEM (
     ITEM_ID, SIGNED_DATE, UPDATE_DATE, DTYPE, ITEM_NAME, ITEM_STATUS
 ) VALUES (
              100, 45, 50000, 60, 50, 60, 55, 90,
-             1,  -- ← MEMBER_ID (판매자도 1번 회원으로)
+             100,  -- ← MEMBER_ID (판매자도 1번 회원으로)
              1101, '2025-01-01 10:00:00', NULL, 'Item', '테스트상품', 'FOR_SALE'
          );
 
