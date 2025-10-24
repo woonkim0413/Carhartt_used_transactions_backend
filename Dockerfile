@@ -1,11 +1,11 @@
 # ---- Build stage ----
-FROM gradle:8.9-jdk17 AS build
+FROM gradle:8.14.3-jdk17 AS build
 WORKDIR /workspace
 
 COPY . .
 RUN chmod +x gradlew
 RUN gradle --version
-RUN ./gradlew clean bootJar -x test
+RUN ./gradlew bootJar -x test
 
 # ---- Run stage ----
 FROM eclipse-temurin:17-jre-jammy
