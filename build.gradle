@@ -42,10 +42,16 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
-	implementation 'com.h2database:h2'
+	runtimeOnly 'com.mysql:mysql-connector-j' // EC2/prod에서 사용
+	runtimeOnly 'com.h2database:h2' // local/dev에서 사용
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// 실행 가능한 Spring Boot JAR 이름을 고정
+tasks.named('bootJar') {
+	archiveFileName = 'app.jar'
 }
