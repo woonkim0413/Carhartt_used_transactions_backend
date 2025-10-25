@@ -4,6 +4,8 @@ import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.service.CustomOAuth2UserService;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
+import jakarta.servlet.http.HttpSession;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -42,6 +44,7 @@ import java.util.List;
         OAuth2RegistrationPropertiesDto.class,
         OAuth2ProviderPropertiesDto.class
 })
+@Slf4j
 public class SecurityConfig {
 
     @Value("${app.identifier}")
@@ -75,7 +78,8 @@ public class SecurityConfig {
             "/v1/oauth/login/*", // kakao, naver
             "/v1/oauth/login/local",
             "/favicon.ico",
-            "/v1/oauth/*/callback" // kakao, naver
+            "/v1/oauth/*/callback", // kakao, naver
+            "/v1/test/session-check" //
     };
 
     // local login password 암호화 객체
@@ -163,9 +167,12 @@ public class SecurityConfig {
 // ***************************************************************************************
 
 @Bean
-public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService) throws Exception {
+public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService, SessionCheckFilter sessionCheckFilter) throws Exception {
     // cors
     http.cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource()));
+
+    // Session Check Filter 추가
+    http.addFilterBefore(sessionCheckFilter, CsrfFilter.class);
 
     // CSRF (더블 서브밋: JS가 쿠키 XSRF-TOKEN을 읽어 X-XSRF-TOKEN 헤더로 반사)
     CookieCsrfTokenRepository repo =
