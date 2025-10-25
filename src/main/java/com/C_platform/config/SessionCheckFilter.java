@@ -22,7 +22,7 @@ public class SessionCheckFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        // 필터 체인 실행 전에 세션 확인 (생성 X)
+        // 필터 체인 실행 전에 세션 확인 (생성 X)1
         HttpSession sessionBefore = request.getSession(false);
 
         // 다음 필터로 요청 전달
