@@ -17,13 +17,15 @@ public class ReqLogFilter extends OncePerRequestFilter {
     @Override protected void doFilterInternal(
             HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws IOException, ServletException {
-        log.info(">>> {} {}  Referer={}  UA={}  Sec-Fetch-Mode={}  Sec-Fetch-Site={}  Sec-Purpose={}",
-                req.getMethod(), req.getRequestURI(),
+        String cookies = req.getHeader("Cookie");
+
+        log.info(">>> {} {} | Origin={} | Referer={} | Cookie={}",
+                req.getMethod(),
+                req.getRequestURI(),
+                req.getHeader("Origin"),
                 req.getHeader("Referer"),
-                req.getHeader("User-Agent"),
-                req.getHeader("Sec-Fetch-Mode"),
-                req.getHeader("Sec-Fetch-Site"),
-                req.getHeader("Sec-Purpose"));
+                cookies != null ? cookies : "(쿠키 없음)"
+        );
         chain.doFilter(req, res);
     }
 }
