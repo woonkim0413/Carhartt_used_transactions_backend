@@ -196,7 +196,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     http.sessionManagement
             (httpSecuritySessionManagementConfigurer ->
             {
-                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED);
+                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.NEVER);
             });
 
     // 인가(인가 규칙)
