@@ -21,6 +21,10 @@ server:
 
 # prod 세션 관련 설정
 spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create
   messages:
     encoding: UTF-8
   security:
