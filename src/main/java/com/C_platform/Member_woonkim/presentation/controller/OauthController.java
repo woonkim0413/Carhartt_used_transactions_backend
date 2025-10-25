@@ -219,7 +219,7 @@ public class OauthController {
         // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
 //        writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
 
-        String redirectUrl = origin + FRONT_CALLBACK_PATH;
+
         ResponseCookie cookie = ResponseCookie.from("JSESSIONID", session.getId())
                 .httpOnly(true)
                 .secure(true)
