@@ -229,13 +229,23 @@ public class OauthController {
                 .build();
 
         log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
-        log.info("[(로그인 후) redirect origin] = {}", redirectUrl);
+        log.info("[(로그인 후) redirect origin] = {}", origin + FRONT_CALLBACK_PATH);
+
+        // 수동으로 세션 쿠키 생성 및 헤더 추가
+        ResponseCookie sessionCookie = ResponseCookie.from("JSESSIONID", session.getId())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .path("/")
+                .maxAge(60 * 60 * 24 * 14) // 14일
+                .build();
+
         LogPaint.sep("git Callback handler 이탈");
         return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, redirectUrl) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
-                .header(HttpHeaders.CACHE_CONTROL, "no-store") // 민감 응답 캐싱 방지(선택)
-                .header(HttpHeaders.SET_COOKIE,cookie.toString())
-                .body(null); // 반환 타입을 유지하기 위해 null 본문
+                .header(HttpHeaders.LOCATION, origin + FRONT_CALLBACK_PATH)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
+                .body(null);
     }
 
     // 로그아웃은 꽤나 중요한 서버 데이터 변경 처리이기에 body에 실을 데이터가 없다고 해도 Get보단 Post 방식으로 처리하는 것이 적절하다
