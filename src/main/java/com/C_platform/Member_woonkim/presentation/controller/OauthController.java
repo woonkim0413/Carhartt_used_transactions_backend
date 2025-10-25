@@ -165,6 +165,7 @@ public class OauthController {
             @Parameter(example = "req-129")
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpServletRequest request,
+            HttpServletResponse response,
             HttpSession session
     ) throws IOException {
         LogPaint.sep("Callback handler 진입");
@@ -207,14 +208,24 @@ public class OauthController {
 
         // TODO : 필요 없다면 주석 처리 + 필요 하다면 local, prod 환경에 따라 분기하도록 작성
         // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
-        // writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
+//        writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
+
+        String redirectUrl = origin + FRONT_CALLBACK_PATH;
+        ResponseCookie cookie = ResponseCookie.from("JSESSIONID", session.getId())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .path("/")
+                .maxAge(60 * 60 * 24 * 1)
+                .build();
 
         log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
-        log.info("[(로그인 후) redirect origin] = {}", origin + FRONT_CALLBACK_PATH);
+        log.info("[(로그인 후) redirect origin] = {}", redirectUrl);
         LogPaint.sep("git Callback handler 이탈");
         return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, origin + FRONT_CALLBACK_PATH) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
+                .header(HttpHeaders.LOCATION, redirectUrl) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
                 .header(HttpHeaders.CACHE_CONTROL, "no-store") // 민감 응답 캐싱 방지(선택)
+                .header(HttpHeaders.SET_COOKIE,cookie.toString())
                 .body(null); // 반환 타입을 유지하기 위해 null 본문
     }
 
