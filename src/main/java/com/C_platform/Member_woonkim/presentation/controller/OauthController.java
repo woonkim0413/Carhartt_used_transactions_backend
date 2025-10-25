@@ -77,8 +77,13 @@ public class OauthController {
     @Operation(summary = "로그인 방식 (Oauths, local) 목록 출력", description = " 서비스가 지원하는 로그인 방식을 조회 합니다.")
     public ResponseEntity<ApiResponse<List<LoginProviderResponseDto>>> getLoginProviders(
             @Parameter(example = "req-129")
-            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
+            HttpServletRequest request // 세션 생성을 위해 파라미터 추가
     ) {
+
+        // 세션이 없으면 생성하도록 강제
+        HttpSession session = request.getSession();
+        log.info("[/oauth/login] 요청. 세션 ID: {}", session.getId());
 
         LogPaint.sep("로그인 방식 목록 호출 진입");
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
@@ -192,6 +197,9 @@ public class OauthController {
         log.info("[고정 쿠키 테스트] Set-Cookie 헤더에 테스트 쿠키를 설정합니다. 값: {}", testCookie.toString());
 
         String redirectUrl = origin + FRONT_CALLBACK_PATH;
+        // TODO : 필요 없다면 주석 처리 + 필요 하다면 local, prod 환경에 따라 분기하도록 작성
+        // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
+        //writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
 
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, redirectUrl)
