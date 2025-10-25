@@ -97,7 +97,9 @@ public class SecurityConfig {
         cfg.setAllowedOrigins(List.of( // cors 요청을 허용하는 origin들 목록
                 "https://carhartt-usedtransactions.com",
                 "http://localhost:3000",
+                "https://localhost:3000",
                 "http://localhost:8080",
+                "https://localhost:8080",
                 // 프론트 서버 Origin 추가 (5713 -> 5173 변경)
                 "https://carhartt-usedtransactions-frontend.pages.dev",
                 "https://carhartt-usedtransactions-frontend.pages.dev:5173",
@@ -182,7 +184,9 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
                      "/v1/oauth/login/check",
                      "/v1/myPage/**",
                      "/h2-console/**",
-                     "/v1/orders/**"
+                     "/v1/order/**",
+                     "/v1/orders/**",
+                     "/v1/debug/**" // 🔽 디버깅을 위해 임시 제외
              )
     );
 
@@ -210,11 +214,14 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             .requestMatchers("/v1/oauth/login/check").permitAll()
 
             // ✅ 주문 생성 API 실제 경로 허용
-            .requestMatchers("/api/order").permitAll()
+            //.requestMatchers("/api/order").permitAll()
 
             // === 깡통 결제 API 전용 전체 허용 ===
-            .requestMatchers("/v1/order/*/payment/**").permitAll()
-            .requestMatchers("/v1/payment/**").permitAll()
+            //.requestMatchers("/v1/order/*/payment/**").permitAll()
+            //.requestMatchers("/v1/payment/**").permitAll()
+
+            // 🔽 디버깅을 위해 임시 제외
+            .requestMatchers("/v1/debug/**").permitAll()
 
             //마지막으로 anyRequest가 와야 함
             .anyRequest().authenticated()

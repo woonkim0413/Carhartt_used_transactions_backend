@@ -72,15 +72,17 @@ public class CreateOrderService {
     private ItemView getItemOrThrow(Long itemId) {
         try {
             var item = itemReader.getById(itemId);
-            if (item == null) throw new CreateOrderException(CreateOrderErrorCode.O004);
-            if (item.id() == null) throw new CreateOrderException(CreateOrderErrorCode.O004);
+            if (item == null || item.id() == null) {
+                log.warn("itemReader returned null for itemId={}", itemId);
+                throw new CreateOrderException(CreateOrderErrorCode.O001); // ✅ 아이템 없음
+            }
             return item;
         } catch (EntityNotFoundException | NoSuchElementException e) {
             log.warn("itemReader not found: {}", itemId, e);
-            throw new CreateOrderException(CreateOrderErrorCode.O004);
+            throw new CreateOrderException(CreateOrderErrorCode.O001); // ✅ 아이템 없음
         } catch (RuntimeException e) {
             log.warn("itemReader runtime error: {}", itemId, e);
-            throw new CreateOrderException(CreateOrderErrorCode.O004);
+            throw new CreateOrderException(CreateOrderErrorCode.O001); // ✅ 아이템 조회 중 런타임 예외
         }
     }
 
