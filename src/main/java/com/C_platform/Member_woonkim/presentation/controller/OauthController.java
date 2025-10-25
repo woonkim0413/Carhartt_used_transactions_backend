@@ -15,6 +15,7 @@ import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.LogoutReques
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.*;
 import com.C_platform.Member_woonkim.presentation.dtoAssembler.OauthAssembler;
 import com.C_platform.Member_woonkim.utils.CreateMetaData;
+import com.C_platform.Member_woonkim.utils.InMemoryAuthSuccessStore;
 import com.C_platform.Member_woonkim.utils.InMemoryOauthSateStore;
 import com.C_platform.Member_woonkim.utils.LogPaint;
 import com.C_platform.global.ApiResponse;
@@ -70,20 +71,17 @@ public class OauthController {
 
     private final OauthAssembler oauthAssembler; // 응답 dto 생성
 
-    private final InMemoryOauthSateStore inMemoryOauthSateStore; // state를 저장하기 위한 인메모리 저장소
+    private final InMemoryOauthSateStore inMemoryOauthSateStore; // state <-> origin 매핑 임시 저장소
+
+    private final InMemoryAuthSuccessStore inMemoryAuthSuccessStore; // 인증 성공 유저 임시 저장소
 
     // Kakao/Naver 로그인 공급자 목록 반환
     @GetMapping("/oauth/login")
     @Operation(summary = "로그인 방식 (Oauths, local) 목록 출력", description = " 서비스가 지원하는 로그인 방식을 조회 합니다.")
     public ResponseEntity<ApiResponse<List<LoginProviderResponseDto>>> getLoginProviders(
             @Parameter(example = "req-129")
-            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
-            HttpServletRequest request // 세션 생성을 위해 파라미터 추가
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
-
-        // 세션이 없으면 생성하도록 강제
-        HttpSession session = request.getSession();
-        log.info("[/oauth/login] 요청. 세션 ID: {}", session.getId());
 
         LogPaint.sep("로그인 방식 목록 호출 진입");
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
@@ -128,14 +126,15 @@ public class OauthController {
                     .build(); // 204
         }
 
-        // 1) 요청 origin 저장 (callback 처리 시점에 oauth_state 검증 후 사용)
+        // 1) 요청 origin과 현재 세션 ID 확보
         String origin = extractOriginFromReferer(referer, originHeader);
-        log.info("[디버깅 목적] origin {}", origin); // 값이 있는지 테스트
+        HttpSession session = req.getSession();
+        String sessionId = session.getId();
+        log.info("[세션 이어가기] /login/kakao 진입. Origin: {}, SessionID: {}", origin, sessionId);
 
-        // 1) CSRF 핵심 방어: state 생성/세션 저장
-        // TODO : oauth , origin 값 session 저장 -> InMemory 저장 구조로 바꿔서 서브 파티션에서 쿠키 미적재 문제 우회
+        // 2) CSRF 방어 및 세션 이어가기를 위해 state 토큰에 origin과 세션 ID를 매핑하여 저장
         OAuthProvider oauthProvider = getOauthProvider(provider);
-        String stateCode = generateAndStoreState(inMemoryOauthSateStore, origin, oauthProvider);
+        String stateCode = generateAndStoreState(inMemoryOauthSateStore, origin, sessionId, oauthProvider);
         log.info("[디버깅 목적] InMemory에 저장한 stateCode 값 : {}", stateCode);
 
         // 2) 리다이렉트 주소 생성 ; oauthProvider 값에 맞춰서 uri 생성
@@ -164,88 +163,42 @@ public class OauthController {
             description = "사용자가 Oauth 인증을 끝마치면 보안 코드를 통해 사용자 정보에 접근하여 받고 session에 저장한 뒤 sessionId를 내려줍니다."
     )
     @GetMapping("/oauth/{provider}/callback")
-    public ResponseEntity<ApiResponse<CallBackResponseDto>> Callback(
+    public ResponseEntity<Void> Callback(
             @PathVariable String provider,
             @Valid @ModelAttribute CallbackRequestDto callbackRequestDto,
-            @Parameter(example = "req-129")
-            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
-            HttpServletRequest request,
-            HttpServletResponse response,
-            HttpSession session
+            HttpServletResponse response
     ) throws IOException {
-        LogPaint.sep("Callback handler 진입");
+        LogPaint.sep("Callback handler 진입 (세션 이어가기)");
 
-        String stateCode = callbackRequestDto.code(); // 네이버 Authorization code
-        String returnedState = callbackRequestDto.state(); // CSRF 보안 목적 oauth_state code
+        String returnedState = callbackRequestDto.state();
         OAuthProvider oauthProvider = getOauthProvider(provider);
-        // InMemory에 state와 대응되는 key가 있으면 key와 쌍을 이루는 origin (createRedirectUri을 호출한 origin) return
-        String origin = inMemoryOauthSateStore.consumeOrigin(returnedState, oauthProvider);
 
-        wirte_debug_log(request);
+        // 1. state 값으로 저장했던 "origin::sessionId" 문자열을 가져옴
+        String combinedValue = inMemoryOauthSateStore.consumeOrigin(returnedState, oauthProvider);
+        checkStateValidation(combinedValue); // null 체크
 
-        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
-        log.info("[디버깅 목적] Authorization Code 값 : {}", stateCode);
-        log.info("[디버깅 목적] callback url query parameter oauth_state 값 : {}", returnedState);
-        log.info("[디버깅 목적] [origin이 있다는 말은 state 값 정상 저장됐다는 뜻] origin : {}", origin);
-        log.info("[디버깅 목적] provider : {}", provider); // 값이 있는지 테스트
+        // 2. "origin::sessionId" 분리
+        String[] parts = combinedValue.split("::");
+        String origin = parts[0];
+        String originalSessionId = parts[1];
+        log.info("[세션 이어가기] Callback. state로부터 복원된 Origin: {}, SessionID: {}", origin, originalSessionId);
 
-        // TODO : 예외 생성 , 추가로직 구현
-        checkStateValidation(origin); // origin이 null이 아니면 state값이 저장되어 있었다고 판단
+        // 3. 카카오로부터 사용자 정보 가져오기
+        OAuth2UserInfoDto userInfo = oauth2UseCase.getUserInfo(callbackRequestDto.code(), returnedState, oauthProvider);
+        oauth2UseCase.ensureOAuthMember(userInfo, oauthProvider);
 
-        // oauth provider 값에 따라 알맞은 oauth server에 접근하여 사용자 정보 획득
-        OAuth2UserInfoDto userInfo = oauth2UseCase.getUserInfo(stateCode, returnedState, oauthProvider);
+        // 4. 새로운 임시 저장소에 (최초 세션 ID, 사용자 정보)를 저장
+        inMemoryAuthSuccessStore.save(originalSessionId, userInfo);
+        log.info("[세션 이어가기] InMemoryAuthSuccessStore에 사용자 정보 저장 완료. Key: {}", originalSessionId);
 
-        JoinOrLoginResult result = oauth2UseCase.ensureOAuthMember(userInfo, oauthProvider); // 회원가입 유무에 따라 값 반환
+        // 5. Set-Cookie 없이, 원래 origin의 프론트엔드 callback으로 리디렉션
         String redirectUrl = origin + FRONT_CALLBACK_PATH;
-        // TODO : 필요 없다면 주석 처리 + 필요 하다면 local, prod 환경에 따라 분기하도록 작성
-        // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
-        //writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
+        LogPaint.sep("Callback handler 이탈 (세션 이어가기)");
 
-        Member member = result.member();
-        boolean isNew = result.isNew();
-
-        // TODO : UseCase 내로 삽입하기
-        // 4. 로그인 정보 @AuthenticationPrincipal로 가져올 수 있도록 처리
-        establishSecurityContext(member, session);
-
-        // 3. 사용자 정보 세션에 저장
-        session.setAttribute("user", userInfo);
-
-        log.info("[디버깅 목적] JSESSIONID {}", session.getId());
-        log.info("[새로 가입한 회원 : {}] / [이름 {}] / [닉네임 {}] [sessionId : {}]",
-                isNew, member.getName(), member.getNickname(), session.getId());
-
-        // TODO : 필요 없다면 주석 처리 + 필요 하다면 local, prod 환경에 따라 분기하도록 작성
-        // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
-//        writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
-
-
-        ResponseCookie cookie = ResponseCookie.from("JSESSIONID", session.getId())
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
-                .path("/")
-                .maxAge(60 * 60 * 24 * 1)
-                .build();
-
-        log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
-        log.info("[(로그인 후) redirect origin] = {}", origin + FRONT_CALLBACK_PATH);
-
-        // 수동으로 세션 쿠키 생성 및 헤더 추가
-        ResponseCookie sessionCookie = ResponseCookie.from("JSESSIONID", session.getId())
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
-                .path("/")
-                .maxAge(60 * 60 * 24 * 14) // 14일
-                .build();
-
-        LogPaint.sep("git Callback handler 이탈");
         return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, origin + FRONT_CALLBACK_PATH)
+                .header(HttpHeaders.LOCATION, redirectUrl)
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
-                .body(null);
+                .build();
     }
 
     // 로그아웃은 꽤나 중요한 서버 데이터 변경 처리이기에 body에 실을 데이터가 없다고 해도 Get보단 Post 방식으로 처리하는 것이 적절하다
@@ -299,36 +252,43 @@ public class OauthController {
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpSession session
     ) {
-        LogPaint.sep("loginCheck 진입");
+        LogPaint.sep("loginCheck 진입 (세션 이어가기)");
 
-        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
+        // 1. 현재 세션 ID로 임시 인증 저장소에서 사용자 정보를 가져옴 (가져오면 바로 삭제)
+        OAuth2UserInfoDto userInfo = inMemoryAuthSuccessStore.consume(session.getId());
 
-        // 1) 세션에서 로그인 정보 조회
-        Object loginInfoBySession = session.getAttribute("user");
-
-        // TODO : 실패 시 에러 코드 반환하도록 전역 에러 핸들러에서 코드 작성
-        if (loginInfoBySession == null) {
-            throw new OauthException(OauthErrorCode.C003);
+        // 2. 정보가 없으면, 아직 인증되지 않은 사용자임
+        if (userInfo == null) {
+            // 이전에 이미 로그인에 성공하여 세션이 수립된 경우를 위해, 실제 세션도 확인
+            Object existingSessionUser = session.getAttribute("user");
+            if (existingSessionUser instanceof OAuth2UserInfoDto) {
+                userInfo = (OAuth2UserInfoDto) existingSessionUser;
+                log.info("[세션 이어가기] loginCheck. 임시 저장소에 정보는 없으나, 기존 세션이 유효합니다. SessionID: {}", session.getId());
+            } else {
+                log.warn("[세션 이어가기] loginCheck. 임시 인증 저장소와 현재 세션 모두에 정보가 없습니다. SessionID: {}", session.getId());
+                throw new OauthException(OauthErrorCode.C003); // 현재 로그인 상태가 아닙니다
+            }
         }
 
-        if (!(loginInfoBySession instanceof OAuth2UserInfoDto)) {
-            throw new OauthException(OauthErrorCode.C003);
-        }
+        log.info("[세션 이어가기] loginCheck. 인증 정보 확인 완료. 정식으로 세션에 저장합니다. SessionID: {}", session.getId());
 
-        // db에서 login session 정보를 바탕으로 member 조회
-        Member member = oauth2UseCase.getMemberBySessionInfo((OAuth2UserInfoDto) loginInfoBySession);
+        // 3. 정보가 있다면, 진짜 세션에 사용자 정보를 저장하고 Spring Security Context를 설정
+        session.setAttribute("user", userInfo);
+        Member member = oauth2UseCase.getMemberBySessionInfo(userInfo);
+        establishSecurityContext(member, session);
 
+        // --- 이하 기존 로직과 동일 ---
         LoginCheckDto dto = LoginCheckDto.builder()
                 .memberId(member.getMemberId())
                 .memberName(member.getName())
                 .memberNickname(member.getNickname())
                 .loginType(LoginType.OAUTH)
-                .provider(member.getOauthProvider()) // enum OAuthProvider
+                .provider(member.getOauthProvider())
                 .build();
 
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
 
-        LogPaint.sep("loginCheck 이탈");
+        LogPaint.sep("loginCheck 이탈 (세션 이어가기)");
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
@@ -413,9 +373,11 @@ public class OauthController {
     }
 
     // (1) state 생성 후 세션 저장
-    private static String generateAndStoreState(InMemoryOauthSateStore inMemoryOauthSateStore, String origin, OAuthProvider provider) {
+    private static String generateAndStoreState(InMemoryOauthSateStore inMemoryOauthSateStore, String origin, String sessionId, OAuthProvider provider) {
         String oauth_state = UUID.randomUUID().toString();
-        inMemoryOauthSateStore.put(oauth_state, origin, provider);
+        // state 값에 origin과 현재 세션 ID를 구분자와 함께 저장
+        String stateValue = origin + "::" + sessionId;
+        inMemoryOauthSateStore.put(oauth_state, stateValue, provider);
         return oauth_state;
     }
 
