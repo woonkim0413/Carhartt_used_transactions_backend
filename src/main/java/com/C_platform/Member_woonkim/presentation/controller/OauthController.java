@@ -165,6 +165,7 @@ public class OauthController {
             @Parameter(example = "req-129")
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpServletRequest request,
+            HttpServletResponse response, // response 파라미터 추가
             HttpSession session
     ) throws IOException {
         LogPaint.sep("Callback handler 진입");
@@ -207,7 +208,7 @@ public class OauthController {
 
         // TODO : 필요 없다면 주석 처리 + 필요 하다면 local, prod 환경에 따라 분기하도록 작성
         // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
-        // writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
+        writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
 
         log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
         log.info("[(로그인 후) redirect origin] = {}", origin + FRONT_CALLBACK_PATH);
