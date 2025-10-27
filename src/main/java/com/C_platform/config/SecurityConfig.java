@@ -204,11 +204,9 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
 
     // 세션 관리 정책
-    http.sessionManagement
-            (httpSecuritySessionManagementConfigurer ->
-            {
-                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED);
-            });
+    http.sessionManagement (httpSecuritySessionManagementConfigurer ->
+                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+            );
 
     // 인가(인가 규칙)
     http.authorizeHttpRequests(auth -> auth
