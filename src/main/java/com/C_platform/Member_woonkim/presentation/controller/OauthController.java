@@ -282,8 +282,8 @@ public class OauthController {
                 .memberId(member.getMemberId())
                 .memberName(member.getName())
                 .memberNickname(member.getNickname())
-                .loginType(LoginType.OAUTH)
-                .provider(member.getOauthProvider())
+                .loginType(LoginType.OAUTH.getLoginType())
+                .provider(member.getOauthProvider().getProviderName())
                 .build();
 
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
