@@ -33,6 +33,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -93,6 +94,7 @@ public class OauthController {
 
         // 로그인 리스트 획득
         List<LoginProviderResponseDto> providers = oauth2UseCase.loginProviderList();
+        // TODO : 지원하고 있는 로그인 방식 providers 순회하여 출력
         log.info("로그인 목록 준비 완료");
         LogPaint.sep("로그인 방식 목록 호출 이탈");
         return ResponseEntity.ok(ApiResponse.success(providers, meta));
@@ -113,6 +115,8 @@ public class OauthController {
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
         LogPaint.sep("createRedirectUri handler 진입");
+
+        log.info("[디버깅 목적] sessionId : {}", req.getSession(false).getId()); // 값이 login 목록 출력 시 새성한 sessionId와 같은지 검사
 
         log.info("[디버깅 목적] origin : {}", originHeader); // 값이 있는지 테스트
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
@@ -205,7 +209,7 @@ public class OauthController {
 
         // TODO : UseCase 내로 삽입하기
         // 4. 로그인 정보 @AuthenticationPrincipal로 가져올 수 있도록 처리
-        establishSecurityContext(member, session);
+        establishSecurityContext(member, request, response, oauthProvider.getProviderName());
 
         // 3. 사용자 정보 세션에 저장
         session.setAttribute("user", userInfo);
@@ -286,17 +290,13 @@ public class OauthController {
     public ResponseEntity<ApiResponse<LoginCheckDto>> loginCheck(
             @Parameter(example = "req-129")
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
-            HttpSession session
+            HttpServletRequest request,
+            @AuthenticationPrincipal CustomOAuth2User customOAuth2User
     ) {
         LogPaint.sep("loginCheck 진입");
+        log.info("[디버깅 목적] SessionId : {}", request.getSession().getId()); // 값이 있는지 테스트
 
-        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
-
-        // 1) 세션에서 로그인 정보 조회
-        Object loginInfoBySession = session.getAttribute("user");
-
-        // TODO : 실패 시 에러 코드 반환하도록 전역 에러 핸들러에서 코드 작성
-        if (loginInfoBySession == null) {
+        if (customOAuth2User == null) {
             throw new OauthException(OauthErrorCode.C003);
         }
 
@@ -409,15 +409,22 @@ public class OauthController {
     }
 
     // 로그인 인증을 위해 Authorization을 securityContext에 저장 + Principal에 CustomOAuth2User 저장
-    private static void establishSecurityContext(Member member, HttpSession session) {
+    private static void establishSecurityContext(
+            Member member,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String registrationId
+    ) {
         List<SimpleGrantedAuthority> authorities =
                 List.of(new SimpleGrantedAuthority("ROLE_USER"));
 
-        // TODO : nickname도 추가
         Map<String, Object> attributes = new HashMap<>();
-        attributes.put("id", member.getMemberId());
-        attributes.put("name", member.getName());
+        attributes.put("memberId", member.getMemberId()); // Long
+        attributes.put("memberName", member.getName());
+        attributes.put("memberNickname", member.getNickname());
         attributes.put("email", member.getEmail());
+        attributes.put("loginType", member.getLoginType().getLoginType()); // String
+        attributes.put("provider", member.getOauthProvider().getProviderName()); // String
 
         CustomOAuth2User principal = new CustomOAuth2User(
                 member.getMemberId(),
@@ -425,17 +432,17 @@ public class OauthController {
                 authorities
         );
 
-        // TODO : Oauth type으로 변경하기 + Mananger 사용법 공부하고 적용해보기
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                principal, null, authorities
-        );
+        // 사용자 정의 principal을 담은 authentication 생성
+        OAuth2AuthenticationToken authentication =
+                new OAuth2AuthenticationToken(principal, principal.getAuthorities(), registrationId);
 
+        // SecurityContext를 생성 및 초기화 하여 SecurityContextHolder에 저장
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
 
-        // TODO : repository 사용
-        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,context);
+        // securityContext를 Session에 저장
+        new HttpSessionSecurityContextRepository().saveContext(context, request, response);
     }
 
     /**
