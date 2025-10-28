@@ -79,7 +79,9 @@ public class SecurityConfig {
             "/v1/oauth/login/local",
             "/favicon.ico",
             "/v1/oauth/*/callback", // kakao, naver
-            "/v1/test/session-check" //
+            "/v1/test/session-check",
+            "/v1/categories", // 동희님 요청으로 추가 (운강 넣음)
+            "/v1/items" // 동희님 요청으로 추가 (운강 넣음)
     };
 
     // local login password 암호화 객체
