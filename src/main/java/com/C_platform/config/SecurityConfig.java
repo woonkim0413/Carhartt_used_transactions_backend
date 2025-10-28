@@ -204,11 +204,9 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
 
     // 세션 관리 정책
-    http.sessionManagement
-            (httpSecuritySessionManagementConfigurer ->
-            {
-                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED);
-            });
+    http.sessionManagement (httpSecuritySessionManagementConfigurer ->
+                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+            );
 
     // 인가(인가 규칙)
     http.authorizeHttpRequests(auth -> auth
@@ -217,7 +215,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             .requestMatchers(AUTH_WHITELIST).permitAll()
 
             // 로그인 관련 허용 경로
-            .requestMatchers("/v1/oauth/logout").permitAll()
+            // .requestMatchers("/v1/oauth/logout").permitAll() // LogOut은 로그인 상태에서만 접근 할 수 있도록 주석
             .requestMatchers("/v1/oauth/login/check").permitAll()
 
             // ✅ 주문 생성 API 실제 경로 허용
