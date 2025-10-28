@@ -32,11 +32,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
@@ -81,10 +81,6 @@ public class OauthController {
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpServletRequest request // 세션 생성을 위해 파라미터 추가
     ) {
-
-        // 세션이 없으면 생성하도록 강제
-        HttpSession session = request.getSession();
-        log.info("[/oauth/login] 요청. 세션 ID: {}", session.getId());
 
         LogPaint.sep("로그인 방식 목록 호출 진입");
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
@@ -200,9 +196,6 @@ public class OauthController {
         OAuth2UserInfoDto userInfo = oauth2UseCase.getUserInfo(stateCode, returnedState, oauthProvider);
 
         JoinOrLoginResult result = oauth2UseCase.ensureOAuthMember(userInfo, oauthProvider); // 회원가입 유무에 따라 값 반환
-        // TODO : 필요 없다면 주석 처리 + 필요 하다면 local, prod 환경에 따라 분기하도록 작성
-        // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
-        //writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
 
         Member member = result.member();
         boolean isNew = result.isNew();
@@ -218,26 +211,13 @@ public class OauthController {
         log.info("[새로 가입한 회원 : {}] / [이름 {}] / [닉네임 {}] [sessionId : {}]",
                 isNew, member.getName(), member.getNickname(), session.getId());
 
-        // TODO : 필요 없다면 주석 처리 + 필요 하다면 local, prod 환경에 따라 분기하도록 작성
-        // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
-        // writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
-
-        ResponseCookie cookie = ResponseCookie.from("JSESSIONID", session.getId())
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
-                .path("/")
-                .maxAge(60 * 60 * 24 * 1)
-                .build();
-
         String redirectUrl = origin + FRONT_CALLBACK_PATH;
         log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
-        log.info("[(로그인 후) redirect origin] = {}", redirectUrl);
+        log.info("[(로그인 후) redirect origin]- = {}", redirectUrl);
         LogPaint.sep("git Callback handler 이탈");
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, redirectUrl) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
                 .header(HttpHeaders.CACHE_CONTROL, "no-store") // 민감 응답 캐싱 방지(선택)
-                .header(HttpHeaders.SET_COOKIE,cookie.toString())
                 .body(null); // 반환 타입을 유지하기 위해 null 본문
     }
 
@@ -254,7 +234,7 @@ public class OauthController {
 
         LoginType type = logoutDto.getType();
         Provider provider = logoutDto.getProvider();
-        log.info("logout request - type: {}, provider: {}", type, provider);
+        log.info("[디버깅 목적] logout - type: {} / provider: {}", type, provider);
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
         try {
@@ -300,19 +280,33 @@ public class OauthController {
             throw new OauthException(OauthErrorCode.C003);
         }
 
-        if (!(loginInfoBySession instanceof OAuth2UserInfoDto)) {
-            throw new OauthException(OauthErrorCode.C003);
-        }
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
+        Map<String, Object> attributes = customOAuth2User.getAttributes();
+        log.info("[디버깅 목적] memberId {} | memberName {} | memberNickname {} | loginType {} | provider {}",
+                attributes.get("memberId"), attributes.get("memberName"), attributes.get("memberNickname"),
+                attributes.get("loginType"), attributes.get("provider"));
+
+        // TODO : Session에서 로그인 정보 조회 -> SpringContext Principal에서 로그인 정보 조회 변경
+        // 세션에서 로그인 정보 조회
+        // Object loginInfoBySession = session.getAttribute("user");
+
+        // if (loginInfoBySession == null) {
+        //    throw new OauthException(OauthErrorCode.C003);
+        // }
+
+        // if (!(loginInfoBySession instanceof OAuth2UserInfoDto)) {
+        //    throw new OauthException(OauthErrorCode.C003);
+        // }
 
         // db에서 login session 정보를 바탕으로 member 조회
-        Member member = oauth2UseCase.getMemberBySessionInfo((OAuth2UserInfoDto) loginInfoBySession);
+        // Member member = oauth2UseCase.getMemberBySessionInfo((OAuth2UserInfoDto) loginInfoBySession);
 
         LoginCheckDto dto = LoginCheckDto.builder()
-                .memberId(member.getMemberId())
-                .memberName(member.getName())
-                .memberNickname(member.getNickname())
-                .loginType(LoginType.OAUTH.getLoginType())
-                .provider(member.getOauthProvider().getProviderName()) // enum OAuthProvider
+                .memberId((Long)attributes.get("memberId"))
+                .memberName((String)attributes.get("memberName"))
+                .memberNickname((String)attributes.get("memberNickname"))
+                .loginType((String)attributes.get("loginType"))
+                .provider((String)attributes.get("provider")) // enum OAuthProvider
                 .build();
 
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
@@ -443,46 +437,6 @@ public class OauthController {
 
         // securityContext를 Session에 저장
         new HttpSessionSecurityContextRepository().saveContext(context, request, response);
-    }
-
-    /**
-     * sessionId cookie 생성 helper method
-     * Cookie는 14일 유지
-     * https가 아니므로 sucre = false
-     **/
-    private static void writeSessionCookie(HttpServletResponse response, HttpSession session) {
-        writeSessionCookie(response, session, true, 1209600, "None"); // 14일
-    }
-
-    // writeSessionCookie에서 호출
-    private static void writeSessionCookie(
-            HttpServletResponse response,
-            HttpSession session,
-            boolean secure,
-            long maxAgeSeconds,
-            String sameSite // "Lax" | "Strict" | "None"
-    ) {
-        ResponseCookie cookie = ResponseCookie.from("JSESSIONID", session.getId())
-                .httpOnly(true)
-                .secure(secure)
-                .sameSite(sameSite)
-                .path("/")
-                .maxAge(maxAgeSeconds)
-                .build();
-
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-    }
-
-    private static void expireSessionCookie(HttpServletResponse response) {
-        ResponseCookie sessionClear = ResponseCookie.from("JSESSIONID", "")
-                .path("/")
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("Lax")
-                .maxAge(0) // 삭제 유도
-                .build();
-
-        response.addHeader(HttpHeaders.SET_COOKIE, sessionClear.toString());
     }
 
     private static void wirte_debug_log(HttpServletRequest request) {
