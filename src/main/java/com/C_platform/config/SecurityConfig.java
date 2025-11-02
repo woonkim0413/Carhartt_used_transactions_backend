@@ -4,7 +4,7 @@ import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.service.CustomOAuth2UserService;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -79,7 +79,9 @@ public class SecurityConfig {
             "/v1/oauth/login/local",
             "/favicon.ico",
             "/v1/oauth/*/callback", // kakao, naver
-            "/v1/test/session-check" //
+            "/v1/test/session-check",
+            "/v1/categories", // 동희님 요청으로 추가 (운강 넣음)
+            "/v1/items" // 동희님 요청으로 추가 (운강 넣음)
     };
 
     // local login password 암호화 객체
@@ -204,11 +206,9 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
 
     // 세션 관리 정책
-    http.sessionManagement
-            (httpSecuritySessionManagementConfigurer ->
-            {
-                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED);
-            });
+    http.sessionManagement (httpSecuritySessionManagementConfigurer ->
+                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+            );
 
     // 인가(인가 규칙)
     http.authorizeHttpRequests(auth -> auth
@@ -217,7 +217,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             .requestMatchers(AUTH_WHITELIST).permitAll()
 
             // 로그인 관련 허용 경로
-            .requestMatchers("/v1/oauth/logout").permitAll()
+            // .requestMatchers("/v1/oauth/logout").permitAll() // LogOut은 로그인 상태에서만 접근 할 수 있도록 주석
             .requestMatchers("/v1/oauth/login/check").permitAll()
 
             // ✅ 주문 생성 API 실제 경로 허용
@@ -248,6 +248,16 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             userInfo.userService(customOAuth2UserService);
         });
     });
+
+    // 요청 중 cash 삭제 (처음 화면 로딩 시점에 세션 생성 안 되게 추가해봄)
+    http.requestCache(c -> c.disable());
+
+    // 인증 경로에 비인증 요청이 들어오면 302 리다이렉트 대신 401 에러 반환하는 코드
+    http.exceptionHandling(e -> e.authenticationEntryPoint((req, res, ex) -> {
+        res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);      // 401
+        res.setContentType("application/json");
+        res.getWriter().write("{\"success\":false,\"error\":\"UNAUTHORIZED\"}");
+    }));
 
     return http.build();
 }

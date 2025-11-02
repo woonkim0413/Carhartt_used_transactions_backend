@@ -1,7 +1,6 @@
 package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
-import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
 import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
@@ -12,7 +11,10 @@ import com.C_platform.Member_woonkim.exception.OauthException;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2UserInfoDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.CallbackRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.request.LogoutRequestDto;
-import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.*;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.CreateRedirectUriResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LoginCheckDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LoginProviderResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LogoutResponseDto;
 import com.C_platform.Member_woonkim.presentation.dtoAssembler.OauthAssembler;
 import com.C_platform.Member_woonkim.utils.CreateMetaData;
 import com.C_platform.Member_woonkim.utils.InMemoryAuthSuccessStore;
@@ -128,7 +130,7 @@ public class OauthController {
 
         // 1) 요청 origin과 현재 세션 ID 확보
         String origin = extractOriginFromReferer(referer, originHeader);
-        HttpSession session = req.getSession();
+        HttpSession session = req.getSession(); // 세션을 만들고 있음
         String sessionId = session.getId();
         log.info("[세션 이어가기] /login/kakao 진입. Origin: {}, SessionID: {}", origin, sessionId);
 
@@ -282,8 +284,8 @@ public class OauthController {
                 .memberId(member.getMemberId())
                 .memberName(member.getName())
                 .memberNickname(member.getNickname())
-                .loginType(LoginType.OAUTH)
-                .provider(member.getOauthProvider())
+                .loginType(LoginType.OAUTH.getLoginType())
+                .provider(member.getOauthProvider().getProviderName())
                 .build();
 
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
@@ -352,7 +354,7 @@ public class OauthController {
                 .sameSite(sameSite)
                 .maxAge(0)
                 .build()
-                .toString();
+                .toString(); // Set-Cookie에 넣을 수 있도록 String으로 변경
     }
 
     // kakaoCallback handler에서 사용
