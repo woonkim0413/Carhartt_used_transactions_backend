@@ -67,12 +67,9 @@ public class ItemController {
                                                                                  @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
 
         String userId = customOAuth2User.getMemberId().toString();
-        ImagePreSignedUrlResponseDto preSignedUrls = imageUseCase.createPreSignedUrls(userId,SdkHttpMethod.PUT,requestDto);
-        MetaData meta = MetaData.builder()
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.ok(ApiResponse.success(preSignedUrls, meta));
+        ImagePreSignedUrlResponseDto preSignedUrl = imageUseCase.createPreSignedUrls(userId, SdkHttpMethod.PUT, requestDto);
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+        return ResponseEntity.ok(ApiResponse.success(preSignedUrl, meta));
     }
 
     @PutMapping("/items/{itemId}")
