@@ -9,6 +9,7 @@ import com.C_platform.images.domain.ImagePreSignedUrlListRequestDto;
 import com.C_platform.images.domain.ImagePreSignedUrlRequestDto;
 import com.C_platform.images.domain.ImagePreSignedUrlResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -20,10 +21,11 @@ import software.amazon.awssdk.http.SdkHttpMethod;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
-@ConditionalOnProperty(name = "cloud.aws.s3.enabled", havingValue = "true")
+//@ConditionalOnProperty(name = "cloud.aws.s3.enabled", havingValue = "true")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
+@Tag(name = "ItemImage", description = "상품 이미지 API")
 public class ImageController {
 
 
