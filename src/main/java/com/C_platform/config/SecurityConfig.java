@@ -213,6 +213,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
 
     // 인가(인가 규칙)
     http.authorizeHttpRequests(auth -> auth
+            .requestMatchers(HttpMethod.GET, "/v1/items").permitAll() // 상품 목록 조회 비로그인 허용
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // 상태 변경 요청 전에 “프리플라이트(OPTIONS)에 대해 허용
             .requestMatchers(SWAGGER_WHITELIST).permitAll()
             .requestMatchers(AUTH_WHITELIST).permitAll()
