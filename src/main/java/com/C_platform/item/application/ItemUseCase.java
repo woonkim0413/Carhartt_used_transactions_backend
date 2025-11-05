@@ -146,7 +146,7 @@ public class ItemUseCase {
     public Page<ItemListResponseDto> findItems(String keyword, Pageable pageable) {
         Page<Item> items;
         if (keyword != null && !keyword.trim().isEmpty()) {
-            items = itemRepository.findByNameContaining(keyword, pageable);
+            items = itemRepository.findByNameLike(keyword, pageable);
         } else {
             items = itemRepository.findAll(pageable);
         }
