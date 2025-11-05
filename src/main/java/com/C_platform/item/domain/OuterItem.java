@@ -8,16 +8,16 @@ import lombok.experimental.SuperBuilder;
 
 @Entity
 @Getter
-@DiscriminatorValue("Top")
+@DiscriminatorValue("Outer")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@SuperBuilder // @Builder 대신 @SuperBuilder 사용
-public class TopItem extends Item {
+@SuperBuilder
+public class OuterItem extends Item {
 
     @Embedded
-    private TopItemEmbeddable topinfo;
+    private OuterItemEmbeddable outerinfo;
 
-    public void updateSize(TopItemEmbeddable topinfo) {
-        this.topinfo = topinfo;
+    public void updateSize(OuterItemEmbeddable outerinfo) {
+        this.outerinfo = outerinfo;
     }
 }
