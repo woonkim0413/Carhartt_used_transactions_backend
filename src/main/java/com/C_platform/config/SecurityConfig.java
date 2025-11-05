@@ -196,6 +196,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
                      "/h2-console/**",
                      "/v1/order/**",
                      "/v1/orders/**",
+                     "/v1/wishes",
                      "/v1/debug/**" // 🔽 디버깅을 위해 임시 제외
              )
     );
