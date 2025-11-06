@@ -20,6 +20,8 @@ public class WishResponseDto {
     private String itemName;
     @Schema(description = "상품 가격", example = "150000")
     private Integer itemPrice;
+    @Schema(description = "상품 상세 정보",example = "매우 싸고 좋은 퀄리티의 제품")
+    private String itemDescription;
     @Schema(description = "상품 이미지 URL", example = "https://example-bucket.s3.amazonaws.com/images/uuid1.jpg")
     private String itemImageUrl;
 
@@ -35,6 +37,7 @@ public class WishResponseDto {
                 .itemName(wish.getItem().getName())
                 .itemPrice(wish.getItem().getPrice())
                 .itemImageUrl(imageUrl)
+                .itemDescription(wish.getItem().getDescription())
                 .build();
     }
 }
