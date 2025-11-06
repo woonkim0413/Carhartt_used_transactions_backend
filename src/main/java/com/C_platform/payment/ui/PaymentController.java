@@ -45,7 +45,7 @@ public class PaymentController {
         }
 
         // ✅ DB에서 Member 조회
-        Member member = oauth2UseCase.getMemberBySessionInfo(userInfo);
+        Member member = oauth2UseCase.getMemberBySessionInfo(userInfo.getProvider(), userInfo.getId());
         if (member == null) {
             return unauthorized(requestId);
         }
@@ -81,7 +81,7 @@ public class PaymentController {
         }
 
         // ✅ DB에서 Member 조회
-        Member member = oauth2UseCase.getMemberBySessionInfo(userInfo);
+        Member member = oauth2UseCase.getMemberBySessionInfo(userInfo.getProvider(), userInfo.getId());
         if (member == null) {
             return unauthorizedComplete(requestId);
         }

@@ -12,7 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
- @Component // (1) 이 필터를 Spring 빈으로 등록합니다.
+@Component // (1) 이 필터를 Spring 빈으로 등록합니다.
 public class SessionCheckFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(SessionCheckFilter.class);

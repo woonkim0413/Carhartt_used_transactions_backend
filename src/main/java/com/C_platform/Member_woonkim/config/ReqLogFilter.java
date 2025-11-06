@@ -19,6 +19,7 @@ public class ReqLogFilter extends OncePerRequestFilter {
             throws IOException, ServletException {
         String cookies = req.getHeader("Cookie");
 
+        // TODO 프로젝트 이후 요청에 어떤 Header들이 실리는지 다 찍어보기
         log.info(">>> {} {} | Origin={} | Referer={} | Cookie={}",
                 req.getMethod(),
                 req.getRequestURI(),

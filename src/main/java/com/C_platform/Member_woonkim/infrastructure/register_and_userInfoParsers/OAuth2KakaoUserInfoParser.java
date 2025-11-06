@@ -16,7 +16,7 @@ public class OAuth2KakaoUserInfoParser implements OAuth2UserInfoParser {
         Map<String, Object> kakaoAccount = (Map<String, Object>) userInfo.get("kakao_account");
 
         return OAuth2UserInfoDto.builder()
-                .id(String.valueOf(userInfo.get("id")))
+                .id(String.valueOf(userInfo.get("id"))) // OauthId (나중에 db에서 값 조회할 때 자주 사용됨)
                 .name((String) kakaoAccount.get("name"))
                 .email((String) kakaoAccount.get("email"))
                 .provider(OAuthProvider.KAKAO)

@@ -55,7 +55,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OauthController {
 
-
     @Value("${app.identifier}")
     private String envIdentifier;
 
@@ -78,8 +77,7 @@ public class OauthController {
     @Operation(summary = "로그인 방식 (Oauths, local) 목록 출력", description = " 서비스가 지원하는 로그인 방식을 조회 합니다.")
     public ResponseEntity<ApiResponse<List<LoginProviderResponseDto>>> getLoginProviders(
             @Parameter(example = "req-129")
-            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
-            HttpServletRequest request // 세션 생성을 위해 파라미터 추가
+            @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
 
         LogPaint.sep("로그인 방식 목록 호출 진입");
@@ -112,7 +110,7 @@ public class OauthController {
     ) {
         LogPaint.sep("createRedirectUri handler 진입");
 
-        log.info("[디버깅 목적] sessionId : {}", req.getSession(false).getId()); // 값이 login 목록 출력 시 새성한 sessionId와 같은지 검사
+        log.info("[디버깅 목적] sessionId : {}", req.getSession(false) == null ? "(없음)" : req.getSession(false).getId()); // 값이 login 목록 출력 시 새성한 sessionId와 같은지 검사
 
         log.info("[디버깅 목적] origin : {}", originHeader); // 값이 있는지 테스트
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
@@ -234,6 +232,7 @@ public class OauthController {
 
         LoginType type = logoutDto.getType();
         Provider provider = logoutDto.getProvider();
+        log.info("[디버깅 목적] sessionId : {}", session.getId()); // 값이 있는지 테스트
         log.info("[디버깅 목적] logout - type: {} / provider: {}", type, provider);
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
@@ -274,39 +273,35 @@ public class OauthController {
             @AuthenticationPrincipal CustomOAuth2User customOAuth2User
     ) {
         LogPaint.sep("loginCheck 진입");
-        log.info("[디버깅 목적] SessionId : {}", request.getSession().getId()); // 값이 있는지 테스트
+
+        // 세션 아이디 확인
+        log.info("[디버깅 목적] SessionId : {}",
+                request.getSession(false) == null ? "(없음)" : request.getSession(false).getId()); // 값이 있는지 테스트
 
         if (customOAuth2User == null) {
             throw new OauthException(OauthErrorCode.C003);
         }
 
-        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
-        Map<String, Object> attributes = customOAuth2User.getAttributes();
-        log.info("[디버깅 목적] memberId {} | memberName {} | memberNickname {} | loginType {} | provider {}",
-                attributes.get("memberId"), attributes.get("memberName"), attributes.get("memberNickname"),
-                attributes.get("loginType"), attributes.get("provider"));
-
         // TODO : Session에서 로그인 정보 조회 -> SpringContext Principal에서 로그인 정보 조회 변경
-        // 세션에서 로그인 정보 조회
-        // Object loginInfoBySession = session.getAttribute("user");
+        //  -> principal은 이후 db값이 변경되도 반영이 안 됨 그래서 다시 Provider + OauthId를 통해 db member 조회
+        Map<String, Object> attributes = customOAuth2User.getAttributes();
+        Member member = oauth2UseCase.getMemberBySessionInfo(
+                (OAuthProvider) attributes.get("provider"), (String) attributes.get("oauthId"));
 
-        // if (loginInfoBySession == null) {
-        //    throw new OauthException(OauthErrorCode.C003);
-        // }
+        log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
+        log.info("[디버깅 목적] memberId {} | memberName {} | memberNickname {} | loginType {} | provider {}",
+                member.getMemberId(), member.getName(), member.getNickname(), member.getLoginType().getLoginType(),
+                member.getOauthProvider().getProviderName());
 
-        // if (!(loginInfoBySession instanceof OAuth2UserInfoDto)) {
-        //    throw new OauthException(OauthErrorCode.C003);
-        // }
-
-        // db에서 login session 정보를 바탕으로 member 조회
-        // Member member = oauth2UseCase.getMemberBySessionInfo((OAuth2UserInfoDto) loginInfoBySession);
-
+        // 반환 값 build
         LoginCheckDto dto = LoginCheckDto.builder()
-                .memberId((Long)attributes.get("memberId"))
-                .memberName((String)attributes.get("memberName"))
-                .memberNickname((String)attributes.get("memberNickname"))
-                .loginType((String)attributes.get("loginType"))
-                .provider((String)attributes.get("provider")) // enum OAuthProvider
+                .memberId(member.getMemberId())
+                .memberName(member.getName())
+                .memberNickname(member.getNickname())
+                .loginType(LoginType.OAUTH.getLoginType())
+                .provider(member.getOauthProvider().getProviderName())
+                .email(member.getEmail())
+                .profileImageUrl(member.getProfileImageUrl()) // null 방어 해야함
                 .build();
 
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
@@ -415,10 +410,11 @@ public class OauthController {
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("memberId", member.getMemberId()); // Long
         attributes.put("memberName", member.getName());
+        attributes.put("oauthId", member.getOauthId());
         attributes.put("memberNickname", member.getNickname());
         attributes.put("email", member.getEmail());
         attributes.put("loginType", member.getLoginType().getLoginType()); // String
-        attributes.put("provider", member.getOauthProvider().getProviderName()); // String
+        attributes.put("provider", member.getOauthProvider()); // (enum) Oauth2Provider
 
         CustomOAuth2User principal = new CustomOAuth2User(
                 member.getMemberId(),

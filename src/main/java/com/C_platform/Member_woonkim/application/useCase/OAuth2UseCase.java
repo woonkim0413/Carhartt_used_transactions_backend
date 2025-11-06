@@ -2,6 +2,7 @@ package com.C_platform.Member_woonkim.application.useCase;
 
 import com.C_platform.Member_woonkim.application.port.OauthClientPort;
 import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
+import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.domain.service.MemberJoinService;
@@ -74,9 +75,9 @@ public class OAuth2UseCase {
         );
     }
 
-    public Member getMemberBySessionInfo(OAuth2UserInfoDto loginInfoBySession) {
+    public Member getMemberBySessionInfo(OAuthProvider provider, String oauthId) {
         return memberRepository
-                .findByOauthProviderAndOauthId(loginInfoBySession.getProvider(), loginInfoBySession.getId())
+                .findByOauthProviderAndOauthId(provider, oauthId)
                 .orElse(null);
     }
 }
