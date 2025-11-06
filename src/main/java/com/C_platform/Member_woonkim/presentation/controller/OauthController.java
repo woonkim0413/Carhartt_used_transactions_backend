@@ -385,7 +385,7 @@ public class OauthController {
         return oauth_state;
     }
 
-    // 로그인 정보를 확인하기 위해 customOAuth2User에 정보 등록
+    // SecurityContext를 생성하여 Session에 저장 (customOAuth2User를 Principal에 저장)
     private static void establishSecurityContext(Member member, HttpSession session) {
         List<SimpleGrantedAuthority> authorities =
                 List.of(new SimpleGrantedAuthority("ROLE_USER"));
@@ -401,6 +401,7 @@ public class OauthController {
                 authorities
         );
 
+        // credentials은 Authorization Code값과 같은 인증 중 필요한 값이다 인증 완료 후 authentication를 만드는 것이기에 null 넣어도 무방함
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 principal, null, authorities
         );
@@ -409,7 +410,7 @@ public class OauthController {
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
 
-        // 세션에도 SecurityContext 저장 (중요)
+        // 세션에 SecurityContext 저장 (중요)
         session.setAttribute(
                 HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                 context
