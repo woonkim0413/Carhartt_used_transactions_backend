@@ -2,7 +2,7 @@ name: Build and Deploy Spring Boot to AWS EC2
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev-test  ]
 # 추가
 env:
   PROJECT_NAME: Carhartt_platform
@@ -47,8 +47,8 @@ jobs:
         shell: bash
 
       # secret action variable에 저장된 .properties를 쓰기 위해 기존꺼 삭제
-      - name: Remove test application.properties (for main branch only)
-        if: contains(github.ref, 'main') # main 브랜치에서만 실행
+      - name: Remove test application.properties (for main or dev-test branch)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-test'
         run: |
           cd ./src/main/resources
           if [ -f application.properties ]; then
@@ -60,8 +60,8 @@ jobs:
         shell: bash
 
       # secret action variable에서 .properties를 가져옴
-      - name: Make application-prod.properties
-        if: contains(github.ref, 'main') # branch가 main 일 때
+      - name: Make application-prod.properties (for main or dev-test branch)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-test'
         run: |
           cd ./src/main/resources
           touch ./application.properties
