@@ -114,6 +114,8 @@ public class OauthController {
     ) {
         LogPaint.sep("createRedirectUri handler 진입");
 
+        log.info("[디버깅 목적] ★★★★★ 현재 InMemory에 JSESSIONID를 저장하는 로그인입니다 (동희님 수정 버전) ★★★★★");
+
         log.info("[디버깅 목적] origin : {}", originHeader); // 값이 있는지 테스트
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
         log.info("[디버깅 목적] referer : {}", referer); // 값이 있는지 테스트
