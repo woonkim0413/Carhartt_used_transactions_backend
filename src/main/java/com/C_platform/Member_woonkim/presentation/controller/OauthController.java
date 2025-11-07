@@ -110,6 +110,8 @@ public class OauthController {
     ) {
         LogPaint.sep("createRedirectUri handler 진입");
 
+        log.info("[디버깅 목적] ★★★★★ 현재 InMemory가 아닌 Cookie에 JSESSIONID를 저장하는 로그인입니다 ★★★★★); // 값이 있는지 테스트
+
         log.info("[디버깅 목적] sessionId : {}", req.getSession(false) == null ? "(없음)" : req.getSession(false).getId()); // 값이 login 목록 출력 시 새성한 sessionId와 같은지 검사
 
         log.info("[디버깅 목적] origin : {}", originHeader); // 값이 있는지 테스트

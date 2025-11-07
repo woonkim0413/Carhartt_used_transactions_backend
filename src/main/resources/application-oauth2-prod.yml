@@ -4,9 +4,17 @@ app:
   identifier : prod
   front-callback-path : /login/callback
 
+# 로깅 패턴 간소화 (날짜, 로그 Level, 요청 origin만 표시)
+logging:
+  pattern:
+    console: "%d{HH:mm:ss} %highlight(%-5level) %msg%n"
+
 # prod 세션 관련 설정
 # domain을 생략하면 default로 Host-Only 설정
 server:
+  # 프록시가 붙여주는 헤더들을 spring이 신뢰하도록 하는 설정
+  forward-headers-strategy: framework
+  # Cookie 관련 설정
   servlet:
     session:
       cookie:
@@ -15,8 +23,7 @@ server:
         secure: true
         same-site: none
         path: /
-  # 프록시가 붙여주는 헤더들을 spring이 신뢰하도록 하는 설정
-  forward-headers-strategy: framework
+
 
 
 # prod 세션 관련 설정
