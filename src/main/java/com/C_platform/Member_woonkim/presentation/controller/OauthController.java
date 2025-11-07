@@ -114,6 +114,8 @@ public class OauthController {
     ) {
         LogPaint.sep("createRedirectUri handler 진입");
 
+        log.info("[디버깅 목적] ★★★★★ 현재 InMemory에 JSESSIONID를 저장하는 로그인입니다 (동희님 수정 버전) ★★★★★");
+
         log.info("[디버깅 목적] origin : {}", originHeader); // 값이 있는지 테스트
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
         log.info("[디버깅 목적] referer : {}", referer); // 값이 있는지 테스트
@@ -385,7 +387,7 @@ public class OauthController {
         return oauth_state;
     }
 
-    // 로그인 정보를 확인하기 위해 customOAuth2User에 정보 등록
+    // SecurityContext를 생성하여 Session에 저장 (customOAuth2User를 Principal에 저장)
     private static void establishSecurityContext(Member member, HttpSession session) {
         List<SimpleGrantedAuthority> authorities =
                 List.of(new SimpleGrantedAuthority("ROLE_USER"));
@@ -401,6 +403,7 @@ public class OauthController {
                 authorities
         );
 
+        // credentials은 Authorization Code값과 같은 인증 중 필요한 값이다 인증 완료 후 authentication를 만드는 것이기에 null 넣어도 무방함
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 principal, null, authorities
         );
@@ -409,7 +412,7 @@ public class OauthController {
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
 
-        // 세션에도 SecurityContext 저장 (중요)
+        // 세션에 SecurityContext 저장 (중요)
         session.setAttribute(
                 HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                 context
