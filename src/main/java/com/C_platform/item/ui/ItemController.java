@@ -1,8 +1,12 @@
 package com.C_platform.item.ui;
 
 import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
+import com.C_platform.Member_woonkim.utils.CreateMetaData;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
+import com.C_platform.images.application.ImageUseCase;
+import com.C_platform.images.domain.ImagePreSignedUrlRequestDto;
+import com.C_platform.images.domain.ImagePreSignedUrlResponseDto;
 import com.C_platform.item.application.ItemUseCase;
 import com.C_platform.item.domain.Item;
 import com.C_platform.item.ui.dto.*;
@@ -17,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import software.amazon.awssdk.http.SdkHttpMethod;
 
 import java.net.URI;
 import java.time.LocalDateTime;
@@ -31,6 +36,7 @@ import java.util.Map;
 public class ItemController {
 
     private final ItemUseCase itemUseCase;
+    private final ImageUseCase imageUseCase;
 
     @PostMapping("/items")
     @Operation(summary = "상품 및 이미지 정보 저장", description = "S3에 업로드된 이미지의 URL과 상품 정보를 DB에 저장합니다.")
@@ -53,6 +59,17 @@ public class ItemController {
 //                .buildAndExpand(createdItem.getId())
 //                .toUri();
         return ResponseEntity.ok().body(ApiResponse.success(response, getMetaData(x_request_id)));
+    }
+
+    @PostMapping("/items/presigned-url")
+    @Operation(summary = "상품 업로드 URL 생성", description = "상품 이미지 업로드를 위한 사전 서명된 URL을 생성합니다.")
+    public ResponseEntity<ApiResponse<ImagePreSignedUrlResponseDto>> generateUrl(@RequestBody ImagePreSignedUrlRequestDto requestDto,
+                                                                                 @AuthenticationPrincipal CustomOAuth2User customOAuth2User) {
+
+        String userId = customOAuth2User.getMemberId().toString();
+        ImagePreSignedUrlResponseDto preSignedUrl = imageUseCase.createPreSignedUrls(userId, SdkHttpMethod.PUT, requestDto);
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now());
+        return ResponseEntity.ok(ApiResponse.success(preSignedUrl, meta));
     }
 
     @PutMapping("/items/{itemId}")

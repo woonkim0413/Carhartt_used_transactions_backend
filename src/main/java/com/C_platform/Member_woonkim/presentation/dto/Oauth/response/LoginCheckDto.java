@@ -9,6 +9,8 @@ public record LoginCheckDto(
     Long memberId,
     String memberName,
     String memberNickname,
-    LoginType loginType,
-    Provider provider
+    String loginType,
+    String provider,
+    String email,
+    String profileImageUrl
 ) {}

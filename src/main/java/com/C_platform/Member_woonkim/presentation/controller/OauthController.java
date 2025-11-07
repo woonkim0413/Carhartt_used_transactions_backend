@@ -32,10 +32,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,7 +54,6 @@ import java.util.UUID;
 @RequestMapping("/v1")
 @RequiredArgsConstructor
 public class OauthController {
-
 
     @Value("${app.identifier}")
     private String envIdentifier;
@@ -88,6 +88,7 @@ public class OauthController {
 
         // 로그인 리스트 획득
         List<LoginProviderResponseDto> providers = oauth2UseCase.loginProviderList();
+        // TODO : 지원하고 있는 로그인 방식 providers 순회하여 출력
         log.info("로그인 목록 준비 완료");
         LogPaint.sep("로그인 방식 목록 호출 이탈");
         return ResponseEntity.ok(ApiResponse.success(providers, meta));
@@ -108,6 +109,8 @@ public class OauthController {
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
         LogPaint.sep("createRedirectUri handler 진입");
+
+        log.info("[디버깅 목적] sessionId : {}", req.getSession(false) == null ? "(없음)" : req.getSession(false).getId()); // 값이 login 목록 출력 시 새성한 sessionId와 같은지 검사
 
         log.info("[디버깅 목적] origin : {}", originHeader); // 값이 있는지 테스트
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
@@ -165,6 +168,7 @@ public class OauthController {
             @Parameter(example = "req-129")
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpServletRequest request,
+            HttpServletResponse response,
             HttpSession session
     ) throws IOException {
         LogPaint.sep("Callback handler 진입");
@@ -196,7 +200,7 @@ public class OauthController {
 
         // TODO : UseCase 내로 삽입하기
         // 4. 로그인 정보 @AuthenticationPrincipal로 가져올 수 있도록 처리
-        establishSecurityContext(member, session);
+        establishSecurityContext(member, request, response, oauthProvider.getProviderName());
 
         // 3. 사용자 정보 세션에 저장
         session.setAttribute("user", userInfo);
@@ -205,15 +209,12 @@ public class OauthController {
         log.info("[새로 가입한 회원 : {}] / [이름 {}] / [닉네임 {}] [sessionId : {}]",
                 isNew, member.getName(), member.getNickname(), session.getId());
 
-        // TODO : 필요 없다면 주석 처리 + 필요 하다면 local, prod 환경에 따라 분기하도록 작성
-        // -> 해당 코드로 인해 browser에 중복 쿠키가 생성될 여지 생김 -> 혼란을 야기할 수 있으므로 주석 처리함
-        // writeSessionCookie(response, session); // 5. set-cookies header 추가하기 위한 객체 생성
-
+        String redirectUrl = origin + FRONT_CALLBACK_PATH;
         log.info("[디버깅 목적] 현재 Env : {}", envIdentifier);
-        log.info("[(로그인 후) redirect origin] = {}", origin + FRONT_CALLBACK_PATH);
+        log.info("[(로그인 후) redirect origin]- = {}", redirectUrl);
         LogPaint.sep("git Callback handler 이탈");
         return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, origin + FRONT_CALLBACK_PATH) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
+                .header(HttpHeaders.LOCATION, redirectUrl) // FRONT_ORIGIN은 pord 설정 파일에서 가져온 값
                 .header(HttpHeaders.CACHE_CONTROL, "no-store") // 민감 응답 캐싱 방지(선택)
                 .body(null); // 반환 타입을 유지하기 위해 null 본문
     }
@@ -231,7 +232,8 @@ public class OauthController {
 
         LoginType type = logoutDto.getType();
         Provider provider = logoutDto.getProvider();
-        log.info("logout request - type: {}, provider: {}", type, provider);
+        log.info("[디버깅 목적] sessionId : {}", session.getId()); // 값이 있는지 테스트
+        log.info("[디버깅 목적] logout - type: {} / provider: {}", type, provider);
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
         try {
@@ -267,33 +269,39 @@ public class OauthController {
     public ResponseEntity<ApiResponse<LoginCheckDto>> loginCheck(
             @Parameter(example = "req-129")
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
-            HttpSession session
+            HttpServletRequest request,
+            @AuthenticationPrincipal CustomOAuth2User customOAuth2User
     ) {
         LogPaint.sep("loginCheck 진입");
 
+        // 세션 아이디 확인
+        log.info("[디버깅 목적] SessionId : {}",
+                request.getSession(false) == null ? "(없음)" : request.getSession(false).getId()); // 값이 있는지 테스트
+
+        if (customOAuth2User == null) {
+            throw new OauthException(OauthErrorCode.C003);
+        }
+
+        // TODO : Session에서 로그인 정보 조회 -> SpringContext Principal에서 로그인 정보 조회 변경
+        //  -> principal은 이후 db값이 변경되도 반영이 안 됨 그래서 다시 Provider + OauthId를 통해 db member 조회
+        Map<String, Object> attributes = customOAuth2User.getAttributes();
+        Member member = oauth2UseCase.getMemberBySessionInfo(
+                (OAuthProvider) attributes.get("provider"), (String) attributes.get("oauthId"));
+
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
+        log.info("[디버깅 목적] memberId {} | memberName {} | memberNickname {} | loginType {} | provider {}",
+                member.getMemberId(), member.getName(), member.getNickname(), member.getLoginType().getLoginType(),
+                member.getOauthProvider().getProviderName());
 
-        // 1) 세션에서 로그인 정보 조회
-        Object loginInfoBySession = session.getAttribute("user");
-
-        // TODO : 실패 시 에러 코드 반환하도록 전역 에러 핸들러에서 코드 작성
-        if (loginInfoBySession == null) {
-            throw new OauthException(OauthErrorCode.C003);
-        }
-
-        if (!(loginInfoBySession instanceof OAuth2UserInfoDto)) {
-            throw new OauthException(OauthErrorCode.C003);
-        }
-
-        // db에서 login session 정보를 바탕으로 member 조회
-        Member member = oauth2UseCase.getMemberBySessionInfo((OAuth2UserInfoDto) loginInfoBySession);
-
+        // 반환 값 build
         LoginCheckDto dto = LoginCheckDto.builder()
                 .memberId(member.getMemberId())
                 .memberName(member.getName())
                 .memberNickname(member.getNickname())
-                .loginType(LoginType.OAUTH)
-                .provider(member.getOauthProvider()) // enum OAuthProvider
+                .loginType(LoginType.OAUTH.getLoginType())
+                .provider(member.getOauthProvider().getProviderName())
+                .email(member.getEmail())
+                .profileImageUrl(member.getProfileImageUrl()) // null 방어 해야함
                 .build();
 
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
@@ -389,15 +397,24 @@ public class OauthController {
         return oauth_state;
     }
 
-    // 로그인 정보를 확인하기 위해 customOAuth2User에 정보 등록
-    private static void establishSecurityContext(Member member, HttpSession session) {
+    // SecurityContext를 생성하여 Session에 저장 (customOAuth2User를 Principal에 저장)
+    private static void establishSecurityContext(
+            Member member,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String registrationId
+    ) {
         List<SimpleGrantedAuthority> authorities =
                 List.of(new SimpleGrantedAuthority("ROLE_USER"));
 
         Map<String, Object> attributes = new HashMap<>();
-        attributes.put("id", member.getMemberId());
-        attributes.put("name", member.getName());
+        attributes.put("memberId", member.getMemberId()); // Long
+        attributes.put("memberName", member.getName());
+        attributes.put("oauthId", member.getOauthId());
+        attributes.put("memberNickname", member.getNickname());
         attributes.put("email", member.getEmail());
+        attributes.put("loginType", member.getLoginType().getLoginType()); // String
+        attributes.put("provider", member.getOauthProvider()); // (enum) Oauth2Provider
 
         CustomOAuth2User principal = new CustomOAuth2User(
                 member.getMemberId(),
@@ -405,59 +422,17 @@ public class OauthController {
                 authorities
         );
 
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                principal, null, authorities
-        );
+        // 사용자 정의 principal을 담은 authentication 생성
+        OAuth2AuthenticationToken authentication =
+                new OAuth2AuthenticationToken(principal, principal.getAuthorities(), registrationId);
 
+        // SecurityContext를 생성 및 초기화 하여 SecurityContextHolder에 저장
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
 
-        // 세션에도 SecurityContext 저장 (중요)
-        session.setAttribute(
-                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                context
-        );
-    }
-
-    /**
-     * sessionId cookie 생성 helper method
-     * Cookie는 14일 유지
-     * https가 아니므로 sucre = false
-     **/
-    private static void writeSessionCookie(HttpServletResponse response, HttpSession session) {
-        writeSessionCookie(response, session, true, 1209600, "None"); // 14일
-    }
-
-    // writeSessionCookie에서 호출
-    private static void writeSessionCookie(
-            HttpServletResponse response,
-            HttpSession session,
-            boolean secure,
-            long maxAgeSeconds,
-            String sameSite // "Lax" | "Strict" | "None"
-    ) {
-        ResponseCookie cookie = ResponseCookie.from("JSESSIONID", session.getId())
-                .httpOnly(true)
-                .secure(secure)
-                .sameSite(sameSite)
-                .path("/")
-                .maxAge(maxAgeSeconds)
-                .build();
-
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-    }
-
-    private static void expireSessionCookie(HttpServletResponse response) {
-        ResponseCookie sessionClear = ResponseCookie.from("JSESSIONID", "")
-                .path("/")
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("Lax")
-                .maxAge(0) // 삭제 유도
-                .build();
-
-        response.addHeader(HttpHeaders.SET_COOKIE, sessionClear.toString());
+        // securityContext를 Session에 저장
+        new HttpSessionSecurityContextRepository().saveContext(context, request, response);
     }
 
     private static void wirte_debug_log(HttpServletRequest request) {

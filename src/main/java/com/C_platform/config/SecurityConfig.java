@@ -4,6 +4,8 @@ import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.service.CustomOAuth2UserService;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -42,6 +44,7 @@ import java.util.List;
         OAuth2RegistrationPropertiesDto.class,
         OAuth2ProviderPropertiesDto.class
 })
+@Slf4j
 public class SecurityConfig {
 
     @Value("${app.identifier}")
@@ -75,7 +78,10 @@ public class SecurityConfig {
             "/v1/oauth/login/*", // kakao, naver
             "/v1/oauth/login/local",
             "/favicon.ico",
-            "/v1/oauth/*/callback" // kakao, naver
+            "/v1/oauth/*/callback", // kakao, naver
+            "/v1/test/session-check",
+            "/v1/categories", // 동희님 요청으로 추가 (운강 넣음)
+            "/v1/items" // 동희님 요청으로 추가 (운강 넣음)
     };
 
     // local login password 암호화 객체
@@ -97,7 +103,9 @@ public class SecurityConfig {
         cfg.setAllowedOrigins(List.of( // cors 요청을 허용하는 origin들 목록
                 "https://carhartt-usedtransactions.com",
                 "http://localhost:3000",
+                "https://localhost:3000",
                 "http://localhost:8080",
+                "https://localhost:8080",
                 // 프론트 서버 Origin 추가 (5713 -> 5173 변경)
                 "https://carhartt-usedtransactions-frontend.pages.dev",
                 "https://carhartt-usedtransactions-frontend.pages.dev:5173",
@@ -161,9 +169,12 @@ public class SecurityConfig {
 // ***************************************************************************************
 
 @Bean
-public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService) throws Exception {
+public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService, SessionCheckFilter sessionCheckFilter) throws Exception {
     // cors
     http.cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource()));
+
+    // Session Check Filter 추가
+    http.addFilterBefore(sessionCheckFilter, CsrfFilter.class);
 
     // CSRF (더블 서브밋: JS가 쿠키 XSRF-TOKEN을 읽어 X-XSRF-TOKEN 헤더로 반사)
     CookieCsrfTokenRepository repo =
@@ -181,8 +192,12 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
                      "/v1/oauth/logout",
                      "/v1/oauth/login/check",
                      "/v1/myPage/**",
+                     "/v1/items/**",
                      "/h2-console/**",
-                     "/v1/orders/**"
+                     "/v1/order/**",
+                     "/v1/orders/**",
+                     "/v1/wishes",
+                     "/v1/debug/**" // 🔽 디버깅을 위해 임시 제외
              )
     );
 
@@ -192,38 +207,44 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     // GET 진입 시 토큰 쿠키 보장
     http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
 
-    // 세션 관리 정책
-    http.sessionManagement
-            (httpSecuritySessionManagementConfigurer ->
-            {
-                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.NEVER);
-            });
+    // 세션 관리 정책, OAuth2LoginAuthenticationFilter 내에서 getSession()가 호출될 때 true/false 중 무엇을 arg로 줄지 설정
+    http.sessionManagement (httpSecuritySessionManagementConfigurer ->
+                httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+    );
 
     // 인가(인가 규칙)
     http.authorizeHttpRequests(auth -> auth
+            .requestMatchers(HttpMethod.GET, "/v1/items").permitAll() // 상품 목록 조회 비로그인 허용
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // 상태 변경 요청 전에 “프리플라이트(OPTIONS)에 대해 허용
             .requestMatchers(SWAGGER_WHITELIST).permitAll()
             .requestMatchers(AUTH_WHITELIST).permitAll()
 
             // 로그인 관련 허용 경로
-            .requestMatchers("/v1/oauth/logout").permitAll()
+            // .requestMatchers("/v1/oauth/logout").permitAll() // LogOut은 로그인 상태에서만 접근 할 수 있도록 주석
             .requestMatchers("/v1/oauth/login/check").permitAll()
 
             // ✅ 주문 생성 API 실제 경로 허용
-            .requestMatchers("/api/order").permitAll()
+            //.requestMatchers("/api/order").permitAll()
 
             // === 깡통 결제 API 전용 전체 허용 ===
-            .requestMatchers("/v1/order/*/payment/**").permitAll()
-            .requestMatchers("/v1/payment/**").permitAll()
+            //.requestMatchers("/v1/order/*/payment/**").permitAll()
+            //.requestMatchers("/v1/payment/**").permitAll()
+
+            // 🔽 디버깅을 위해 임시 제외
+            .requestMatchers("/v1/debug/**").permitAll()
 
             //마지막으로 anyRequest가 와야 함
             .anyRequest().authenticated()
     );
 
-    // form기반이 아니라 json 기반 로컬 로그인이기에 아래 코드 사용 x
-    // http.formLogin(AbstractHttpConfigurer::disable);
+    // form 로그인, basic 로그인 차단
+    http.formLogin(form -> form.disable());
+    http.httpBasic(basic -> basic.disable());
 
-    // oauth 로그인 관련 지원
+    // Json Filter를 UsernamePasswordAuthenticationFilter 위치에 넣기
+    // http.addFilterAt(jsonLoginFilter, UsernamePasswordAuthenticationFilter.class);
+
+    // oauth 로그인 관련 지원 (현재 사용 안 하고 있음)
     http.oauth2Login(oauth2 -> {
         oauth2.authorizationEndpoint(authorization -> {
             authorization.authorizationRequestRepository(cookieAuthorizationRequestRepository());
@@ -234,6 +255,16 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             userInfo.userService(customOAuth2UserService);
         });
     });
+
+    // 요청 중 cash 삭제 (처음 화면 로딩 시점에 세션 생성 안 되게 추가해봄)
+    http.requestCache(c -> c.disable());
+
+    // 인증 경로에 비인증 요청이 들어오면 302 리다이렉트 대신 401 에러 반환하는 코드
+    http.exceptionHandling(e -> e.authenticationEntryPoint((req, res, ex) -> {
+        res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);      // 401
+        res.setContentType("application/json");
+        res.getWriter().write("{\"success\":false,\"error\":\"UNAUTHORIZED\"}");
+    }));
 
     return http.build();
 }

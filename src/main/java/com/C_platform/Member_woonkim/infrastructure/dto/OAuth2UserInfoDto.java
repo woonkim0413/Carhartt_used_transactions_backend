@@ -13,7 +13,7 @@ import lombok.ToString;
 // kakao Resource server에서 받은 Json data를 객체에 저장하기 위한 Dto
 public class OAuth2UserInfoDto {
     // Resource server에서 사용자를 식별할 때 사용
-    private final String id;
+    private final String id; // OauthId
     // HTTP 상태 코드
     private final int statusCode;
     private final String name;
