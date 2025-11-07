@@ -207,10 +207,10 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     // GET 진입 시 토큰 쿠키 보장
     http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
 
-    // 세션 관리 정책
+    // 세션 관리 정책, OAuth2LoginAuthenticationFilter 내에서 getSession()가 호출될 때 true/false 중 무엇을 arg로 줄지 설정
     http.sessionManagement (httpSecuritySessionManagementConfigurer ->
                 httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-            );
+    );
 
     // 인가(인가 규칙)
     http.authorizeHttpRequests(auth -> auth
@@ -237,10 +237,14 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
             .anyRequest().authenticated()
     );
 
-    // form기반이 아니라 json 기반 로컬 로그인이기에 아래 코드 사용 x
-    // http.formLogin(AbstractHttpConfigurer::disable);
+    // form 로그인, basic 로그인 차단
+    http.formLogin(form -> form.disable());
+    http.httpBasic(basic -> basic.disable());
 
-    // oauth 로그인 관련 지원
+    // Json Filter를 UsernamePasswordAuthenticationFilter 위치에 넣기
+    // http.addFilterAt(jsonLoginFilter, UsernamePasswordAuthenticationFilter.class);
+
+    // oauth 로그인 관련 지원 (현재 사용 안 하고 있음)
     http.oauth2Login(oauth2 -> {
         oauth2.authorizationEndpoint(authorization -> {
             authorization.authorizationRequestRepository(cookieAuthorizationRequestRepository());

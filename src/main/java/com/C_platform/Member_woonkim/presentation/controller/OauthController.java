@@ -397,7 +397,7 @@ public class OauthController {
         return oauth_state;
     }
 
-    // 로그인 인증을 위해 Authorization을 securityContext에 저장 + Principal에 CustomOAuth2User 저장
+    // SecurityContext를 생성하여 Session에 저장 (customOAuth2User를 Principal에 저장)
     private static void establishSecurityContext(
             Member member,
             HttpServletRequest request,
