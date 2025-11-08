@@ -9,7 +9,9 @@ import com.C_platform.global.MetaData;
 import com.C_platform.global.error.CommonErrorCode;
 import com.C_platform.global.error.ErrorBody;
 import com.C_platform.global.error.ErrorCode;
+import io.swagger.v3.oas.annotations.extensions.Extensions;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -38,6 +40,23 @@ public class GlobalExceptionHandler {
                 .timestamp(LocalDateTime.now())
                 .build();
 
+        return ResponseEntity.badRequest().body(ApiResponse.fail(errorBody, meta));
+    }
+
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ApiResponse<Object>> handlePropertyReferenceException(PropertyReferenceException ex) {
+        log.error("Invalid sort property requested: {}", ex.getMessage());
+        String propertyName = ex.getPropertyName();
+        String entityName = ex.getType().getType().getSimpleName();
+        String cleanMessage = String.format("'%s'은(는) '%s'에 존재하지 않는 정렬 필드입니다. 사용 가능한 필드로 다시 시도해주세요.", propertyName, entityName);
+
+        ArrayList<Detail> details = new ArrayList<>();
+        details.add(new Detail(propertyName, cleanMessage));
+        ErrorBody<ErrorCode> errorBody = new ErrorBody<>(CommonErrorCode.INVALID_PARAMETER, details);
+
+        MetaData meta = MetaData.builder()
+                .timestamp(LocalDateTime.now())
+                .build();
         return ResponseEntity.badRequest().body(ApiResponse.fail(errorBody, meta));
     }
 
