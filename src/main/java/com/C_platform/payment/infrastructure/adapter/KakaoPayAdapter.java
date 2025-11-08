@@ -39,7 +39,7 @@ public class KakaoPayAdapter implements PaymentGatewayPort  {
             OrderRepository orderRepository,
             PaymentRepository paymentRepository,
             @Value("${pay.kakao.cid:TC0ONETIME}") String cid,
-            @Value("${app.frontend.base-url}") String frontendBaseUrl
+            @Value("${app.frontend.base-url:https://carhartt-usedtransactions-frontend.pages.dev}") String frontendBaseUrl
     ) {
         this.kakaoPayWebClient = kakaoPayWebClient;
         this.orderRepository = orderRepository;
