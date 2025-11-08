@@ -227,6 +227,36 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - Session-based with CSRF protection
 - Password never returned in responses (only stored encrypted in DB)
 
+**Important Note on C003 Error (Bad Credentials):**
+
+The `C003` error (BadCredentialsException) indicates that user authentication failed. This can occur due to:
+1. **Incorrect password** for the registered email
+2. **Email not found** in the database (user not registered)
+3. **Email parsing issues** - corrupted or malformed email in the request
+
+**Root Cause Fix (Applied):**
+The `JsonUsernamePasswordAuthenticationFilter` (where JSON login requests are parsed) now includes:
+- **Email validation and trimming** via `validateAndTrimEmail()` method:
+  - Removes leading/trailing whitespace using `trim()`
+  - Validates that email contains '@' character
+  - Rejects blank or null emails early with clear error messages
+- **Password validation and trimming** via `validateAndTrimPassword()` method:
+  - Removes leading/trailing whitespace
+  - Rejects blank or null passwords early
+
+**Why This Fix Was Needed:**
+Before this fix, the filter didn't validate or trim incoming email/password data. This caused:
+- Emails with accidental whitespace to be sent to the database layer unchanged
+- Invalid email formats (e.g., missing '@') to fail silently at the repository level
+- Confusing error logs that showed malformed emails
+
+**Troubleshooting C003 Error:**
+1. **Verify the registered email** - Ensure the signup email matches the login email exactly
+2. **Check for extra spaces** - The login request now trims whitespace automatically
+3. **Verify password** - Ensure the password is correct (case-sensitive)
+4. **Check database** - Verify the user was successfully created during signup
+5. **Review logs** - Look for validation errors in the filter logs before the C003 error occurs
+
 ### CSRF Protection
 - Cookie-based double-submit pattern
 - Token: `XSRF-TOKEN` cookie & `X-XSRF-TOKEN` header

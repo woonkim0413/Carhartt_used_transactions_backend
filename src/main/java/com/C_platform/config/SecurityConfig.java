@@ -1,7 +1,5 @@
 package com.C_platform.config;
 
-import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
-import com.C_platform.Member_woonkim.domain.service.CustomOAuth2UserService;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,19 +12,14 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
@@ -57,7 +50,6 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/swagger-resources/**",
             "/h2-console/**" // H2 db를 test하기 위해 추가함
-            // "/v1/**" // 로그인 기능을 구현 완료, 로그인 후 api 사용
     };
 
     // 현재 환경이 local인지 ec2인지 검사
@@ -77,19 +69,15 @@ public class SecurityConfig {
             "/v1/oauth/login",
             "/v1/oauth/login/*", // kakao, naver
             "/v1/oauth/login/local",
+            "/v1/local/signup",    // Local 회원가입
+            "/v1/local/login",     // Local 로그인
+            "/v1/local/logout",    // Local 로그아웃
             "/favicon.ico",
             "/v1/oauth/*/callback", // kakao, naver
             "/v1/test/session-check",
             "/v1/categories", // 동희님 요청으로 추가 (운강 넣음)
             "/v1/items" // 동희님 요청으로 추가 (운강 넣음)
     };
-
-    // local login password 암호화 객체
-    // Oauth에선 사용 안 함
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
 
     @Bean
     public AuthorizationRequestRepository<OAuth2AuthorizationRequest> cookieAuthorizationRequestRepository() {
@@ -134,12 +122,6 @@ public class SecurityConfig {
         return new RestTemplate();
     }
 
-    // todo 무슨 기능인지 공부 필요
-    @Bean
-    public OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService(OAuth2UseCase oAuth2UseCase) {
-        return new CustomOAuth2UserService(oAuth2UseCase);
-    }
-
     @Bean
     public ClientRegistrationRepository clientRegistrationRepository(
             OAuth2RegistrationPropertiesDto registrationProps,
@@ -169,12 +151,21 @@ public class SecurityConfig {
 // ***************************************************************************************
 
 @Bean
-public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserService<OAuth2UserRequest, OAuth2User> customOAuth2UserService, SessionCheckFilter sessionCheckFilter) throws Exception {
+public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFilter sessionCheckFilter,
+                                               com.C_platform.Member_woonkim.infrastructure.auth.filter.JsonUsernamePasswordAuthenticationFilter jsonLocalLoginFilter,
+                                               com.C_platform.Member_woonkim.infrastructure.auth.handler.LocalAuthenticationSuccessHandler localSuccessHandler,
+                                               com.C_platform.Member_woonkim.infrastructure.auth.handler.LocalAuthenticationFailureHandler localFailureHandler,
+                                               com.C_platform.Member_woonkim.infrastructure.auth.handler.LocalLogoutSuccessHandler localLogoutHandler) throws Exception {
     // cors
     http.cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource()));
 
     // Session Check Filter 추가
     http.addFilterBefore(sessionCheckFilter, CsrfFilter.class);
+
+    // Local 인증 필터 등록 (UsernamePasswordAuthenticationFilter 위치에 추가)
+    jsonLocalLoginFilter.setAuthenticationSuccessHandler(localSuccessHandler);
+    jsonLocalLoginFilter.setAuthenticationFailureHandler(localFailureHandler);
+    http.addFilterAt(jsonLocalLoginFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
 
     // CSRF (더블 서브밋: JS가 쿠키 XSRF-TOKEN을 읽어 X-XSRF-TOKEN 헤더로 반사)
     CookieCsrfTokenRepository repo =
@@ -191,6 +182,9 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
              .ignoringRequestMatchers(
                      "/v1/oauth/logout",
                      "/v1/oauth/login/check",
+                     "/v1/local/signup",      // Local 회원가입 CSRF 제외
+                     "/v1/local/login",       // Local 로그인 CSRF 제외
+                     "/v1/local/logout",      // Local 로그아웃 CSRF 제외
                      "/v1/myPage/**",
                      "/v1/items/**",
                      "/h2-console/**",
@@ -241,19 +235,25 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2UserServ
     http.formLogin(form -> form.disable());
     http.httpBasic(basic -> basic.disable());
 
-    // Json Filter를 UsernamePasswordAuthenticationFilter 위치에 넣기
-    // http.addFilterAt(jsonLoginFilter, UsernamePasswordAuthenticationFilter.class);
+    // Local 로그아웃 설정
+    http.logout(logout -> logout
+            .logoutUrl("/v1/local/logout")
+            .logoutSuccessHandler(localLogoutHandler)
+            .invalidateHttpSession(true)
+            .deleteCookies("JSESSIONID")
+            .deleteCookies("XSRF-TOKEN")
+            .clearAuthentication(true)
+    );
 
-    // oauth 로그인 관련 지원 (현재 사용 안 하고 있음)
+    // oauth 로그인 관련 지원 (현재 oauth는 수동 로그인이라 사용 안 하고 있음)
     http.oauth2Login(oauth2 -> {
         oauth2.authorizationEndpoint(authorization -> {
             authorization.authorizationRequestRepository(cookieAuthorizationRequestRepository());
         });
 
-        oauth2.userInfoEndpoint(userInfo -> {
-            // 아직 해당 객체 미구현
-            userInfo.userService(customOAuth2UserService);
-        });
+//        oauth2.userInfoEndpoint(userInfo -> {
+//            userInfo.userService(customOAuth2UserService);
+//        });
     });
 
     // 요청 중 cash 삭제 (처음 화면 로딩 시점에 세션 생성 안 되게 추가해봄)

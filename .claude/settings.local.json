@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(xargs:*)",
+      "Bash(./gradlew tasks:*)",
+      "Bash(./gradlew bootRun:*)",
+      "Bash(claude-code --version)",
+      "Bash(npm install:*)",
+      "Bash(npm config:*)",
+      "Bash(cmd /c \"claude-code --version\")",
+      "Bash(powershell -Command \"claude-code --version\")",
+      "Bash(\"C:\\Users\\User\\AppData\\Roaming\\npm\\claude-code.cmd\" --version)",
+      "Bash(/c/Users/User/AppData/Roaming/npm/claude --version)",
+      "Bash(/c/Users/User/AppData/Roaming/npm/claude init)",
+      "Bash(/c/Users/User/AppData/Roaming/npm/claude)",
+      "Bash(/c/Users/User/AppData/Roaming/npm/claude --help)",
+      "Bash(/c/Users/User/AppData/Roaming/npm/claude:*)",
+      "Bash(./gradlew build:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 300 ./gradlew test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
