@@ -19,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import software.amazon.awssdk.http.SdkHttpMethod;
@@ -125,7 +126,7 @@ public class ItemController {
     @Operation(summary = "상품 목록 조회", description = "상품 목록을 페이지네이션하여 조회합니다. 키워드 검색이 가능합니다.")
     public ResponseEntity<ApiResponse<PageResponseDto<ItemListResponseDto>>> findItems(@RequestParam(required = false) String keyword,
                                                                                        @RequestHeader("X-Request-Id") String x_request_id,
-                                                                                       Pageable pageable) {
+                                                                                       @Validated Pageable pageable) {
         Page<ItemListResponseDto> items = itemUseCase.findItems(keyword, pageable);
         PageResponseDto<ItemListResponseDto> responseDto = PageResponseDto.of(items);
         return ResponseEntity.ok().body(ApiResponse.success(responseDto, getMetaData(x_request_id)));
