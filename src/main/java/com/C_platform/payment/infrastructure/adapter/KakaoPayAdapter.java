@@ -30,6 +30,7 @@ public class KakaoPayAdapter implements PaymentGatewayPort  {
     private final WebClient kakaoPayWebClient;
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
+    private final String frontendBaseUrl;
 
     private final String cid;
 
@@ -37,12 +38,14 @@ public class KakaoPayAdapter implements PaymentGatewayPort  {
             WebClient kakaoPayWebClient,
             OrderRepository orderRepository,
             PaymentRepository paymentRepository,
-            @Value("${pay.kakao.cid:TC0ONETIME}") String cid
+            @Value("${pay.kakao.cid:TC0ONETIME}") String cid,
+            @Value("${app.frontend.base-url}") String frontendBaseUrl
     ) {
         this.kakaoPayWebClient = kakaoPayWebClient;
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
         this.cid = cid;
+        this.frontendBaseUrl = frontendBaseUrl;
     }
 
     /**
@@ -74,9 +77,9 @@ public class KakaoPayAdapter implements PaymentGatewayPort  {
                 quantity,
                 totalAmount,
                 taxFreeAmount, //tax_free_amount
-                req.approveUrl(),
-                req.cancelUrl(),
-                req.failUrl()
+                buildAbsoluteUrl(req.approveUrl()),  // ← 변경
+                buildAbsoluteUrl(req.cancelUrl()),   // ← 변경
+                buildAbsoluteUrl(req.failUrl())      // ← 변경
         );
 
         // 디버깅: 전송되는 데이터 확인
@@ -120,6 +123,19 @@ public class KakaoPayAdapter implements PaymentGatewayPort  {
                 kRes.androidAppScheme(),
                 kRes.iosAppScheme()
         );
+    }
+
+    /**
+     * 상대 경로를 절대 경로로 변환
+     */
+    private String buildAbsoluteUrl(String url) {
+        if (url == null) return null;
+        // 이미 절대 경로면 그대로 반환
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
+        }
+        // 상대 경로면 frontendBaseUrl 붙이기
+        return frontendBaseUrl + (url.startsWith("/") ? url : "/" + url);
     }
 
     /**
