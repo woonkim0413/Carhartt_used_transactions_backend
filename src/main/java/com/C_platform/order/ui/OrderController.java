@@ -58,7 +58,7 @@ public class OrderController {
 
         Long buyerId = member.getMemberId();
 
-        Long orderId = createOrderService.create(req.toOrderCommand(buyerId));
+        Long orderId = createOrderService.create(req.toOrderCommand(buyerId), requestId);
 
         HttpHeaders headers = new HttpHeaders();
         headers.add("X-Request-Id", effectiveReqId(requestId));

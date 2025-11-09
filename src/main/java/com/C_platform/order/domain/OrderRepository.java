@@ -8,4 +8,6 @@ public interface OrderRepository {
     Order save(Order order);
     Optional<Order> findById(Long id); //결제 완료된 주문 하나만 조회
 
+    // ✅ 멱등성 체크용 메서드 추가
+    boolean existsByRequestId(String requestId);
 }
