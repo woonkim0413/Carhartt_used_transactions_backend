@@ -1,5 +1,6 @@
 package com.C_platform.order.application;
 
+import com.C_platform.Member_woonkim.domain.entitys.Address;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.exception.CreateOrderException;
@@ -47,10 +48,8 @@ public class CreateOrderService {
         log.info("STEP getItemOrThrow out: id={}, price={}, sellerId={}",
                 item.id(), item.price(), item.sellerId());
 
-        // 2) 배송지 스냅샷
-        log.info("STEP getShippingOrThrow in");
-        var shipping = getShippingOrThrow(cmd.buyerId(), cmd.addressId());
-        log.info("STEP getShippingOrThrow out: {}", shipping);
+        // 2) 배송지
+        Address address = addressReader.getAddressOrThrow(cmd.addressId());
 
         // 3) 가격 스냅샷
         var snapshot = ItemSnapshot.of(item.id(), item.name(), item.price());
@@ -64,7 +63,7 @@ public class CreateOrderService {
                 .orElseThrow(() -> new CreateOrderException(CreateOrderErrorCode.O007));
 
         // ✅ 6) buyer/seller 포함해서 Order 생성
-        var order = Order.createOrder(buyer, seller, shipping, cmd.detailMessage(), snapshot);
+        var order = Order.createOrder(buyer, seller, address, cmd.detailMessage(), snapshot);
         orderRepository.save(order);
 
         log.info("주문 생성 완료: orderId={}, buyerId={}, sellerId={}",

@@ -1,18 +1,26 @@
 package com.C_platform.order.infrastructure;
 
+import com.C_platform.Member_woonkim.domain.entitys.Address;
+import com.C_platform.Member_woonkim.infrastructure.db.AddressRepository;
 import com.C_platform.order.application.port.AddressReader;
-import com.C_platform.order.domain.OrderAddress;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class AddressJpaReader implements AddressReader {
 
-    // private final MemberAddressRepository repo;  // 나중에 붙이기
+    private final AddressRepository addressRepository;
 
+    /**
+     * ✅ Address 엔티티 조회 + buyer 소유 검증 포함 버전
+     */
     @Override
-    public OrderAddress snapshotOf(Long buyerId, Long addressId) {
-        // TODO: repo.findByMemberIdAndId(...) 로 조회 후 스냅샷 생성
-        // 임시 스텁
-        return OrderAddress.of("수신인", "서울", "강남구 역삼동 824-17", "6층");
+    public Address getAddressOrThrow(Long addressId) {
+        Address address = addressRepository.findAddressByAddressId(addressId);
+        if (address == null) {
+            throw new IllegalArgumentException("주소를 찾을 수 없습니다. id=" + addressId);
+        }
+        return address;
     }
 }
