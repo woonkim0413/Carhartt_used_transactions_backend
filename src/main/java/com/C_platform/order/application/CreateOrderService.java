@@ -91,17 +91,6 @@ public class CreateOrderService {
         }
     }
 
-    private OrderAddress getShippingOrThrow(Long buyerId, Long addressId) {
-        try {
-            var shipping = addressReader.snapshotOf(buyerId, addressId);
-            if (shipping == null) throw new CreateOrderException(CreateOrderErrorCode.O004);
-            return shipping;
-        } catch (EntityNotFoundException | NoSuchElementException e) {
-            throw new CreateOrderException(CreateOrderErrorCode.O004);
-        } catch (RuntimeException e) {
-            throw new CreateOrderException(CreateOrderErrorCode.O004);
-        }
-    }
 }
 
 

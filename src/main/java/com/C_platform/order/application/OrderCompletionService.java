@@ -70,11 +70,10 @@ public class OrderCompletionService {
 
                 imageUrls,
                 representImageUrl,
-
-                // OrderAddress 정보 매핑
-                order.getShipping().getRecipientName(),  // ← 수정
-                order.getShipping().getRoadAddress() + " " + order.getShipping().getDetailAddress(),  // ← 수정
-                order.getShipping().getZipCode(),  // ← 수정
+                // ✅ 변경 후 (Order에서 Address 직접 참조)
+                order.getAddress().getMember().getName(),  // 수신자 이름: Member의 이름을 사용할 수도 있음
+                order.getAddress().getRoadAddress() + " " + order.getAddress().getDetailAddress(),
+                order.getAddress().getZip(),
 
                 // 주문 시점 정보
                 order.getOrderDateTime(),
