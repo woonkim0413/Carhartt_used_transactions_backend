@@ -20,6 +20,7 @@ public class ItemPricingJpaReader implements ItemPricingReader {
         return em.createQuery("""
             select new com.C_platform.order.application.port.ItemPricingReader$ItemView(
                 i.id,
+                i.name,
                 i.member.memberId,         
                 i.price
             )

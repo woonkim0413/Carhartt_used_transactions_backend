@@ -69,7 +69,6 @@ public class PaymentController {
     @Operation(summary = "결제 승인 완료")
     @PostMapping(value = "/order/payment/approve")
     public ResponseEntity<ApiResponse<CompletePaymentResponse>> complete(
-            @RequestParam("orderId") Long orderId,
             @Valid @RequestBody CompletePaymentRequest request,  // ✅ Body로 받기
             HttpSession session,  // ✅ 세션으로 변경
             @RequestHeader(value = "X-Request-Id", required = false) String requestId
@@ -88,7 +87,7 @@ public class PaymentController {
 
         Long currentUserId = member.getMemberId();
 
-        var data = paymentService.complete(orderId, request, currentUserId);
+        var data = paymentService.complete(request.orderId(), request, currentUserId);
         var meta = MetaData.builder()
                 .timestamp(LocalDateTime.now())
                 .xRequestId(effectiveReqId(requestId))
