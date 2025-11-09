@@ -24,5 +24,9 @@ public class OrderRepositoryImpl implements OrderRepository {
         return jpa.findById(id);
     }
 
+    @Override
+    public boolean existsByRequestId(String requestId) {
+        return jpa.existsByRequestId(requestId);
+    }
 }
 

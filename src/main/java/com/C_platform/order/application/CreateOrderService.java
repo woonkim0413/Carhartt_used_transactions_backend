@@ -31,7 +31,13 @@ public class CreateOrderService {
     private final ItemPricingReader itemReader;
     private final AddressReader addressReader;
 
-    public Long create(CreateOrderCommand cmd) {
+    public Long create(CreateOrderCommand cmd, String requestId) {
+
+        // 이미 처리된 요청인지 확인
+        if (orderRepository.existsByRequestId(requestId)) {
+            throw new IllegalStateException("Duplicate requestId: " + requestId);
+        }
+
         log.info("REQ buyerId={}, itemId={}, addressId={}",
                 cmd.buyerId(), cmd.itemId(), cmd.addressId());
 
@@ -98,5 +104,6 @@ public class CreateOrderService {
         }
     }
 }
+
 
 

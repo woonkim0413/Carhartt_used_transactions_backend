@@ -14,7 +14,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Order {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "order_id", nullable = false)
     private Long id;
 
@@ -23,7 +24,7 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "order_status", length = 20, nullable = false)
-    private  OrderStatus orderStatus;
+    private OrderStatus orderStatus;
 
     @Embedded
     private OrderAddress shipping; // 배송지 스냅샷(값 타입)
@@ -42,6 +43,15 @@ public class Order {
     @Column(name = "detail_message", nullable = true)
     private String detailMessage;
 
+    //멱등성용 키
+    @Column(name = "request_id", unique = true, length = 128)
+    private String requestId;
+
+    // setter (또는 빌더에 포함)
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
+    }
+
     // 공개 팩토리 메서드
     public static Order createOrder(Member buyer, Member seller, OrderAddress shipping, String detailMessage, ItemSnapshot itemSnapshot) {
         return Order.builder()
@@ -53,18 +63,6 @@ public class Order {
                 .orderDateTime(LocalDateTime.now())
                 .orderStatus(OrderStatus.READY)
                 .build();
-    }
-
-    //임시: buyer/seller 없이 생성 가능한 Draft 팩토리
-    public static Order createDraft(OrderAddress shipping, String detailMessage, ItemSnapshot snapshot) {
-        if (shipping == null || snapshot == null) throw new IllegalArgumentException("shipping/snapshot required");
-        Order o = new Order();
-        o.shipping = shipping;
-        o.itemSnapshot = snapshot;
-        o.orderStatus = OrderStatus.READY;     // 혹은 DRAFT 상태가 있으면 그걸로
-        o.orderDateTime = LocalDateTime.now();
-        // detailMessage 필드가 있다면 세팅
-        return o;
     }
 
     //핵심 상태 전이 메서드 주문 생성 => 주문 완료
