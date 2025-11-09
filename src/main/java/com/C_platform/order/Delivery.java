@@ -1,6 +1,7 @@
 package com.C_platform.order;
 
 import com.C_platform.order.domain.Order;
+import com.C_platform.order.domain.OrderAddress;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,8 +17,9 @@ public class Delivery {
     @OneToOne(mappedBy = "delivery", fetch = FetchType.LAZY)
     private Order order;
 
+    /** ✅ 변경: Address → OrderAddress */
     @Embedded
-    private Address address;
+    private OrderAddress addressSnapshot;
 
     @Enumerated(EnumType.STRING)
     private DeliveryStatus status;
