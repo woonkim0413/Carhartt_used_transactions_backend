@@ -2,14 +2,20 @@ package com.C_platform.Member_woonkim.infrastructure.auth.filter;
 
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.LoginRequestDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 import java.io.IOException;
 
@@ -141,6 +147,51 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
         }
 
         return password.trim();
+    }
+
+    /**
+     * 인증 성공 시 처리
+     *
+     * UsernamePasswordAuthenticationFilter의 표준 흐름:
+     * 1. SecurityContext 생성 및 Authentication 저장
+     * 2. HttpSessionSecurityContextRepository를 사용하여 세션에 저장 ← 핵심!
+     * 3. HttpSession 생성 (JSESSIONID 쿠키)
+     * 4. SuccessHandler 호출 (JSON 응답)
+     *
+     * @param request HTTP 요청
+     * @param response HTTP 응답
+     * @param chain FilterChain
+     * @param authResult 인증된 Authentication 객체
+     * @throws IOException
+     * @throws ServletException
+     */
+    @Override
+    protected void successfulAuthentication(HttpServletRequest request,
+                                            HttpServletResponse response,
+                                            FilterChain chain,
+                                            Authentication authResult) throws IOException, ServletException {
+        log.info("JsonUsernamePasswordAuthenticationFilter.successfulAuthentication: 인증 성공 - email: {}",
+                authResult.getName());
+
+        // 1. SecurityContext 생성
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authResult);
+        SecurityContextHolder.setContext(context);
+        log.debug("JsonUsernamePasswordAuthenticationFilter: SecurityContext에 Authentication 저장 완료");
+
+        // 2. ✅ HttpSessionSecurityContextRepository를 사용하여 세션에 저장 (핵심!)
+        // 이 단계 없이는 SecurityContext가 세션에 저장되지 않음
+        HttpSessionSecurityContextRepository securityContextRepository =
+                new HttpSessionSecurityContextRepository();
+        securityContextRepository.saveContext(context, request, response);
+        log.debug("JsonUsernamePasswordAuthenticationFilter: SecurityContext를 세션에 저장 완료 (HttpSessionSecurityContextRepository 사용)");
+
+        // 3. ✅ HttpSession 명시적 생성 (JSESSIONID 쿠키 생성)
+        HttpSession session = request.getSession(true);
+        log.debug("JsonUsernamePasswordAuthenticationFilter: HttpSession 생성 완료 - sessionId: {}", session.getId());
+
+        // 4. SuccessHandler 호출 (JSON 응답 반환)
+        getSuccessHandler().onAuthenticationSuccess(request, response, authResult);
     }
 
     /**

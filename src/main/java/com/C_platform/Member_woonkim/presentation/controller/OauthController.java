@@ -268,7 +268,7 @@ public class OauthController {
             성공 시 : 사용자 정보 반환 <br/>
             실패 시 : 실패 message 반환 <br/>
             """)
-    public ResponseEntity<ApiResponse<LoginCheckDto>> loginCheck(
+    public ResponseEntity<ApiResponse<LoginCheckDto>> oauthLoginCheck(
             @Parameter(example = "req-129")
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpServletRequest request,

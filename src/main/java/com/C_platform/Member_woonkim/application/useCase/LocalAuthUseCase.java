@@ -1,8 +1,12 @@
 package com.C_platform.Member_woonkim.application.useCase;
 
 import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
+import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
 import com.C_platform.Member_woonkim.domain.service.MemberJoinService;
+import com.C_platform.Member_woonkim.exception.LocalAuthErrorCode;
+import com.C_platform.Member_woonkim.exception.LocalAuthException;
+import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.SignupRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Local.response.SignupResponseDto;
 import com.C_platform.annotation.UseCase;
@@ -23,6 +27,7 @@ public class LocalAuthUseCase {
 
     private final MemberJoinService memberJoinService;
     private final PasswordEncoder passwordEncoder;
+    private final MemberRepository memberRepository;
 
     /**
      * Local 회원가입 처리
@@ -99,5 +104,29 @@ public class LocalAuthUseCase {
         }
 
         log.debug("LocalAuthUseCase.validateSignupRequest: 검증 완료");
+    }
+
+    /**
+     * 이메일로 Member 조회
+     *
+     * Local 로그인 상태 확인 시 DB에서 최신 회원 정보를 조회합니다.
+     *
+     * @param email 회원의 이메일
+     * @return 조회된 Member 엔티티
+     * @throws LocalAuthException 회원을 찾을 수 없을 때
+     */
+    public Member getMemberByEmail(String email) {
+        log.info("LocalAuthUseCase.getMemberByEmail: 회원 조회 시작 - email: {}", email);
+
+        Member member = memberRepository.findByLocalProviderAndEmail(LocalProvider.LOCAL, email)
+                .orElseThrow(() -> {
+                    log.error("LocalAuthUseCase.getMemberByEmail: 회원을 찾을 수 없음 - email: {}", email);
+                    return new LocalAuthException(LocalAuthErrorCode.M001);
+                });
+
+        log.info("LocalAuthUseCase.getMemberByEmail: 회원 조회 성공 - memberId: {}, memberName: {}",
+                member.getMemberId(), member.getName());
+
+        return member;
     }
 }

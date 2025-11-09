@@ -9,10 +9,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
@@ -33,8 +36,10 @@ public class LocalAuthenticationSuccessHandler implements AuthenticationSuccessH
 
     /**
      * 인증 성공 시 처리 로직
-     * - SecurityContext에 이미 저장된 상태
-     * - 회원 정보를 조회하여 응답으로 반환
+     *
+     * 1. SecurityContext에 Authentication 저장 (세션 생성 트리거)
+     * 2. HttpSession 명시적 생성
+     * 3. 회원 정보 조회하여 JSON 응답으로 반환
      *
      * @param request HTTP 요청
      * @param response HTTP 응답
@@ -45,12 +50,20 @@ public class LocalAuthenticationSuccessHandler implements AuthenticationSuccessH
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                        Authentication authentication) throws IOException, ServletException {
-        log.info("LocalAuthenticationSuccessHandler: 로그인 성공 - email: {}", authentication.getName());
+        log.info("LocalAuthenticationSuccessHandler.onAuthenticationSuccess: 로그인 성공 - email: {}",
+                authentication.getName());
 
-        // 1. 이메일 추출 (authentication.getName()에서 email 반환)
+        // ✅ 주의: SecurityContext 저장 및 세션 생성은 JsonUsernamePasswordAuthenticationFilter.successfulAuthentication()에서 처리됨
+        // 이 핸들러는 JSON 응답 반환만 담당
+
+        // 1. 세션 ID 로깅 (디버깅 목적)
+        String sessionId = request.getSession(false) == null ? "(없음)" : request.getSession(false).getId();
+        log.debug("LocalAuthenticationSuccessHandler: 현재 sessionId: {}", sessionId);
+
+        // 2. 이메일 추출 (authentication.getName()에서 email 반환)
         String email = authentication.getName();
 
-        // 2. Member 엔티티 조회
+        // 3. Member 엔티티 조회
         Member member = memberRepository.findByLocalProviderAndEmail(LocalProvider.LOCAL, email)
                 .orElseThrow(() -> {
                     log.error("LocalAuthenticationSuccessHandler: 인증된 사용자를 찾을 수 없음 - {}", email);
@@ -59,20 +72,21 @@ public class LocalAuthenticationSuccessHandler implements AuthenticationSuccessH
 
         log.debug("LocalAuthenticationSuccessHandler: 회원 정보 조회 성공 - memberId: {}", member.getMemberId());
 
-        // 3. LoginResponseDto 생성
+        // 4. LoginResponseDto 생성
         LoginResponseDto responseDto = LoginResponseDto.from(member);
 
-        // 4. ApiResponse로 감싸기
+        // 5. ApiResponse로 감싸기
         com.C_platform.global.MetaData metaData = com.C_platform.global.MetaData.builder()
                 .timestamp(java.time.LocalDateTime.now())
                 .build();
         ApiResponse<LoginResponseDto> apiResponse = ApiResponse.success(responseDto, metaData);
 
-        // 5. JSON 응답 설정 및 반환
+        // 6. JSON 응답 설정 및 반환
         response.setContentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8");
         response.setStatus(HttpServletResponse.SC_OK);
         response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
 
-        log.info("LocalAuthenticationSuccessHandler: 로그인 응답 전송 완료 - memberId: {}", member.getMemberId());
+        log.info("LocalAuthenticationSuccessHandler: 로그인 응답 전송 완료 - memberId: {}, sessionId: {}",
+                member.getMemberId(), sessionId);
     }
 }

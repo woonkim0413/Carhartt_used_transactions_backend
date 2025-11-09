@@ -203,22 +203,32 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 
 ### Local Authentication (Email/Password)
 - **Signup:** `POST /v1/local/signup` - Register with email, password, name
-- **Login:** `POST /v1/local/login` - Authenticate with email and password
+- **Login:** `POST /v1/local/login` - Authenticate with email and password, returns member info
+- **Login Check:** `GET /v1/local/check` - Verify current login status and retrieve user info (auth-required)
 - **Logout:** `POST /v1/local/logout` - End session and clear cookies
 - **Password Encoding:** BCrypt (10 rounds)
 - **Session Management:** `SessionCreationPolicy.IF_REQUIRED` with HttpOnly, Secure cookies
-- **Request Filter:** `JsonUsernamePasswordAuthenticationFilter` - Parses JSON body instead of form data
+- **Request Filter:** `JsonUsernamePasswordAuthenticationFilter` - Parses JSON body, validates/trims email/password
+- **Authentication Flow:** Custom filter → AuthenticationManager → successfulAuthentication() → SuccessHandler
+- **Session Storage:** `HttpSessionSecurityContextRepository` - Persists SecurityContext to session (critical!)
 - **Handlers:** Custom success/failure handlers return JSON responses via `ApiResponse<LoginResponseDto>`
-- **Error Codes:** `LocalAuthErrorCode` enum (C001-C004 for auth errors, M001-M004 for validation)
+- **Error Codes:** `LocalAuthErrorCode` enum (C001-C004 for auth/state failures, M001-M004 for validation/user queries)
 
 **Key Classes:**
-- `LocalAuthController` - REST endpoints for signup/login/logout
-- `LocalAuthUseCase` - Business logic for signup (validation, encoding, member creation)
-- `LocalUserDetailsService` - Implements `UserDetailsService` for authentication
-- `LocalAuthenticationSuccessHandler` - Returns member info on successful login
+- `LocalAuthController` - REST endpoints for signup/login/check/logout
+- `LocalAuthUseCase` - Business logic for signup and user queries (validation, encoding, member creation, user lookup via getMemberByEmail())
+- `LocalAuthException` - Custom exception for local auth errors with ErrorCode
+- `LocalUserDetailsService` - Implements `UserDetailsService` for loadUserByUsername()
+- `JsonUsernamePasswordAuthenticationFilter` - Core authentication filter:
+  - `attemptAuthentication()` - Parses JSON, validates/trims email/password, creates authentication token
+  - `successfulAuthentication()` ← **Critical** - Stores SecurityContext via `HttpSessionSecurityContextRepository`, creates session, calls SuccessHandler
+  - `requiresAuthentication()` - Content-Type validation
+- `LocalAuthenticationSuccessHandler` - Handles successful authentication response:
+  - Queries Member from DB
+  - Returns JSON response with member info
+  - **Note:** SecurityContext/session storage handled by filter, not here
 - `LocalAuthenticationFailureHandler` - Returns error details on failed login
 - `LocalLogoutSuccessHandler` - Returns success response on logout
-- `JsonUsernamePasswordAuthenticationFilter` - Intercepts and parses JSON login requests
 - `LocalAuthConfig` - Configures `PasswordEncoder`, `AuthenticationManager`, `DaoAuthenticationProvider`
 
 **Security Features:**
@@ -226,46 +236,68 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - Duplicate email checking during signup
 - Session-based with CSRF protection
 - Password never returned in responses (only stored encrypted in DB)
+- Input sanitization: Email/password trimming in filter to prevent whitespace issues
+- Session persistence: SecurityContext stored in HttpSession via `HttpSessionSecurityContextRepository`
 
-**Important Note on C003 Error (Bad Credentials):**
+**Critical Implementation Detail - SecurityContext Session Storage:**
 
-The `C003` error (BadCredentialsException) indicates that user authentication failed. This can occur due to:
-1. **Incorrect password** for the registered email
-2. **Email not found** in the database (user not registered)
-3. **Email parsing issues** - corrupted or malformed email in the request
+Local authentication uses `HttpSessionSecurityContextRepository` to persist SecurityContext to session. This is essential for login state persistence:
 
-**Root Cause Fix (Applied):**
-The `JsonUsernamePasswordAuthenticationFilter` (where JSON login requests are parsed) now includes:
-- **Email validation and trimming** via `validateAndTrimEmail()` method:
+1. **After successful authentication** in `JsonUsernamePasswordAuthenticationFilter.successfulAuthentication()`:
+   - SecurityContext created and stored in ThreadLocal via `SecurityContextHolder.setContext()`
+   - SecurityContext persisted to session via `repository.saveContext(context, request, response)`
+   - HttpSession created to generate JSESSIONID cookie
+
+2. **On subsequent requests** with JSESSIONID cookie:
+   - Spring Security automatically loads SecurityContext from session
+   - User remains authenticated without re-login
+   - `GET /v1/local/check` verifies login status via `SecurityContextHolder.getContext()`
+
+3. **Without this step** (common mistake):
+   - SecurityContext exists only in ThreadLocal (per-thread)
+   - Session has no stored context → new requests show as unauthenticated
+   - Login state is lost after response
+
+**Important Note on C003 Error (Login State/Bad Credentials):**
+
+The `C003` error ("로그인 상태가 아닙니다" = "Not logged in") can indicate:
+1. **During `/v1/local/login`:** Bad credentials (incorrect password, email not found, malformed email)
+2. **During `/v1/local/check`:** User not logged in or session expired (no valid JSESSIONID cookie)
+
+**Input Validation & Trimming (Applied):**
+
+The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
+- **Email validation** via `validateAndTrimEmail()`:
   - Removes leading/trailing whitespace using `trim()`
   - Validates that email contains '@' character
-  - Rejects blank or null emails early with clear error messages
-- **Password validation and trimming** via `validateAndTrimPassword()` method:
-  - Removes leading/trailing whitespace
-  - Rejects blank or null passwords early
+  - Rejects blank or null emails with clear error messages
+- **Password validation** via `validateAndTrimPassword()`:
+  - Removes leading/trailing whitespace using `trim()`
+  - Rejects blank or null passwords with clear error messages
 
-**Why This Fix Was Needed:**
-Before this fix, the filter didn't validate or trim incoming email/password data. This caused:
-- Emails with accidental whitespace to be sent to the database layer unchanged
-- Invalid email formats (e.g., missing '@') to fail silently at the repository level
-- Confusing error logs that showed malformed emails
+**Why Input Validation Was Needed:**
+- Emails with accidental whitespace couldn't be matched in database
+- Invalid email formats silently failed at repository level
+- Error logs showed malformed emails instead of clear validation errors
 
 **Troubleshooting C003 Error:**
-1. **Verify the registered email** - Ensure the signup email matches the login email exactly
-2. **Check for extra spaces** - The login request now trims whitespace automatically
-3. **Verify password** - Ensure the password is correct (case-sensitive)
-4. **Check database** - Verify the user was successfully created during signup
-5. **Review logs** - Look for validation errors in the filter logs before the C003 error occurs
+1. **For login attempt:** Verify email/password are correct and properly formatted
+2. **Check for whitespace:** Ensure no leading/trailing spaces in email/password (auto-trimmed by filter)
+3. **For check endpoint:** Verify JSESSIONID cookie is present and valid
+4. **Database verification:** Ensure user was successfully created during signup
+5. **Review logs:** Look for validation errors in JsonUsernamePasswordAuthenticationFilter logs
 
 ### CSRF Protection
 - Cookie-based double-submit pattern
 - Token: `XSRF-TOKEN` cookie & `X-XSRF-TOKEN` header
 - Repository: `CookieCsrfTokenRepository`
-- Excluded from CSRF: `/v1/local/signup`, `/v1/local/login`, `/v1/local/logout`
+- Excluded from CSRF: `/v1/local/signup`, `/v1/local/login`, `/v1/local/logout`, `/v1/local/check`
 
 **Protected Endpoints:** `/v1/oauth/logout`, `/v1/myPage/**`, `/v1/items/**(POST/PUT/DELETE)`, `/v1/order/**`, `/v1/local/logout`
 
-**Public Endpoints:** `/v1/oauth/login`, OAuth callbacks, `GET /v1/items`, `GET /v1/categories`, `/v1/local/signup`, `/v1/local/login`
+**Public/Auth-Required Endpoints:**
+- **Public:** `/v1/oauth/login`, OAuth callbacks, `GET /v1/items`, `GET /v1/categories`, `/v1/local/signup`, `/v1/local/login`
+- **Auth-Required:** `GET /v1/local/check` - requires active session (local login only)
 
 ## External Integrations
 
@@ -294,7 +326,7 @@ Before this fix, the filter didn't validate or trim incoming email/password data
 - `CreateOrderErrorCode` (O001-O007)
 - `PaymentErrorCode`
 - `CommonErrorCode`
-- `LocalAuthErrorCode` (C001-C004 for auth failures, M001-M004 for signup validation)
+- `LocalAuthErrorCode` (C001-C004 for auth/state failures, M001-M004 for signup validation/user queries)
 
 **Exception flow:**
 1. Domain raises custom exception (e.g., `ItemException`)
@@ -382,7 +414,15 @@ Before this fix, the filter didn't validate or trim incoming email/password data
 |-----------|--------------|
 | Security & OAuth | `config/SecurityConfig.java`, `Member_woonkim/application/OAuth2UseCase.java` |
 | Web Configuration | `config/WebConfig.java` (HTTP message converters, UTF-8 charset for multilingual support) |
-| Local Authentication | `Member_woonkim/presentation/controller/LocalAuthController.java`, `Member_woonkim/application/useCase/LocalAuthUseCase.java`, `Member_woonkim/infrastructure/auth/` |
+| Local Authentication Controller | `Member_woonkim/presentation/controller/LocalAuthController.java` (signup, login, check, logout endpoints) |
+| Local Authentication UseCase | `Member_woonkim/application/useCase/LocalAuthUseCase.java` (signup validation, getMemberByEmail for check endpoint) |
+| Local Auth Filter | `Member_woonkim/infrastructure/auth/filter/JsonUsernamePasswordAuthenticationFilter.java` - **Core component:**<br/>- `attemptAuthentication()` - JSON parsing, input validation/trimming<br/>- `successfulAuthentication()` ← **Critical** - SecurityContext storage via HttpSessionSecurityContextRepository, session creation<br/>- `requiresAuthentication()` - Content-Type validation |
+| Local Auth Success Handler | `Member_woonkim/infrastructure/auth/handler/LocalAuthenticationSuccessHandler.java` (returns JSON response with member info, NOT responsible for session storage) |
+| Local Auth Failure Handler | `Member_woonkim/infrastructure/auth/handler/LocalAuthenticationFailureHandler.java` (returns error response) |
+| Local Auth Logout Handler | `Member_woonkim/infrastructure/auth/handler/LocalLogoutSuccessHandler.java` (returns logout success response) |
+| Local Auth Exceptions | `Member_woonkim/exception/LocalAuthException.java` (custom exception), `Member_woonkim/exception/LocalAuthErrorCode.java` (error codes C001-C004, M001-M004) |
+| Local Auth Config | `Member_woonkim/infrastructure/config/LocalAuthConfig.java` (PasswordEncoder, AuthenticationManager, DaoAuthenticationProvider setup) |
+| Local User Details Service | `Member_woonkim/infrastructure/auth/service/LocalUserDetailsService.java` (UserDetailsService implementation) |
 | Item Domain | `item/domain/Item.java`, `item/infrastructure/ItemRepository.java` |
 | Order Processing | `order/domain/Order.java`, `order/application/CreateOrderService.java` |
 | Payment | `payment/domain/Payment.java`, `payment/infrastructure/adapter/KakaoPayAdapter.java` |
