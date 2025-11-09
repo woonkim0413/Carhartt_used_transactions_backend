@@ -1,5 +1,6 @@
 package com.C_platform.order.domain;
 
+import com.C_platform.Member_woonkim.domain.entitys.Address;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import jakarta.persistence.*;
 import lombok.*;
@@ -26,8 +27,10 @@ public class Order {
     @Column(name = "order_status", length = 20, nullable = false)
     private OrderStatus orderStatus;
 
-    @Embedded
-    private OrderAddress shipping; // 배송지 스냅샷(값 타입)
+    // after
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "address_id", nullable = false)
+    private Address address;
 
     @Embedded
     private ItemSnapshot itemSnapshot;
@@ -53,11 +56,11 @@ public class Order {
     }
 
     // 공개 팩토리 메서드
-    public static Order createOrder(Member buyer, Member seller, OrderAddress shipping, String detailMessage, ItemSnapshot itemSnapshot) {
+    public static Order createOrder(Member buyer, Member seller, Address address, String detailMessage, ItemSnapshot itemSnapshot) {
         return Order.builder()
                 .buyer(buyer)
                 .seller(seller)
-                .shipping(shipping)
+                .address(address)
                 .detailMessage(detailMessage)
                 .itemSnapshot(itemSnapshot)
                 .orderDateTime(LocalDateTime.now())
