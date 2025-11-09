@@ -2,6 +2,8 @@ package com.C_platform.payment.application;
 
 import com.C_platform.exception.PaymentException;
 import com.C_platform.global.error.PaymentErrorCode;
+import com.C_platform.order.application.port.ItemPricingReader;
+import com.C_platform.order.domain.OrderRepository;
 import com.C_platform.payment.application.port.PaymentGatewayPort;
 import com.C_platform.payment.ui.dto.AttemptPaymentRequest;
 import com.C_platform.payment.ui.dto.AttemptPaymentResponse;
@@ -10,6 +12,9 @@ import com.C_platform.payment.ui.dto.CompletePaymentResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.C_platform.order.domain.Order;
+import com.C_platform.item.domain.Item;
+import com.C_platform.item.infrastructure.ItemRepository;
 
 import java.util.Map;
 
@@ -18,6 +23,9 @@ import java.util.Map;
 public class PaymentService {
 
     private final Map<String, PaymentGatewayPort> gateways;
+    private final OrderRepository orderRepository;      // ✅ 주문 조회용
+    private final ItemPricingReader itemReader;         // ✅ 아이템 조회용 (CreateOrderService와 동일)
+    private final ItemRepository itemRepository;
 
     /**
      * 결제 요청(ready): PG별로 라우팅하여 redirect_url 반환
@@ -57,6 +65,17 @@ public class PaymentService {
             String key = normalize(req.provider()); // "KAKAOPAY" | "NAVERPAY"
             PaymentGatewayPort gateway = gateways.get(key);
             if (gateway == null) throw new PaymentException(PaymentErrorCode.P003); // UNSUPPORTED_PROVIDER 등
+
+            // ✅ 기존 return 전에 추가
+            CompletePaymentResponse response = gateway.complete(orderId, req, currentUserId);
+
+            // ✅ [추가 코드 시작] 결제 성공 시 상품 SOLD_OUT 처리
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new IllegalArgumentException("order not found"));
+            Item item = itemRepository.findById(order.getItemSnapshot().getItemId())
+                    .orElseThrow(() -> new IllegalArgumentException("item not found"));
+
+            item.placeOrder(order);
 
             return gateway.complete(orderId, req, currentUserId);
 
