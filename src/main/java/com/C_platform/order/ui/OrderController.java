@@ -58,10 +58,17 @@ public class OrderController {
 
         Long buyerId = member.getMemberId();
 
-        Long orderId = createOrderService.create(req.toOrderCommand(buyerId), requestId);
+
+        // ✅ 1️⃣ requestId가 비어 있으면 UUID 생성
+        String effectiveRequestId = (requestId != null && !requestId.isBlank())
+                ? requestId
+                : UUID.randomUUID().toString();
+
+        // ✅ 2️⃣ 멱등성 키로 주문 생성 호출
+        Long orderId = createOrderService.create(req.toOrderCommand(buyerId), effectiveRequestId);
 
         HttpHeaders headers = new HttpHeaders();
-        headers.add("X-Request-Id", effectiveReqId(requestId));
+        headers.add("X-Request-Id",  effectiveRequestId);
         headers.add("X-Server-Timezone", "UTC");
         headers.add("X-Server-Time-Format", "ISO-8601");
 
