@@ -47,7 +47,7 @@ public class CreateOrderService {
         log.info("STEP getShippingOrThrow out: {}", shipping);
 
         // 3) 가격 스냅샷
-        var snapshot = ItemSnapshot.of(item.id(), item.price());
+        var snapshot = ItemSnapshot.of(item.id(), item.name(), item.price());
 
         // ✅ 4) buyer 조회
         Member buyer = memberRepository.findById(cmd.buyerId())
