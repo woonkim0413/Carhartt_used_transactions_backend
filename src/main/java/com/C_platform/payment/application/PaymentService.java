@@ -77,7 +77,7 @@ public class PaymentService {
 
             item.placeOrder(order);
 
-            return gateway.complete(orderId, req, currentUserId);
+            return response;
 
         } catch (PaymentException e) {
             throw e;
