@@ -1,5 +1,6 @@
 package com.C_platform.order.application;
 
+import com.C_platform.item.domain.Images;
 import com.C_platform.item.domain.Item;
 import com.C_platform.item.infrastructure.ItemRepository;
 import com.C_platform.order.domain.Order;
@@ -54,10 +55,9 @@ public class OrderCompletionService {
 
         // 대표 이미지 URL 추출
         String representImageUrl = item.getImages().stream()
-                .filter(image -> image.getRepresentUrl() != null)
-                .map(image -> image.getRepresentUrl())
                 .findFirst()
-                .orElse(imageUrls.isEmpty() ? null : imageUrls.get(0));
+                .map(Images::getRepresentUrl)  // ← 이렇게만 하면 됨
+                .orElse(null);
 
         // DTO로 변환
         return new OrderCompletionResponse(
@@ -65,29 +65,20 @@ public class OrderCompletionService {
 
                 // ItemSnapshot 정보 매핑
                 order.getItemSnapshot().getItemId(),
-
-                // 주의: ItemSnapshot에 itemName 필드가 없으므로 임시로 null 처리합니다.
-                // 실제 프로젝트에서는 ItemSnapshot에 itemName 필드를 추가해야 합니다.
-                null,
+                order.getItemSnapshot().getItemName(),  // ← 수정
                 order.getItemSnapshot().getPrice(),
 
                 imageUrls,
                 representImageUrl,
 
                 // OrderAddress 정보 매핑
-
-                // OrderAddress에 recipientName 필드가 없으므로 임시로 null 처리합니다.
-                null,
-
-                // city, street, homeNumber를 addressDetail에 결합하여 사용합니다.
-                order.getShipping().getCity() + " " + order.getShipping().getStreet() + " " + order.getShipping().getHomeNumber(),
-
-                // OrderAddress에 zipCode 필드가 없으므로 임시로 null 처리합니다.
-                null,
+                order.getShipping().getRecipientName(),  // ← 수정
+                order.getShipping().getRoadAddress() + " " + order.getShipping().getDetailAddress(),  // ← 수정
+                order.getShipping().getZipCode(),  // ← 수정
 
                 // 주문 시점 정보
                 order.getOrderDateTime(),
-                order.getOrderStatus().name() // Enum을 문자열로 변환
+                order.getOrderStatus().name()
         );
     }
 }
