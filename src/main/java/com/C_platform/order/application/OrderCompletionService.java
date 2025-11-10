@@ -45,7 +45,7 @@ public class OrderCompletionService {
         Long itemId = order.getItemSnapshot().getItemId();
 
         // Item 조회 (이미지 정보 가져오기 위해)
-        Item item = itemRepository.findById(itemId)
+        Item item = itemRepository.findByIdWithImages(itemId)
                 .orElseThrow(() -> new NoSuchElementException("Item not found: " + itemId));
 
         // 이미지 URL 추출
