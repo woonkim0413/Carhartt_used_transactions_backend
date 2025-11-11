@@ -27,7 +27,6 @@ public class ItemPricingJpaReader implements ItemPricingReader {
             )
             from com.C_platform.item.domain.Item i
             where i.id = :id
-              and i.status = com.C_platform.item.domain.ItemStatus.FOR_SALE
             """, ItemView.class)
                 .setParameter("id", itemId)
                 .getResultStream()
