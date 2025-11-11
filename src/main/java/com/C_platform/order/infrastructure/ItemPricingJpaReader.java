@@ -22,7 +22,8 @@ public class ItemPricingJpaReader implements ItemPricingReader {
                 i.id,
                 i.name,
                 i.member.memberId,         
-                i.price
+                i.price,
+                i.status
             )
             from com.C_platform.item.domain.Item i
             where i.id = :id
