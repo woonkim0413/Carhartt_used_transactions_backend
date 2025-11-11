@@ -3,28 +3,30 @@ package com.C_platform.payment.application;
 import com.C_platform.exception.PaymentException;
 import com.C_platform.global.error.PaymentErrorCode;
 import com.C_platform.order.application.port.ItemPricingReader;
+import com.C_platform.order.domain.Order;
 import com.C_platform.order.domain.OrderRepository;
+import com.C_platform.item.domain.Item;
+import com.C_platform.item.infrastructure.ItemRepository;
 import com.C_platform.payment.application.port.PaymentGatewayPort;
 import com.C_platform.payment.ui.dto.AttemptPaymentRequest;
 import com.C_platform.payment.ui.dto.AttemptPaymentResponse;
 import com.C_platform.payment.ui.dto.CompletePaymentRequest;
 import com.C_platform.payment.ui.dto.CompletePaymentResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.C_platform.order.domain.Order;
-import com.C_platform.item.domain.Item;
-import com.C_platform.item.infrastructure.ItemRepository;
 
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
 
     private final Map<String, PaymentGatewayPort> gateways;
-    private final OrderRepository orderRepository;      // ✅ 주문 조회용
-    private final ItemPricingReader itemReader;         // ✅ 아이템 조회용 (CreateOrderService와 동일)
+    private final OrderRepository orderRepository;
+    private final ItemPricingReader itemReader;
     private final ItemRepository itemRepository;
 
     /**
@@ -35,20 +37,19 @@ public class PaymentService {
         try {
             String key = normalize(req.paymentMethod()); // "KAKAOPAY" | "NAVERPAY"
             PaymentGatewayPort gateway = gateways.get(key);
-            if (gateway == null) throw new PaymentException(PaymentErrorCode.P003); // UNSUPPORTED_METHOD 등
+            if (gateway == null) {
+                throw new PaymentException(PaymentErrorCode.P003); // payment.order.not.owner (미지원 결제수단)
+            }
 
-            // 🚨 String으로 받지 않고, AttemptPaymentResponse 객체 전체를 받습니다.
             AttemptPaymentResponse resp = gateway.ready(req, currentUserId);
-
-            // 🚨 받은 객체를 그대로 반환합니다.
             return resp;
 
         } catch (PaymentException e) {
-            // Adapter/도메인에서 던진 명시적 에러는 그대로 전파
+            log.warn("결제 요청 실패: {}", e.getErrorCode().getMessage());
             throw e;
         } catch (Exception e) {
-            // 알 수 없는 오류는 PG 초기화 실패로 래핑
-            throw new PaymentException(PaymentErrorCode.P004, e); // PG_INIT_FAILED
+            log.error("PG 초기화 중 예외 발생", e);
+            throw new PaymentException(PaymentErrorCode.P004, e); // payment.pg.init.failed
         }
     }
 
@@ -57,33 +58,45 @@ public class PaymentService {
      */
     @Transactional
     public CompletePaymentResponse complete(
-            Long orderId,  // ✅ orderId 파라미터 추가
+            Long orderId,
             CompletePaymentRequest req,
             Long currentUserId
     ) {
         try {
-            String key = normalize(req.provider()); // "KAKAOPAY" | "NAVERPAY"
+            String key = normalize(req.provider());
             PaymentGatewayPort gateway = gateways.get(key);
-            if (gateway == null) throw new PaymentException(PaymentErrorCode.P003); // UNSUPPORTED_PROVIDER 등
+            if (gateway == null) {
+                throw new PaymentException(PaymentErrorCode.P003); // 미지원 PG사
+            }
 
-            // ✅ 기존 return 전에 추가
+            // ✅ PG 승인 처리
             CompletePaymentResponse response = gateway.complete(orderId, req, currentUserId);
 
-            // ✅ [추가 코드 시작] 결제 성공 시 상품 SOLD_OUT 처리
+            // ✅ 주문 조회
             Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new IllegalArgumentException("order not found"));
-            Item item = itemRepository.findById(order.getItemSnapshot().getItemId())
-                    .orElseThrow(() -> new IllegalArgumentException("item not found"));
+                    .orElseThrow(() -> new PaymentException(PaymentErrorCode.P002)); // payment.order.not.found
 
-            item.placeOrder(order);
+            // ✅ 아이템 조회
+            Item item = itemRepository.findById(order.getItemSnapshot().getItemId())
+                    .orElseThrow(() -> new PaymentException(PaymentErrorCode.P005)); // payment.request.invalid (상품 누락)
+
+            // ✅ 결제 성공 → 상품 SOLD_OUT 처리
+            try {
+                item.placeOrder(order);
+            } catch (IllegalStateException ex) {
+                // 이미 판매된 상품인 경우
+                log.warn("상품 SOLD_OUT 상태 감지: itemId={}", item.getId());
+                throw new PaymentException(PaymentErrorCode.P008); // payment.approve.cancel
+            }
 
             return response;
 
         } catch (PaymentException e) {
+            log.warn("결제 완료 처리 중 비즈니스 예외: {}", e.getErrorCode().getMessage());
             throw e;
         } catch (Exception e) {
-            // 승인 단계의 일반 예외는 승인 거절 계열로 래핑
-            throw new PaymentException(PaymentErrorCode.P009, e); // APPROVE_REJECTED 등 팀 코드에 맞춰 사용
+            log.error("결제 승인 처리 중 예외 발생", e);
+            throw new PaymentException(PaymentErrorCode.P009, e); // payment.approve.fail
         }
     }
 
@@ -92,3 +105,4 @@ public class PaymentService {
         return s.trim().toUpperCase();
     }
 }
+
