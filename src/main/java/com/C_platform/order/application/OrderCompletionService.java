@@ -1,5 +1,7 @@
 package com.C_platform.order.application;
 
+import com.C_platform.exception.CreateOrderException;
+import com.C_platform.global.error.CreateOrderErrorCode;
 import com.C_platform.item.domain.Images;
 import com.C_platform.item.domain.Item;
 import com.C_platform.item.infrastructure.ItemRepository;
@@ -32,21 +34,24 @@ public class OrderCompletionService {
      */
     public OrderCompletionResponse getOrderDetailsQuery(Long orderId) {
 
-        // Order 엔티티 조회
+        // ✅ 주문 조회
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NoSuchElementException("주문 ID " + orderId + "에 해당하는 주문을 찾을 수 없습니다."));
+                .orElseThrow(() -> new CreateOrderException(CreateOrderErrorCode.O004)); // order.not.found
+
+        // ✅ 주문 상태 검증
+        if (order.getOrderStatus() != OrderStatus.PAID) {
+            throw new CreateOrderException(CreateOrderErrorCode.O003); // order.creation.failed (상태 불일치)
+        }
+
+        // ✅ 아이템 조회
+        Long itemId = order.getItemSnapshot().getItemId();
+        Item item = itemRepository.findByIdWithImages(itemId)
+                .orElseThrow(() -> new CreateOrderException(CreateOrderErrorCode.O001));
 
         // 상태 검증: 반드시 'PAID' 상태여야 합니다.
         if (order.getOrderStatus() != OrderStatus.PAID) {
             throw new IllegalStateException("주문 ID " + orderId + "는 결제 승인(PAID) 상태가 아닙니다. 현재 상태: " + order.getOrderStatus());
         }
-
-        // ItemSnapshot에서 itemId 가져오기
-        Long itemId = order.getItemSnapshot().getItemId();
-
-        // Item 조회 (이미지 정보 가져오기 위해)
-        Item item = itemRepository.findByIdWithImages(itemId)
-                .orElseThrow(() -> new NoSuchElementException("Item not found: " + itemId));
 
         // 이미지 URL 추출
         List<String> imageUrls = item.getImages().stream()
