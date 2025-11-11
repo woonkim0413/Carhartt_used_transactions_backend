@@ -75,23 +75,28 @@ public class CreateOrderService {
     // --- helpers ---
 
     private ItemView getItemOrThrow(Long itemId) {
+        ItemView item;
+
         try {
-            var item = itemReader.getById(itemId);
-            if (item == null || item.id() == null) {
-                log.warn("itemReader returned null for itemId={}", itemId);
-                throw new CreateOrderException(CreateOrderErrorCode.O001); // ✅ 아이템 없음
-            }
-            if ("SOLD_OUT".equalsIgnoreCase(item.status())) {
-                throw new CreateOrderException(CreateOrderErrorCode.O008); // 품절 상품
-            }
-            return item;
+            item = itemReader.getById(itemId);
         } catch (EntityNotFoundException | NoSuchElementException e) {
             log.warn("itemReader not found: {}", itemId, e);
-            throw new CreateOrderException(CreateOrderErrorCode.O001); // ✅ 아이템 없음
+            throw new CreateOrderException(CreateOrderErrorCode.O001);
         } catch (RuntimeException e) {
             log.warn("itemReader runtime error: {}", itemId, e);
-            throw new CreateOrderException(CreateOrderErrorCode.O001); // ✅ 아이템 조회 중 런타임 예외
+            throw new CreateOrderException(CreateOrderErrorCode.O003); // 일반 조회 실패로 변경
         }
+
+        if (item == null || item.id() == null) {
+            throw new CreateOrderException(CreateOrderErrorCode.O001);
+        }
+
+        log.info("item.status()={}", item.status());
+        if ("SOLD_OUT".equalsIgnoreCase(item.status())) {
+            throw new CreateOrderException(CreateOrderErrorCode.O008);
+        }
+
+        return item;
     }
 
 }
