@@ -13,7 +13,8 @@ public enum CreateOrderErrorCode implements ErrorCode{
     O004("O004", "order.not.found"),         // 주문 없음
     O005("O005", "order.forbidden"),         // 권한 없음
     O006("O006", "order.buyer.not.found"),   // 구매자 없음
-    O007("O007", "order.seller.not.found");  // 판매자 없음
+    O007("O007", "order.seller.not.found"),  // 판매자 없음
+    O008("O008", "order.sold.out"); //이미 판매된 상품
 
     private final String code;
     private final String messageKey;
