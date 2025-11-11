@@ -5,6 +5,7 @@ import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.exception.CreateOrderException;
 import com.C_platform.global.error.CreateOrderErrorCode;
+import com.C_platform.item.domain.ItemStatus;
 import com.C_platform.order.application.dto.CreateOrderCommand;
 import com.C_platform.order.application.port.AddressReader;
 import com.C_platform.order.application.port.ItemPricingReader;
@@ -92,7 +93,7 @@ public class CreateOrderService {
         }
 
         log.info("item.status()={}", item.status());
-        if ("SOLD_OUT".equalsIgnoreCase(item.status())) {
+        if (item.status() == ItemStatus.SOLD_OUT) {
             throw new CreateOrderException(CreateOrderErrorCode.O008);
         }
 
