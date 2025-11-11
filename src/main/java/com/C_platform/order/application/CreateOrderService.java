@@ -81,6 +81,9 @@ public class CreateOrderService {
                 log.warn("itemReader returned null for itemId={}", itemId);
                 throw new CreateOrderException(CreateOrderErrorCode.O001); // ✅ 아이템 없음
             }
+            if ("SOLD_OUT".equalsIgnoreCase(item.status())) {
+                throw new CreateOrderException(CreateOrderErrorCode.O008); // 품절 상품
+            }
             return item;
         } catch (EntityNotFoundException | NoSuchElementException e) {
             log.warn("itemReader not found: {}", itemId, e);
