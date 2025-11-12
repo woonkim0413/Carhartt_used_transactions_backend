@@ -1,21 +1,19 @@
 package com.C_platform.Member_woonkim.infrastructure.auth.filter;
 
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.LoginRequestDto;
+import com.C_platform.Member_woonkim.utils.LogPaint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 import java.io.IOException;
 
@@ -56,7 +54,7 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
     public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
             throws AuthenticationException {
         try {
-            log.debug("JsonUsernamePasswordAuthenticationFilter: 로그인 요청 처리 시작");
+            LogPaint.sep("login 처리 시작");
 
             // 1. 요청 본문을 JSON으로 파싱
             LoginRequestDto loginRequest = objectMapper.readValue(
@@ -66,7 +64,7 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
 
             log.debug("JsonUsernamePasswordAuthenticationFilter: 요청 파싱 성공 - email: {}", loginRequest.getEmail());
 
-            // 2. 이메일과 비밀번호 검증 및 정제
+            // 2. 이메일과 비밀번호 검증 및 정제 (널/공백 체크)
             String email = validateAndTrimEmail(loginRequest.getEmail());
             String password = validateAndTrimPassword(loginRequest.getPassword());
 
@@ -92,9 +90,7 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
 
         } catch (IOException e) {
             log.error("JsonUsernamePasswordAuthenticationFilter: JSON 파싱 실패", e);
-            throw new org.springframework.security.authentication.AuthenticationServiceException(
-                    "로그인 요청 본문을 읽을 수 없습니다", e
-            );
+            throw new AuthenticationServiceException("로그인 요청 본문을 읽을 수 없습니다", e);
         }
     }
 
@@ -111,9 +107,7 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
     private String validateAndTrimEmail(String email) {
         if (email == null || email.isBlank()) {
             log.warn("JsonUsernamePasswordAuthenticationFilter: 이메일이 비어있음");
-            throw new org.springframework.security.authentication.AuthenticationServiceException(
-                    "이메일은 필수입니다"
-            );
+            throw new AuthenticationServiceException("이메일은 필수입니다");
         }
 
         String trimmedEmail = email.trim();
@@ -121,9 +115,7 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
         // 기본 이메일 형식 검증 (@ 포함 여부)
         if (!trimmedEmail.contains("@")) {
             log.warn("JsonUsernamePasswordAuthenticationFilter: 유효하지 않은 이메일 형식 - {}", trimmedEmail);
-            throw new org.springframework.security.authentication.AuthenticationServiceException(
-                    "유효한 이메일 형식이어야 합니다"
-            );
+            throw new AuthenticationServiceException("유효한 이메일 형식이어야 합니다");
         }
 
         return trimmedEmail;
@@ -141,11 +133,8 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
     private String validateAndTrimPassword(String password) {
         if (password == null || password.isBlank()) {
             log.warn("JsonUsernamePasswordAuthenticationFilter: 비밀번호가 비어있음");
-            throw new org.springframework.security.authentication.AuthenticationServiceException(
-                    "비밀번호는 필수입니다"
-            );
+            throw new AuthenticationServiceException("비밀번호는 필수입니다");
         }
-
         return password.trim();
     }
 
@@ -153,6 +142,7 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
      * 인증 성공 시 처리
      *
      * UsernamePasswordAuthenticationFilter의 표준 흐름:
+     * (이전) attemptAuthentication()호출하여 성숙한 Authentication를 획득함
      * 1. SecurityContext 생성 및 Authentication 저장
      * 2. HttpSessionSecurityContextRepository를 사용하여 세션에 저장 ← 핵심!
      * 3. HttpSession 생성 (JSESSIONID 쿠키)
@@ -162,8 +152,6 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
      * @param response HTTP 응답
      * @param chain FilterChain
      * @param authResult 인증된 Authentication 객체
-     * @throws IOException
-     * @throws ServletException
      */
     @Override
     protected void successfulAuthentication(HttpServletRequest request,
@@ -173,25 +161,9 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
         log.info("JsonUsernamePasswordAuthenticationFilter.successfulAuthentication: 인증 성공 - email: {}",
                 authResult.getName());
 
-        // 1. SecurityContext 생성
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authResult);
-        SecurityContextHolder.setContext(context);
-        log.debug("JsonUsernamePasswordAuthenticationFilter: SecurityContext에 Authentication 저장 완료");
-
-        // 2. ✅ HttpSessionSecurityContextRepository를 사용하여 세션에 저장 (핵심!)
-        // 이 단계 없이는 SecurityContext가 세션에 저장되지 않음
-        HttpSessionSecurityContextRepository securityContextRepository =
-                new HttpSessionSecurityContextRepository();
-        securityContextRepository.saveContext(context, request, response);
-        log.debug("JsonUsernamePasswordAuthenticationFilter: SecurityContext를 세션에 저장 완료 (HttpSessionSecurityContextRepository 사용)");
-
-        // 3. ✅ HttpSession 명시적 생성 (JSESSIONID 쿠키 생성)
-        HttpSession session = request.getSession(true);
-        log.debug("JsonUsernamePasswordAuthenticationFilter: HttpSession 생성 완료 - sessionId: {}", session.getId());
-
-        // 4. SuccessHandler 호출 (JSON 응답 반환)
-        getSuccessHandler().onAuthenticationSuccess(request, response, authResult);
+        // 나머지는 기본 동작 그대로 (Authentication을 SecurityContext 및 session에 저장 후 SuccessHolder 호출)
+        // 추후 세션 저장소를 Tomcat 메모리 → Redis로 바꾸고 싶다면 의존성 및 설정만 추가하여 HttpSession의 구현체를 redis로 바꾸면 됨 (코드 수정 필요 x)
+        super.successfulAuthentication(request, response, chain, authResult);
     }
 
     /**

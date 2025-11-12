@@ -6,11 +6,15 @@ import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.exception.LocalAuthErrorCode;
 import com.C_platform.Member_woonkim.exception.LocalAuthException;
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.LoginRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.Local.request.RandomCodeVerificationDto;
+import com.C_platform.Member_woonkim.presentation.dto.Local.request.SendRandomCodeToEmailDto;
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.SignupRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Local.response.LoginResponseDto;
 import com.C_platform.Member_woonkim.presentation.dto.Local.response.SignupResponseDto;
+import com.C_platform.Member_woonkim.presentation.dto.Local.response.SuccessMessageResponseDto;
 import com.C_platform.Member_woonkim.presentation.dto.Oauth.response.LoginCheckDto;
 import com.C_platform.Member_woonkim.utils.CreateMetaData;
+import com.C_platform.Member_woonkim.utils.LogPaint;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,6 +47,38 @@ public class LocalAuthController {
 
     private final LocalAuthUseCase localAuthUseCase;
 
+    @GetMapping("/email/random_code")
+    public ResponseEntity<ApiResponse<SuccessMessageResponseDto>> sendRandomCodeToEmail(
+            @Valid @RequestBody SendRandomCodeToEmailDto sendRandomCodeToEmailDto
+            ) {
+        // 구현
+    }
+
+    @GetMapping("/email/verification")
+    public ResponseEntity<ApiResponse<SuccessMessageResponseDto>> randomCodeVerification(
+            @Valid @RequestBody RandomCodeVerificationDto randomCodeVerificationDto
+            ) {
+        //  구현
+    }
+
+    /** [[email로 비밀번호 찾기 구현]]
+        @GetMapping("/email/password_find")
+        public ResponseEntity<LoginResponseDto> emailVerification(
+                @Valid @RequestBody LoginRequestDto loginRequestDto
+        ) {
+            // 구현
+        }
+    */
+
+    /** [[email로 비밀번호 변경 구현]]
+         @GetMapping("/email/password_find")
+         public ResponseEntity<LoginResponseDto> emailVerification(
+         @Valid @RequestBody LoginRequestDto loginRequestDto
+         ) {
+             // 구현
+         }
+     */
+
     /**
      * 회원가입 엔드포인트
      *
@@ -54,6 +90,7 @@ public class LocalAuthController {
     public ResponseEntity<ApiResponse<SignupResponseDto>> signup(
             @Valid @RequestBody SignupRequestDto request
     ) {
+        LogPaint.sep("signup handler 진입");
         log.info("LocalAuthController.signup: 회원가입 요청 - email: {}", request.getEmail());
 
         try {
@@ -61,10 +98,11 @@ public class LocalAuthController {
 
             log.info("LocalAuthController.signup: 회원가입 성공 - memberId: {}", response.getMemberId());
 
-            com.C_platform.global.MetaData metaData = com.C_platform.global.MetaData.builder()
+            MetaData metaData = MetaData.builder()
                     .timestamp(java.time.LocalDateTime.now())
                     .build();
 
+            LogPaint.sep("signup handler 이탈");
             return ResponseEntity
                     .status(HttpStatus.CREATED)
                     .body(ApiResponse.success(response, metaData));

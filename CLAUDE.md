@@ -206,16 +206,23 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - **Login:** `POST /v1/local/login` - Authenticate with email and password, returns member info
 - **Login Check:** `GET /v1/local/check` - Verify current login status and retrieve user info (auth-required)
 - **Logout:** `POST /v1/local/logout` - End session and clear cookies
+- **Email Verification:**
+  - `POST /v1/local/email/random_code` - Send 6-digit verification code to email (Redis TTL: 10min)
+  - `POST /v1/local/email/verification` - Verify code and mark email as verified
+  - **Usage:** Signup stage only (not for login)
+  - **Code Format:** 6-digit numeric (000000-999999)
+  - **Storage:** Redis with 10-minute TTL
+  - **Error Codes:** `LocalAuthErrorCode` enum (E001-E004 for email verification)
 - **Password Encoding:** BCrypt (10 rounds)
 - **Session Management:** `SessionCreationPolicy.IF_REQUIRED` with HttpOnly, Secure cookies
 - **Request Filter:** `JsonUsernamePasswordAuthenticationFilter` - Parses JSON body, validates/trims email/password
 - **Authentication Flow:** Custom filter → AuthenticationManager → successfulAuthentication() → SuccessHandler
 - **Session Storage:** `HttpSessionSecurityContextRepository` - Persists SecurityContext to session (critical!)
 - **Handlers:** Custom success/failure handlers return JSON responses via `ApiResponse<LoginResponseDto>`
-- **Error Codes:** `LocalAuthErrorCode` enum (C001-C004 for auth/state failures, M001-M004 for validation/user queries)
+- **Error Codes:** `LocalAuthErrorCode` enum (C001-C004 for auth/state failures, M001-M004 for validation/user queries, E001-E004 for email verification)
 
 **Key Classes:**
-- `LocalAuthController` - REST endpoints for signup/login/check/logout
+- `LocalAuthController` - REST endpoints for signup/login/check/logout + email verification endpoints
 - `LocalAuthUseCase` - Business logic for signup and user queries (validation, encoding, member creation, user lookup via getMemberByEmail())
 - `LocalAuthException` - Custom exception for local auth errors with ErrorCode
 - `LocalUserDetailsService` - Implements `UserDetailsService` for loadUserByUsername()
@@ -230,6 +237,14 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - `LocalAuthenticationFailureHandler` - Returns error details on failed login
 - `LocalLogoutSuccessHandler` - Returns success response on logout
 - `LocalAuthConfig` - Configures `PasswordEncoder`, `AuthenticationManager`, `DaoAuthenticationProvider`
+
+**Email Verification Classes (新規 - NEW):**
+- `VerificationCode` - Value object for 6-digit random code generation and validation (domain/value)
+- `EmailVerificationUseCase` - Business logic for email verification (sendVerificationCode, verifyCode)
+- `EmailService` - JavaMailSender adapter for sending verification code via Gmail SMTP
+- `EmailVerificationCodeStore` - Redis adapter for storing/retrieving verification codes with 10-minute TTL
+- `EmailException` - Custom exception for email verification errors
+- `EmailErrorCode` - Error codes enum (E001-E004): mail send failure, code expired, code mismatch, invalid email
 
 **Security Features:**
 - Email/password validation (8-50 char passwords, valid email format)
@@ -327,6 +342,7 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
 - `PaymentErrorCode`
 - `CommonErrorCode`
 - `LocalAuthErrorCode` (C001-C004 for auth/state failures, M001-M004 for signup validation/user queries)
+- `EmailErrorCode` (E001-E004 for email verification: mail send failure, code expired, code mismatch, invalid email) **[NEW]**
 
 **Exception flow:**
 1. Domain raises custom exception (e.g., `ItemException`)
@@ -423,8 +439,13 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
 | Local Auth Exceptions | `Member_woonkim/exception/LocalAuthException.java` (custom exception), `Member_woonkim/exception/LocalAuthErrorCode.java` (error codes C001-C004, M001-M004) |
 | Local Auth Config | `Member_woonkim/infrastructure/config/LocalAuthConfig.java` (PasswordEncoder, AuthenticationManager, DaoAuthenticationProvider setup) |
 | Local User Details Service | `Member_woonkim/infrastructure/auth/service/LocalUserDetailsService.java` (UserDetailsService implementation) |
+| Email Verification (NEW) | `Member_woonkim/domain/value/VerificationCode.java` - Value object for 6-digit random code generation |
+| Email Verification (NEW) | `Member_woonkim/application/useCase/EmailVerificationUseCase.java` - Business logic for email verification |
+| Email Verification (NEW) | `Member_woonkim/infrastructure/mail/EmailService.java` - Gmail SMTP email sender |
+| Email Verification (NEW) | `Member_woonkim/infrastructure/cache/EmailVerificationCodeStore.java` - Redis storage for verification codes (10min TTL) |
+| Email Verification (NEW) | `Member_woonkim/exception/EmailException.java`, `EmailErrorCode.java` - Email verification error handling |
 | Item Domain | `item/domain/Item.java`, `item/infrastructure/ItemRepository.java` |
 | Order Processing | `order/domain/Order.java`, `order/application/CreateOrderService.java` |
 | Payment | `payment/domain/Payment.java`, `payment/infrastructure/adapter/KakaoPayAdapter.java` |
-| Error Handling | `global/error/ErrorCode.java`, `global/error/CommonErrorCode.java`, `Member_woonkim/exception/LocalAuthErrorCode.java` |
+| Error Handling | `global/error/ErrorCode.java`, `global/error/CommonErrorCode.java`, `Member_woonkim/exception/LocalAuthErrorCode.java`, `EmailErrorCode.java` |
 | API Response | `global/ApiResponse.java` |

@@ -4,6 +4,7 @@ import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.Member_woonkim.presentation.dto.Local.response.LoginResponseDto;
+import com.C_platform.Member_woonkim.utils.LogPaint;
 import com.C_platform.global.ApiResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
@@ -57,8 +58,8 @@ public class LocalAuthenticationSuccessHandler implements AuthenticationSuccessH
         // 이 핸들러는 JSON 응답 반환만 담당
 
         // 1. 세션 ID 로깅 (디버깅 목적)
-        String sessionId = request.getSession(false) == null ? "(없음)" : request.getSession(false).getId();
-        log.debug("LocalAuthenticationSuccessHandler: 현재 sessionId: {}", sessionId);
+        String sessionId = request.getSession(true).getId();
+        log.info("LocalAuthenticationSuccessHandler: 현재 JSESSIONID : {}", sessionId);
 
         // 2. 이메일 추출 (authentication.getName()에서 email 반환)
         String email = authentication.getName();
@@ -86,7 +87,8 @@ public class LocalAuthenticationSuccessHandler implements AuthenticationSuccessH
         response.setStatus(HttpServletResponse.SC_OK);
         response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
 
-        log.info("LocalAuthenticationSuccessHandler: 로그인 응답 전송 완료 - memberId: {}, sessionId: {}",
-                member.getMemberId(), sessionId);
+        log.info("LocalAuthenticationSuccessHandler: 로그인 응답 전송 완료");
+
+        LogPaint.sep("login 처리 이탈");
     }
 }

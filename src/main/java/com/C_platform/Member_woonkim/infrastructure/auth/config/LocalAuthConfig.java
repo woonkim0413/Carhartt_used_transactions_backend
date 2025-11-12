@@ -57,13 +57,13 @@ public class LocalAuthConfig {
      *
      * @return DaoAuthenticationProvider
      */
-    @Bean
-    public DaoAuthenticationProvider daoAuthenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(localUserDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return provider;
-    }
+//    @Bean
+//    public DaoAuthenticationProvider daoAuthenticationProvider() {
+//        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+//        provider.setUserDetailsService(localUserDetailsService);
+//        provider.setPasswordEncoder(passwordEncoder());
+//        return provider;
+//    }
 
     /**
      * JsonUsernamePasswordAuthenticationFilter Bean

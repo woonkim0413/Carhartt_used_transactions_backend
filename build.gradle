@@ -45,6 +45,7 @@ dependencies {
 	runtimeOnly 'com.mysql:mysql-connector-j' // EC2/prod에서 사용
 	runtimeOnly 'com.h2database:h2' // local/dev에서 사용
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	implementation 'org.springframework.boot:spring-boot-starter-mail' // mail 인증 의존성
 }
 
 tasks.named('test') {

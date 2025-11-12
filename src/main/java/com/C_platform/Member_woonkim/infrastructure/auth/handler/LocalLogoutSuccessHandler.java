@@ -1,6 +1,7 @@
 package com.C_platform.Member_woonkim.infrastructure.auth.handler;
 
 import com.C_platform.global.ApiResponse;
+import com.C_platform.global.MetaData;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,9 +46,10 @@ public class LocalLogoutSuccessHandler implements LogoutSuccessHandler {
         log.info("LocalLogoutSuccessHandler: 로그아웃 성공");
 
         // ApiResponse 생성 (성공, 데이터 없음)
-        com.C_platform.global.MetaData metaData = com.C_platform.global.MetaData.builder()
+        MetaData metaData = MetaData.builder()
                 .timestamp(java.time.LocalDateTime.now())
                 .build();
+
         ApiResponse<Void> apiResponse = ApiResponse.success(null, metaData);
 
         // JSON 응답 설정 및 반환

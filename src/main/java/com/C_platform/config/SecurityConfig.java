@@ -1,5 +1,9 @@
 package com.C_platform.config;
 
+import com.C_platform.Member_woonkim.infrastructure.auth.filter.JsonUsernamePasswordAuthenticationFilter;
+import com.C_platform.Member_woonkim.infrastructure.auth.handler.LocalAuthenticationFailureHandler;
+import com.C_platform.Member_woonkim.infrastructure.auth.handler.LocalAuthenticationSuccessHandler;
+import com.C_platform.Member_woonkim.infrastructure.auth.handler.LocalLogoutSuccessHandler;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2ProviderPropertiesDto;
 import com.C_platform.Member_woonkim.infrastructure.dto.OAuth2RegistrationPropertiesDto;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,6 +25,7 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.web.client.RestTemplate;
@@ -152,10 +157,10 @@ public class SecurityConfig {
 
 @Bean
 public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFilter sessionCheckFilter,
-                                               com.C_platform.Member_woonkim.infrastructure.auth.filter.JsonUsernamePasswordAuthenticationFilter jsonLocalLoginFilter,
-                                               com.C_platform.Member_woonkim.infrastructure.auth.handler.LocalAuthenticationSuccessHandler localSuccessHandler,
-                                               com.C_platform.Member_woonkim.infrastructure.auth.handler.LocalAuthenticationFailureHandler localFailureHandler,
-                                               com.C_platform.Member_woonkim.infrastructure.auth.handler.LocalLogoutSuccessHandler localLogoutHandler) throws Exception {
+                                               JsonUsernamePasswordAuthenticationFilter jsonLocalLoginFilter,
+                                               LocalAuthenticationSuccessHandler localSuccessHandler,
+                                               LocalAuthenticationFailureHandler localFailureHandler,
+                                               LocalLogoutSuccessHandler localLogoutHandler) throws Exception {
     // cors
     http.cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource()));
 
@@ -165,11 +170,10 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFi
     // Local 인증 필터 등록 (UsernamePasswordAuthenticationFilter 위치에 추가)
     jsonLocalLoginFilter.setAuthenticationSuccessHandler(localSuccessHandler);
     jsonLocalLoginFilter.setAuthenticationFailureHandler(localFailureHandler);
-    http.addFilterAt(jsonLocalLoginFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
+    http.addFilterAt(jsonLocalLoginFilter, UsernamePasswordAuthenticationFilter.class);
 
     // CSRF (더블 서브밋: JS가 쿠키 XSRF-TOKEN을 읽어 X-XSRF-TOKEN 헤더로 반사)
-    CookieCsrfTokenRepository repo =
-            CookieCsrfTokenRepository.withHttpOnlyFalse();
+    CookieCsrfTokenRepository repo = CookieCsrfTokenRepository.withHttpOnlyFalse();
     repo.setCookieName("XSRF-TOKEN");
     repo.setCookiePath("/");
     repo.setSecure(!isLocal()); // 배포 환경에 따라 분기 (local - false / prod - true)
@@ -199,7 +203,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFi
     http.headers(h -> h.frameOptions(f -> f.sameOrigin()));
 
     // GET 진입 시 토큰 쿠키 보장
-    http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
+    // http.addFilterAfter(xsrfPresenceFilter(), CsrfFilter.class);
 
     // 세션 관리 정책, OAuth2LoginAuthenticationFilter 내에서 getSession()가 호출될 때 true/false 중 무엇을 arg로 줄지 설정
     http.sessionManagement (httpSecuritySessionManagementConfigurer ->
@@ -241,7 +245,6 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFi
             .logoutSuccessHandler(localLogoutHandler)
             .invalidateHttpSession(true)
             .deleteCookies("JSESSIONID")
-            .deleteCookies("XSRF-TOKEN")
             .clearAuthentication(true)
     );
 
