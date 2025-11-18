@@ -20,7 +20,10 @@
       "Bash(curl:*)",
       "Bash(timeout 300 ./gradlew test:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:stackoverflow.com)"
     ],
     "deny": [],
     "ask": []

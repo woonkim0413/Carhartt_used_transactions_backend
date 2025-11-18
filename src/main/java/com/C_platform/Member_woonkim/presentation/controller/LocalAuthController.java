@@ -1,6 +1,7 @@
 package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.LocalAuthUseCase;
+import com.C_platform.Member_woonkim.application.useCase.EmailVerificationUseCase;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.exception.LocalAuthErrorCode;
@@ -32,13 +33,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 
-/**
- * Local 인증 컨트롤러
- * 회원가입, 로그인, 로그아웃을 처리합니다.
- * - 회원가입: Controller에서 직접 처리
- * - 로그인: JsonUsernamePasswordAuthenticationFilter + SuccessHandler에서 처리
- * - 로그아웃: LogoutFilter + LogoutSuccessHandler에서 처리
- */
 @RestController
 @RequestMapping("/v1/local")
 @RequiredArgsConstructor
@@ -46,46 +40,64 @@ import java.time.LocalDateTime;
 public class LocalAuthController {
 
     private final LocalAuthUseCase localAuthUseCase;
+    private final EmailVerificationUseCase emailVerificationUseCase;
 
-    @GetMapping("/email/random_code")
+
+    @PostMapping("/email/random_code")
+    @Operation(summary = "이메일 인증 코드 전송", description = "지정된 이메일로 6자리 인증 코드를 전송합니다.")
     public ResponseEntity<ApiResponse<SuccessMessageResponseDto>> sendRandomCodeToEmail(
             @Valid @RequestBody SendRandomCodeToEmailDto sendRandomCodeToEmailDto
-            ) {
-        // 구현
+    ) {
+        LogPaint.sep("random code 생성 호출 진입");
+        log.info("LocalAuthController.sendRandomCodeToEmail: 인증 코드 전송 요청 - email: {}", sendRandomCodeToEmailDto.email());
+
+        SuccessMessageResponseDto response = emailVerificationUseCase.sendVerificationCode(sendRandomCodeToEmailDto);
+
+        log.info("LocalAuthController.sendRandomCodeToEmail: 인증 코드 전송 성공 - email: {}", sendRandomCodeToEmailDto.email());
+
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), null);
+
+        LogPaint.sep("random code 생성 호출 이탈");
+
+        return ResponseEntity.ok(ApiResponse.success(response, meta));
     }
 
-    @GetMapping("/email/verification")
+    @PostMapping("/email/verification")
+    @Operation(summary = "이메일 인증 코드 검증", description = "입력된 인증 코드를 검증하고 이메일을 확인합니다.")
     public ResponseEntity<ApiResponse<SuccessMessageResponseDto>> randomCodeVerification(
             @Valid @RequestBody RandomCodeVerificationDto randomCodeVerificationDto
-            ) {
-        //  구현
+    ) {
+        LogPaint.sep("이메인 인증 코드 검증 호출 진입");
+
+        log.info("LocalAuthController.randomCodeVerification: 인증 코드 검증 요청 - email: {}", randomCodeVerificationDto.email());
+
+        SuccessMessageResponseDto response = emailVerificationUseCase.verifyCode(randomCodeVerificationDto);
+
+        log.info("LocalAuthController.randomCodeVerification: 인증 코드 검증 성공 - email: {}", randomCodeVerificationDto.email());
+
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), null);
+
+        LogPaint.sep("이메인 인증 코드 검증 호출 이탈");
+
+        return ResponseEntity.ok(ApiResponse.success(response, meta));
     }
 
     /** [[email로 비밀번호 찾기 구현]]
-        @GetMapping("/email/password_find")
-        public ResponseEntity<LoginResponseDto> emailVerification(
-                @Valid @RequestBody LoginRequestDto loginRequestDto
-        ) {
-            // 구현
-        }
-    */
+     @GetMapping("/email/password_find") public ResponseEntity<LoginResponseDto> emailVerification(
+     @Valid @RequestBody LoginRequestDto loginRequestDto
+     ) {
+     // 구현
+     }
+     */
 
     /** [[email로 비밀번호 변경 구현]]
-         @GetMapping("/email/password_find")
-         public ResponseEntity<LoginResponseDto> emailVerification(
-         @Valid @RequestBody LoginRequestDto loginRequestDto
-         ) {
-             // 구현
-         }
+     @GetMapping("/email/password_find") public ResponseEntity<LoginResponseDto> emailVerification(
+     @Valid @RequestBody LoginRequestDto loginRequestDto
+     ) {
+     // 구현
+     }
      */
 
-    /**
-     * 회원가입 엔드포인트
-     *
-     * @param request 회원가입 요청 데이터
-     * @return 가입된 회원 정보
-     * @status 201 Created
-     */
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponseDto>> signup(
             @Valid @RequestBody SignupRequestDto request
@@ -93,32 +105,21 @@ public class LocalAuthController {
         LogPaint.sep("signup handler 진입");
         log.info("LocalAuthController.signup: 회원가입 요청 - email: {}", request.getEmail());
 
-        try {
-            SignupResponseDto response = localAuthUseCase.signup(request);
+        SignupResponseDto response = localAuthUseCase.signup(request);
 
-            log.info("LocalAuthController.signup: 회원가입 성공 - memberId: {}", response.getMemberId());
+        log.info("LocalAuthController.signup: 회원가입 성공 - memberId: {}", response.getMemberId());
 
-            MetaData metaData = MetaData.builder()
-                    .timestamp(java.time.LocalDateTime.now())
-                    .build();
+        MetaData metaData = MetaData.builder()
+                .timestamp(java.time.LocalDateTime.now())
+                .build();
 
-            LogPaint.sep("signup handler 이탈");
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(ApiResponse.success(response, metaData));
-
-        } catch (IllegalArgumentException e) {
-            log.warn("LocalAuthController.signup: 입력 값 검증 실패 - {}", e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.error("LocalAuthController.signup: 예상치 못한 오류", e);
-            throw e;
-        }
+        LogPaint.sep("signup handler 이탈");
+        return ResponseEntity.ok(ApiResponse.success(response, metaData));
     }
 
     /**
      * 로그인 엔드포인트
-     *
+     * <p>
      * 이 엔드포인트는 직접 처리되지 않으며,
      * JsonUsernamePasswordAuthenticationFilter와 LocalAuthenticationSuccessHandler에서 처리됩니다.
      *
@@ -144,7 +145,7 @@ public class LocalAuthController {
 
     /**
      * 로그아웃 엔드포인트
-     *
+     * <p>
      * 이 엔드포인트는 직접 처리되지 않으며,
      * LogoutFilter와 LocalLogoutSuccessHandler에서 처리됩니다.
      *
@@ -166,11 +167,11 @@ public class LocalAuthController {
 
     /**
      * Local 로그인 상태 확인 엔드포인트
-     *
+     * <p>
      * 현재 사용자가 Local 로그인 상태인지를 확인하고, 로그인한 경우 회원 정보를 반환합니다.
      *
      * @param xRequestId 요청 ID (선택)
-     * @param request HTTP 요청 객체
+     * @param request    HTTP 요청 객체
      * @return 회원 정보 또는 에러 응답
      * @status 200 OK - 로그인 상태 확인 성공
      * @status 401 Unauthorized - 로그인하지 않은 상태
@@ -186,6 +187,7 @@ public class LocalAuthController {
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpServletRequest request
     ) {
+        LogPaint.sep("localLoginCheck handler 진입");
         log.info("LocalAuthController.localLoginCheck: 로컬 로그인 상태 확인 요청");
 
         // 1. 세션 ID 로그 (디버깅 목적)
@@ -230,6 +232,8 @@ public class LocalAuthController {
 
         // 7. 응답 생성
         MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), xRequestId);
+
+        LogPaint.sep("localLoginCheck handler 이탈");
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")

@@ -207,12 +207,12 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - **Login Check:** `GET /v1/local/check` - Verify current login status and retrieve user info (auth-required)
 - **Logout:** `POST /v1/local/logout` - End session and clear cookies
 - **Email Verification:**
-  - `POST /v1/local/email/random_code` - Send 6-digit verification code to email (Redis TTL: 10min)
+  - `POST /v1/local/email/random_code` - Send 6-digit verification code to email (Memory TTL: 10min)
   - `POST /v1/local/email/verification` - Verify code and mark email as verified
   - **Usage:** Signup stage only (not for login)
   - **Code Format:** 6-digit numeric (000000-999999)
-  - **Storage:** Redis with 10-minute TTL
-  - **Error Codes:** `LocalAuthErrorCode` enum (E001-E004 for email verification)
+  - **Storage:** In-memory with 10-minute TTL (Redis optional for production)
+  - **Error Codes:** `EmailErrorCode` enum (E001-E004 for email verification)
 - **Password Encoding:** BCrypt (10 rounds)
 - **Session Management:** `SessionCreationPolicy.IF_REQUIRED` with HttpOnly, Secure cookies
 - **Request Filter:** `JsonUsernamePasswordAuthenticationFilter` - Parses JSON body, validates/trims email/password
@@ -228,7 +228,7 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - `LocalUserDetailsService` - Implements `UserDetailsService` for loadUserByUsername()
 - `JsonUsernamePasswordAuthenticationFilter` - Core authentication filter:
   - `attemptAuthentication()` - Parses JSON, validates/trims email/password, creates authentication token
-  - `successfulAuthentication()` ← **Critical** - Stores SecurityContext via `HttpSessionSecurityContextRepository`, creates session, calls SuccessHandler
+  - `successfulAuthentication()` ← **Critical** - 🔧 **Explicitly stores SecurityContext to HttpSession** via `HttpSessionSecurityContextRepository.saveContext()`, creates session, calls SuccessHandler. **This step is essential for session-based authentication state persistence.**
   - `requiresAuthentication()` - Content-Type validation
 - `LocalAuthenticationSuccessHandler` - Handles successful authentication response:
   - Queries Member from DB
@@ -242,7 +242,10 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - `VerificationCode` - Value object for 6-digit random code generation and validation (domain/value)
 - `EmailVerificationUseCase` - Business logic for email verification (sendVerificationCode, verifyCode)
 - `EmailService` - JavaMailSender adapter for sending verification code via Gmail SMTP
-- `EmailVerificationCodeStore` - Redis adapter for storing/retrieving verification codes with 10-minute TTL
+- `EmailVerificationCodeStore` - **Memory-based adapter** for storing/retrieving verification codes with 10-minute TTL
+  - Uses `ConcurrentHashMap` for thread-safe in-memory storage
+  - Background cleanup thread removes expired entries every minute
+  - **Note:** Redis dependency removed for local development (optional for production)
 - `EmailException` - Custom exception for email verification errors
 - `EmailErrorCode` - Error codes enum (E001-E004): mail send failure, code expired, code mismatch, invalid email
 
@@ -254,24 +257,42 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - Input sanitization: Email/password trimming in filter to prevent whitespace issues
 - Session persistence: SecurityContext stored in HttpSession via `HttpSessionSecurityContextRepository`
 
-**Critical Implementation Detail - SecurityContext Session Storage:**
+**Critical Implementation Detail - SecurityContext Session Storage (🔧 FIXED - 2025-11-13):**
 
 Local authentication uses `HttpSessionSecurityContextRepository` to persist SecurityContext to session. This is essential for login state persistence:
 
-1. **After successful authentication** in `JsonUsernamePasswordAuthenticationFilter.successfulAuthentication()`:
-   - SecurityContext created and stored in ThreadLocal via `SecurityContextHolder.setContext()`
-   - SecurityContext persisted to session via `repository.saveContext(context, request, response)`
+**Configuration Setup (SecurityConfig.java):**
+```java
+// 1. Bean registration
+@Bean
+public SecurityContextRepository securityContextRepository() {
+    return new HttpSessionSecurityContextRepository();
+}
+
+// 2. Explicit configuration in securityFilterChain
+http.securityContext(securityContext ->
+    securityContext.securityContextRepository(securityContextRepository)
+);
+```
+
+**Authentication Flow (JsonUsernamePasswordAuthenticationFilter.java):**
+1. **After successful authentication** in `successfulAuthentication()`:
+   - 🔧 SecurityContext created via `SecurityContextHolder.createEmptyContext()`
+   - 🔧 Authentication set: `context.setAuthentication(authResult)`
+   - 🔧 Stored in ThreadLocal via `SecurityContextHolder.setContext(context)`
+   - 🔧 **Explicitly saved to session** via `repository.saveContext(context, request, response)` ← **CRITICAL**
    - HttpSession created to generate JSESSIONID cookie
+   - SuccessHandler called to return JSON response
 
 2. **On subsequent requests** with JSESSIONID cookie:
    - Spring Security automatically loads SecurityContext from session
    - User remains authenticated without re-login
    - `GET /v1/local/check` verifies login status via `SecurityContextHolder.getContext()`
 
-3. **Without this step** (common mistake):
-   - SecurityContext exists only in ThreadLocal (per-thread)
-   - Session has no stored context → new requests show as unauthenticated
-   - Login state is lost after response
+3. **Before fix** (common mistake):
+   - SecurityContext stored only in ThreadLocal (per-thread)
+   - Session had no stored context → new requests showed as unauthenticated
+   - Login state was lost after response → **UNAUTHORIZED errors on subsequent API calls**
 
 **Important Note on C003 Error (Login State/Bad Credentials):**
 
@@ -428,11 +449,11 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
 
 | Component | Primary File |
 |-----------|--------------|
-| Security & OAuth | `config/SecurityConfig.java`, `Member_woonkim/application/OAuth2UseCase.java` |
+| Security & OAuth | `config/SecurityConfig.java` (🔧 **FIXED** - Added `securityContextRepository()` bean and explicit `http.securityContext()` configuration for explicit SecurityContext persistence to HttpSession), `Member_woonkim/application/OAuth2UseCase.java` |
 | Web Configuration | `config/WebConfig.java` (HTTP message converters, UTF-8 charset for multilingual support) |
 | Local Authentication Controller | `Member_woonkim/presentation/controller/LocalAuthController.java` (signup, login, check, logout endpoints) |
 | Local Authentication UseCase | `Member_woonkim/application/useCase/LocalAuthUseCase.java` (signup validation, getMemberByEmail for check endpoint) |
-| Local Auth Filter | `Member_woonkim/infrastructure/auth/filter/JsonUsernamePasswordAuthenticationFilter.java` - **Core component:**<br/>- `attemptAuthentication()` - JSON parsing, input validation/trimming<br/>- `successfulAuthentication()` ← **Critical** - SecurityContext storage via HttpSessionSecurityContextRepository, session creation<br/>- `requiresAuthentication()` - Content-Type validation |
+| Local Auth Filter | `Member_woonkim/infrastructure/auth/filter/JsonUsernamePasswordAuthenticationFilter.java` - **Core component:**<br/>- `attemptAuthentication()` - JSON parsing, input validation/trimming<br/>- `successfulAuthentication()` ← **Critical (🔧 FIXED)** - 🔧 **Explicitly stores SecurityContext to HttpSession** via `HttpSessionSecurityContextRepository.saveContext()`. Creates SecurityContext, sets authentication, saves to session, then calls parent method and SuccessHandler. **Essential for session-based auth persistence.**<br/>- `requiresAuthentication()` - Content-Type validation |
 | Local Auth Success Handler | `Member_woonkim/infrastructure/auth/handler/LocalAuthenticationSuccessHandler.java` (returns JSON response with member info, NOT responsible for session storage) |
 | Local Auth Failure Handler | `Member_woonkim/infrastructure/auth/handler/LocalAuthenticationFailureHandler.java` (returns error response) |
 | Local Auth Logout Handler | `Member_woonkim/infrastructure/auth/handler/LocalLogoutSuccessHandler.java` (returns logout success response) |

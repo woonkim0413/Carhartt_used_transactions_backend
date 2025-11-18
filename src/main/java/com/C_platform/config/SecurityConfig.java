@@ -13,6 +13,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -26,6 +28,8 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.web.client.RestTemplate;
@@ -74,9 +78,11 @@ public class SecurityConfig {
             "/v1/oauth/login",
             "/v1/oauth/login/*", // kakao, naver
             "/v1/oauth/login/local",
-            "/v1/local/signup",    // Local 회원가입
-            "/v1/local/login",     // Local 로그인
-            "/v1/local/logout",    // Local 로그아웃
+            "/v1/local/signup",                // Local 회원가입
+            "/v1/local/login",                 // Local 로그인
+            "/v1/local/logout",                // Local 로그아웃
+            "/v1/local/email/random_code",     // 이메일 인증 코드 전송
+            "/v1/local/email/verification",    // 이메일 인증 코드 검증
             "/favicon.ico",
             "/v1/oauth/*/callback", // kakao, naver
             "/v1/test/session-check",
@@ -127,6 +133,22 @@ public class SecurityConfig {
         return new RestTemplate();
     }
 
+    /**
+     * SecurityContextRepository 빈 - HttpSession에 SecurityContext 저장
+     * Local 인증 사용 시 세션 기반 인증 상태 유지를 위해 필수
+     *
+     * @return HttpSessionSecurityContextRepository
+     */
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+
     @Bean
     public ClientRegistrationRepository clientRegistrationRepository(
             OAuth2RegistrationPropertiesDto registrationProps,
@@ -160,9 +182,16 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFi
                                                JsonUsernamePasswordAuthenticationFilter jsonLocalLoginFilter,
                                                LocalAuthenticationSuccessHandler localSuccessHandler,
                                                LocalAuthenticationFailureHandler localFailureHandler,
+                                               AuthenticationManager authenticationManager,
                                                LocalLogoutSuccessHandler localLogoutHandler) throws Exception {
     // cors
     http.cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource()));
+
+    // 🔧 SecurityContextRepository 명시적 설정 - HttpSession에 SecurityContext 저장
+    // Local 인증 사용 시 세션 기반 인증 상태 유지를 위해 필수
+    http.securityContext(securityContext ->
+        securityContext.securityContextRepository(securityContextRepository())
+    );
 
     // Session Check Filter 추가
     http.addFilterBefore(sessionCheckFilter, CsrfFilter.class);
@@ -170,6 +199,8 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFi
     // Local 인증 필터 등록 (UsernamePasswordAuthenticationFilter 위치에 추가)
     jsonLocalLoginFilter.setAuthenticationSuccessHandler(localSuccessHandler);
     jsonLocalLoginFilter.setAuthenticationFailureHandler(localFailureHandler);
+    jsonLocalLoginFilter.setAuthenticationManager(authenticationManager);
+    jsonLocalLoginFilter.setSecurityContextRepository(securityContextRepository());
     http.addFilterAt(jsonLocalLoginFilter, UsernamePasswordAuthenticationFilter.class);
 
     // CSRF (더블 서브밋: JS가 쿠키 XSRF-TOKEN을 읽어 X-XSRF-TOKEN 헤더로 반사)
@@ -186,9 +217,11 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFi
              .ignoringRequestMatchers(
                      "/v1/oauth/logout",
                      "/v1/oauth/login/check",
-                     "/v1/local/signup",      // Local 회원가입 CSRF 제외
-                     "/v1/local/login",       // Local 로그인 CSRF 제외
-                     "/v1/local/logout",      // Local 로그아웃 CSRF 제외
+                     "/v1/local/signup",              // Local 회원가입 CSRF 제외
+                     "/v1/local/login",               // Local 로그인 CSRF 제외
+                     "/v1/local/logout",              // Local 로그아웃 CSRF 제외
+                     "/v1/local/email/random_code",   // 이메일 인증 코드 전송 CSRF 제외
+                     "/v1/local/email/verification",  // 이메일 인증 코드 검증 CSRF 제외
                      "/v1/myPage/**",
                      "/v1/items/**",
                      "/h2-console/**",

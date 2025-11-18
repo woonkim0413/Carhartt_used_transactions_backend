@@ -58,6 +58,7 @@ public class LocalAuthenticationSuccessHandler implements AuthenticationSuccessH
         // 이 핸들러는 JSON 응답 반환만 담당
 
         // 1. 세션 ID 로깅 (디버깅 목적)
+        // String sessionId = request.getSession(false)==null ? null : request.getSession(false).getId();
         String sessionId = request.getSession(true).getId();
         log.info("LocalAuthenticationSuccessHandler: 현재 JSESSIONID : {}", sessionId);
 
@@ -88,7 +89,5 @@ public class LocalAuthenticationSuccessHandler implements AuthenticationSuccessH
         response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
 
         log.info("LocalAuthenticationSuccessHandler: 로그인 응답 전송 완료");
-
-        LogPaint.sep("login 처리 이탈");
     }
 }

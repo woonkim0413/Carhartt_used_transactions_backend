@@ -1,46 +1,23 @@
-현재 Local 로그인 정상 동작한다
+아니 나는 아래 코드가 아니라
+@Override
+protected void successfulAuthentication(...) {
+SecurityContext context = SecurityContextHolder.createEmptyContext();
+context.setAuthentication(authResult);
+SecurityContextHolder.setContext(context);
 
-현재 로컬 로그인 코드에서 로그인 할 때에 email을 검증하는 로직을 추가하려고 한다
+        // 🔧 주입된 인스턴스 사용 (매번 생성 안 함)
+        securityContextRepository.saveContext(context, request, response);
 
-구현 전 정보는 아래와 같다
+        log.info("SecurityContext saved to session - email: {}", authResult.getName());
 
-------
-API 뼈대는 LocalAuthController 내에 있는 아래 두 handler이다 
-
-    @GetMapping("/email/random_code")
-    public ResponseEntity<ApiResponse<SuccessMessageResponseDto>> sendRandomCodeToEmail(
-            @Valid @RequestBody SendRandomCodeToEmailDto sendRandomCodeToEmailDto
-            ) {
-        // 구현
+        super.successfulAuthentication(request, response, chain, authResult);
     }
-
-    @GetMapping("/email/verification")
-    public ResponseEntity<ApiResponse<SuccessMessageResponseDto>> randomCodeVerification(
-            @Valid @RequestBody RandomCodeVerificationDto randomCodeVerificationDto
-            ) {
-        //  구현
+}
+아래 코드만 호출해도 정상 동작하기를 원해
+super에서 ThreadLocal에 SecurityContext를 저장하고 응답을 보낼 때 이를 세션에 저장한 뒤 header에 실잖아 
+왜 자꾸 명시적으로 SecurityContext를 내가 생성하라고 해 이런 코드는 좋지 않은 코드잖아
+@Override
+protected void successfulAuthentication(...) {
+        super.successfulAuthentication(request, response, chain, authResult);
     }
------
-
-email 관련 스프링 의존성은 gradle에 추가했다
-
-implementation 'org.springframework.boot:spring-boot-starter-mail' // mail 인증 의존성
-
------
-
-application.properties에는 google SMTP를 사용하기 위한 설정을 추가해놨다
-
-# mail
-spring.mail.host=smtp.gmail.com
-spring.mail.port=587
-spring.mail.username=gamegemos588@gmail.com
-spring.mail.password=hivomevsyumxdbzi
-
-spring.mail.properties.mail.smtp.starttls.enable=true
-spring.mail.properties.mail.smtp.auth=true
-
-------
-
-현재 정보를 바탕으로 v1/local/email/random_code, v1/local/email/random_code 코드를 설계해줘
-
-설계한 내용을 /claude/email_summary.md에 저장해줘
+}

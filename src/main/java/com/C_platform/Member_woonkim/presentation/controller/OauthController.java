@@ -2,7 +2,7 @@ package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
-import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.value.CustomOAuth2User;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;

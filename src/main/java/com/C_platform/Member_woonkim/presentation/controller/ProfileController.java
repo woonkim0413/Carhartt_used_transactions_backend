@@ -1,7 +1,7 @@
 package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.MyPageUseCase;
-import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.value.CustomOAuth2User;
 import com.C_platform.Member_woonkim.presentation.dto.myPage.request.UpdateProfileImageRequestDto;
 import com.C_platform.Member_woonkim.utils.CreateMetaData;
 import com.C_platform.global.ApiResponse;

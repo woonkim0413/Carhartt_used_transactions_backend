@@ -4,8 +4,11 @@ import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
 import com.C_platform.Member_woonkim.domain.service.MemberJoinService;
+import com.C_platform.Member_woonkim.exception.EmailErrorCode;
+import com.C_platform.Member_woonkim.exception.EmailException;
 import com.C_platform.Member_woonkim.exception.LocalAuthErrorCode;
 import com.C_platform.Member_woonkim.exception.LocalAuthException;
+import com.C_platform.Member_woonkim.infrastructure.auth.cache.EmailVerificationCodeStore;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.SignupRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Local.response.SignupResponseDto;
@@ -28,6 +31,7 @@ public class LocalAuthUseCase {
     private final MemberJoinService memberJoinService;
     private final PasswordEncoder passwordEncoder;
     private final MemberRepository memberRepository;
+    private final EmailVerificationCodeStore emailVerificationCodeStore;
 
     /**
      * Local 회원가입 처리
@@ -47,6 +51,9 @@ public class LocalAuthUseCase {
         // 1. 입력 데이터 검증 (추가 검증 필요 시 여기서 처리)
         validateSignupRequest(request);
 
+        // 1 검증이 완료된 이메일인지 확인 (없으면 EmailException 전파)
+        emailVerificationCodeStore.isVerified(request.getEmail());
+
         // 2. 비밀번호 암호화 (BCrypt)
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         log.debug("LocalAuthUseCase.signup: 비밀번호 암호화 완료");
@@ -60,6 +67,11 @@ public class LocalAuthUseCase {
                 encodedPassword,
                 request.getName()
         );
+
+        if(!result.isNew()) {
+            throw new EmailException(EmailErrorCode.E005);
+        }
+
 
         log.info("LocalAuthUseCase.signup: 회원가입 완료 - memberId: {}, isNewMember: {}",
                 result.member().getMemberId(), result.isNew());

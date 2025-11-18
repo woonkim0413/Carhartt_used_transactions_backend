@@ -19,7 +19,7 @@ public class MemberJoinService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    // db에 (provider + oauthId) unique key 기반으로 member가 찾아지면 map 내부 lambda 실행, 못 찾으면 orEseGet 내부 lambda 실행
+    // db에 (provider + oauthId) unique key 기반으로 member가 찾아지면 map 내부 lambda 실행, 못 찾으면 orElseGet 내부 lambda 실행
     public JoinOrLoginResult ensureOAuthMember(OAuthProvider provider, String oauthId, String name, String email) {
         return memberRepository.findByOauthProviderAndOauthId(provider, oauthId)
                 .map(found -> new JoinOrLoginResult(found, false))

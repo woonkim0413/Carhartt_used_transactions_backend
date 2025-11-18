@@ -14,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextRepository;
 
 import java.io.IOException;
 
@@ -35,8 +36,10 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
 
     private final ObjectMapper objectMapper;
 
-    public JsonUsernamePasswordAuthenticationFilter(ObjectMapper objectMapper) {
+    public JsonUsernamePasswordAuthenticationFilter(
+            ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+
         setFilterProcessesUrl(DEFAULT_LOGIN_URL);  // 처리할 URL 설정
         setUsernameParameter(DEFAULT_USERNAME_KEY);
         setPasswordParameter(DEFAULT_PASSWORD_KEY);
@@ -141,12 +144,13 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
     /**
      * 인증 성공 시 처리
      *
-     * UsernamePasswordAuthenticationFilter의 표준 흐름:
-     * (이전) attemptAuthentication()호출하여 성숙한 Authentication를 획득함
+     * 🔧 수정된 SecurityContext 저장소 로직:
      * 1. SecurityContext 생성 및 Authentication 저장
-     * 2. HttpSessionSecurityContextRepository를 사용하여 세션에 저장 ← 핵심!
-     * 3. HttpSession 생성 (JSESSIONID 쿠키)
-     * 4. SuccessHandler 호출 (JSON 응답)
+     * 2. SecurityContextHolder에 저장 (현재 스레드)
+     * 3. HttpSessionSecurityContextRepository를 사용하여 세션에 명시적으로 저장 ← 핵심!
+     * 4. 부모 클래스의 처리도 실행 (호환성 보장)
+     * 5. HttpSession 생성 (JSESSIONID 쿠키)
+     * 6. SuccessHandler 호출 (JSON 응답)
      *
      * @param request HTTP 요청
      * @param response HTTP 응답
@@ -158,13 +162,15 @@ public class JsonUsernamePasswordAuthenticationFilter extends UsernamePasswordAu
                                             HttpServletResponse response,
                                             FilterChain chain,
                                             Authentication authResult) throws IOException, ServletException {
-        log.info("JsonUsernamePasswordAuthenticationFilter.successfulAuthentication: 인증 성공 - email: {}",
-                authResult.getName());
+            // 🔧 Step 4: 부모 클래스의 표준 처리 실행 (SuccessHandler 호출)
+            // 나머지는 기본 동작 그대로 (HttpSession 생성, JSESSIONID 쿠키 발급)
+            // 추후 세션 저장소를 Tomcat 메모리 → Redis로 바꾸고 싶다면 의존성 및 설정만 추가하여 HttpSession의 구현체를 redis로 바꾸면 됨 (코드 수정 필요 x)
+            super.successfulAuthentication(request, response, chain, authResult);
 
-        // 나머지는 기본 동작 그대로 (Authentication을 SecurityContext 및 session에 저장 후 SuccessHolder 호출)
-        // 추후 세션 저장소를 Tomcat 메모리 → Redis로 바꾸고 싶다면 의존성 및 설정만 추가하여 HttpSession의 구현체를 redis로 바꾸면 됨 (코드 수정 필요 x)
-        super.successfulAuthentication(request, response, chain, authResult);
-    }
+            log.info("JsonUsernamePasswordAuthenticationFilter.successfulAuthentication: 인증 성공 - email: {}",
+                    authResult.getName());
+            LogPaint.sep("login 처리 이탈");
+        }
 
     /**
      * Content-Type 검사

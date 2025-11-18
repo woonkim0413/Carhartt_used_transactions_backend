@@ -1,6 +1,6 @@
 package com.C_platform.item.ui;
 
-import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.value.CustomOAuth2User;
 import com.C_platform.Member_woonkim.utils.CreateMetaData;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
@@ -20,12 +20,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import software.amazon.awssdk.http.SdkHttpMethod;
 
-import java.net.URI;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 

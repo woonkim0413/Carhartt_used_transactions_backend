@@ -8,13 +8,13 @@ Local 로그인 시스템에 **이메일 검증(Email Verification)** 기능을 
 
 ## 2. 요구사항 정리
 
-| 항목 | 내용 |
-|------|------|
-| **인증 코드 저장소** | Redis (분산 시스템 대응) |
-| **코드 유효 시간** | 10분 (600초) |
-| **코드 형식** | 6자리 숫자 (000000 ~ 999999) |
+| 항목 | 내용                        |
+|------|---------------------------|
+| **인증 코드 저장소** | Redis (분산 시스템 대응)         |
+| **코드 유효 시간** | 5분 (600초)                 |
+| **코드 형식** | 6자리 숫자 (000000 ~ 999999)  |
 | **사용 시점** | Signup 단계에서만 사용 (로그인 미사용) |
-| **메일 서버** | Gmail SMTP (이미 설정됨) |
+| **메일 서버** | Gmail SMTP (이미 설정됨)       |
 
 ---
 
@@ -608,30 +608,32 @@ public record SuccessMessageResponseDto(
 
 ## 6. 설정 변경사항
 
-### 6.1 `build.gradle` (Redis 의존성 추가)
+### 6.1 `build.gradle` (Redis 의존성 선택사항)
 ```gradle
 // 기존 dependencies...
 
 dependencies {
     // ... 기존 의존성 ...
 
-    // Redis
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    // Redis는 선택사항 (로컬 개발 환경에서는 메모리 기반 저장소 사용)
+    // implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 }
 ```
 
-### 6.2 `application.properties` (Redis 설정 추가)
+### 6.2 `application.properties` (Redis 설정 선택사항)
 ```properties
 # ... 기존 설정 ...
 
-# Redis Configuration
-spring.data.redis.host=localhost
-spring.data.redis.port=6379
-spring.data.redis.timeout=60000ms
-spring.data.redis.jedis.pool.max-active=8
-spring.data.redis.jedis.pool.max-idle=8
-spring.data.redis.jedis.pool.min-idle=0
+# Redis Configuration (Optional - 로컬 개발 환경에서는 메모리 기반 저장소 사용)
+# spring.data.redis.host=localhost
+# spring.data.redis.port=6379
+# spring.data.redis.timeout=60000ms
+# spring.data.redis.jedis.pool.max-active=8
+# spring.data.redis.jedis.pool.max-idle=8
+# spring.data.redis.jedis.pool.min-idle=0
 ```
+
+**참고:** Redis가 필요한 경우 위 설정을 주석해제하고 Redis 서버를 실행하면 됩니다.
 
 ---
 
@@ -649,7 +651,7 @@ EmailVerificationUseCase.sendVerificationCode()
   ├─ 이메일 형식 검증
   ├─ 중복 회원 확인 (MemberRepository)
   ├─ 코드 생성 (VerificationCode.generate())
-  ├─ Redis 저장 (EmailVerificationCodeStore.saveCode)
+  ├─ 메모리 저장 (EmailVerificationCodeStore.saveCode)
   ├─ 메일 전송 (EmailService.sendVerificationCodeEmail)
   └─ 성공 응답
   ↓
@@ -666,7 +668,7 @@ LocalAuthController.randomCodeVerification()
   ↓
 EmailVerificationUseCase.verifyCode()
   ├─ 이메일 형식 검증
-  ├─ Redis 코드 조회 (EmailVerificationCodeStore.getAndDeleteCode)
+  ├─ 메모리 코드 조회 (EmailVerificationCodeStore.getAndDeleteCode)
   │  └─ 없으면 E002 에러 (만료)
   ├─ 코드 비교
   │  └─ 불일치하면 E003 에러
@@ -786,3 +788,474 @@ public SignupResponseDto signup(SignupRequestDto request) {
 - ⚠️ **메일 설정:** application.properties의 Gmail 설정 확인
 - ⚠️ **HTTP 메서드:** 원래 요청서의 @GetMapping → @PostMapping 변경
 - ⚠️ **TTL:** 10분(600초) 설정, 필요시 조정 가능
+
+---
+
+## 14. 구현 완료
+
+### 14.1 생성된 파일 목록
+
+| 파일 경로 | 설명 |
+|---------|------|
+| `domain/value/VerificationCode.java` | 6자리 난수 코드 생성 및 검증 값 객체 |
+| `exception/EmailException.java` | 이메일 검증 커스텀 예외 |
+| `exception/EmailErrorCode.java` | 이메일 검증 에러 코드 열거형 (E001-E004) |
+| `infrastructure/mail/EmailService.java` | Gmail SMTP 메일 발송 서비스 |
+| `infrastructure/cache/EmailVerificationCodeStore.java` | Redis 기반 인증 코드 저장소 |
+| `application/useCase/EmailVerificationUseCase.java` | 이메일 검증 비즈니스 로직 |
+
+### 14.2 수정된 파일 목록
+
+| 파일 경로 | 수정 사항 |
+|---------|---------|
+| `build.gradle` | Redis 의존성 주석 처리 (선택사항) |
+| `application.properties` | Redis 설정 주석 처리 (선택사항) |
+| `presentation/dto/Local/request/RandomCodeVerificationDto.java` | email, code 필드 구조로 변경 |
+| `presentation/controller/LocalAuthController.java` | 이메일 검증 엔드포인트 2개 추가 (@PostMapping) |
+
+### 14.3 주요 구현 특징
+
+1. **6자리 난수 생성:** SecureRandom을 사용하여 안전한 난수 생성
+2. **메모리 기반 저장:** ConcurrentHashMap을 사용한 스레드 안전 저장소
+3. **자동 만료 관리:** 10분(600초) TTL과 백그라운드 정리 스레드
+4. **원자적 조회 및 삭제:** remove() 메서드로 안전한 코드 사용 (중복 사용 방지)
+5. **명확한 에러 코드:** 4가지 에러 상황 분류 (E001-E004)
+6. **입력 검증:** DTO의 @Valid와 UseCase 내 명시적 검증
+7. **로깅:** 각 단계별 추적 로깅으로 디버깅 용이
+8. **Google SMTP:** 기존 Gmail 설정 활용
+9. **Redis 선택사항:** 로컬 개발에서는 메모리 사용, 프로덕션에서는 Redis 사용 가능
+
+---
+
+## 15. Redis 의존성 제거 이유 및 메모리 기반 저장소로 변경
+
+### 15.1 변경 배경
+
+원래 Redis를 사용하여 인증 코드를 분산 시스템에 저장하려고 했지만, 로컬 개발 환경에서 Redis 연결 실패 문제가 발생했습니다.
+
+**에러 메시지:**
+```
+java.net.ConnectException: Connection refused: getsockopt
+org.springframework.data.redis.RedisConnectionFailureException: Unable to connect to Redis
+```
+
+### 15.2 해결 방안
+
+Redis에 대한 의존성을 제거하고 메모리 기반 저장소(`EmailVerificationCodeStore`)로 변경하였습니다.
+
+**장점:**
+- 로컬 개발 환경에서 Redis 설치 불필요
+- 빠른 개발 및 테스트 가능
+- 단일 서버 환경에서 충분한 성능
+- 외부 의존성 감소
+
+**구현 세부사항:**
+- `ConcurrentHashMap`을 사용한 스레드 안전 저장소
+- `ScheduledExecutorService`를 사용한 백그라운드 정리 스레드
+- 1분 주기로 만료된 항목 자동 제거
+- 메모리 누수 방지
+
+### 15.3 프로덕션 환경 (선택사항)
+
+프로덕션 환경에서 분산 시스템을 지원하려면:
+
+```gradle
+dependencies {
+    // Redis 의존성 주석해제
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+}
+```
+
+```properties
+# Redis 설정 주석해제
+spring.data.redis.host=redis-server-host
+spring.data.redis.port=6379
+spring.data.redis.password=your-password (필요시)
+```
+
+그 후 `EmailVerificationCodeStore`를 Redis 기반 구현으로 변경하면 됩니다.
+(원본 Redis 구현 코드는 git history에서 확인 가능)
+
+---
+
+## 16. 에러 분석 및 해결 (2025-11-12 발생)
+
+### 16.1 에러 로그 분석
+
+**발생 에러:**
+```
+org.springframework.mail.MailAuthenticationException: Authentication failed
+jakarta.mail.AuthenticationFailedException: 535-5.7.8 Username and Password not accepted
+```
+
+**원인:**
+Gmail SMTP 인증 실패 - 일반 비밀번호로 2단계 인증이 활성화된 Gmail 계정에 접근 불가
+
+**에러 발생 시점:**
+- `POST /v1/local/email/random_code` 엔드포인트 호출 시
+- `EmailService.sendVerificationCodeEmail()` → `JavaMailSender.send()` 에서 SMTP 연결 시도
+
+---
+
+### 16.2 문제 원인
+
+Gmail은 보안 정책상 다음과 같은 상황에서 일반 비밀번호 접근을 거부합니다:
+
+1. **2단계 인증 활성화 상태에서 일반 비밀번호 사용**
+   - Gmail 계정에 2단계 인증이 활성화됨
+   - 써드파티 앱 접근을 위해서는 **앱 비밀번호(App Password)** 필요
+
+2. **현재 설정 상태:**
+   ```properties
+   spring.mail.password=hivomevsyumxdbzi  # ❌ 일반 비밀번호 (작동하지 않음)
+   ```
+
+3. **Gmail SMTP 요구사항:**
+   - Host: `smtp.gmail.com` ✓
+   - Port: `587` (TLS) ✓
+   - Username: 유효한 Gmail 주소 ✓
+   - Password: **앱 비밀번호 필수** ❌
+
+---
+
+### 16.3 해결 방법
+
+#### Step 1: Gmail App Password 생성
+
+1. Gmail 계정 접속: https://myaccount.google.com
+2. 좌측 메뉴에서 **"보안"(Security)** 클릭
+3. **"앱 비밀번호"(App passwords)** 선택
+4. **앱**: Mail / **기기**: Windows PC 선택
+5. **생성된 16자리 비밀번호 복사** (예: `xxxx xxxx xxxx xxxx`)
+
+#### Step 2: application.properties 업데이트
+
+```properties
+# 변경 전
+spring.mail.password=hivomevsyumxdbzi
+
+# 변경 후 (생성한 앱 비밀번호, 공백 제거)
+spring.mail.password=xxxxxxxxxxxxxxxx
+```
+
+**중요:** 생성된 비밀번호의 공백을 모두 제거하고 입력해야 합니다.
+
+#### Step 3: 추가 설정 개선
+
+```properties
+spring.mail.properties.mail.smtp.ssl.protocols=TLSv1.2
+```
+
+TLSv1.2 명시적 설정으로 SSL/TLS 호환성 강화
+
+---
+
+### 16.4 적용 이후 테스트
+
+```bash
+# 1. 애플리케이션 재시작
+./gradlew bootRun
+
+# 2. 이메일 인증 코드 전송 테스트
+curl -X POST http://localhost:8080/v1/local/email/random_code \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com"}'
+
+# 3. 예상 응답
+{
+  "success": true,
+  "data": {
+    "successMessage": "인증 코드가 발송되었습니다"
+  },
+  "error": null,
+  "metaData": {
+    "timestamp": "2025-11-12T10:30:00Z",
+    "requestId": "..."
+  }
+}
+```
+
+---
+
+### 16.5 Gmail App Password가 보이지 않는 경우
+
+**원인:** 2단계 인증이 활성화되지 않음
+
+**해결:**
+1. Gmail 보안 설정에서 **2단계 인증 활성화**
+2. 전화번호 인증 완료
+3. 그 후 "앱 비밀번호" 옵션이 나타남
+
+---
+
+### 16.6 보안 고려사항
+
+⚠️ **비밀번호 관리:**
+- 일반 환경: `application.properties`에 하드코딩 (로컬 개발용)
+- 프로덕션: 환경 변수 또는 보안 저장소(AWS Secrets Manager, HashiCorp Vault) 사용 권장
+
+```properties
+# 프로덕션 권장 설정 (환경 변수)
+spring.mail.password=${GMAIL_APP_PASSWORD}
+```
+
+---
+
+### 16.7 참고 자료
+
+- [Google Support: App passwords](https://support.google.com/mail/?p=BadCredentials)
+- [Spring Boot Mail Configuration](https://spring.io/guides/gs/sending-email/)
+- [Gmail SMTP Settings](https://support.google.com/mail/answer/7126229)
+
+---
+
+## 17. SecurityContext 세션 저장소 문제 해결 (2025-11-13 발생)
+
+### 17.1 문제 상황
+
+로그인 후 인증이 필요한 API (예: `GET /v1/local/check`)를 호출하면 UNAUTHORIZED 에러가 발생합니다.
+
+**현상:**
+```
+POST /v1/local/login → 성공 (JSESSIONID 쿠키 반환)
+GET /v1/local/check (JSESSIONID 쿠키 포함) → UNAUTHORIZED 에러 ❌
+```
+
+**에러 응답:**
+```json
+{
+  "success": false,
+  "error": "UNAUTHORIZED"
+}
+```
+
+### 17.2 근본 원인
+
+**SecurityContext가 HttpSession에 저장되지 않음!**
+
+**기존 코드의 문제점:**
+
+1. **SecurityConfig에서 SecurityContextRepository 미설정**
+   - `SessionCreationPolicy.IF_REQUIRED`만 설정
+   - 명시적인 `HttpSessionSecurityContextRepository` 빈 없음
+   - 부모 클래스의 기본 동작에만 의존
+
+2. **JsonUsernamePasswordAuthenticationFilter에서 위임만 수행**
+   ```java
+   // 이전 코드
+   @Override
+   protected void successfulAuthentication(...) {
+       super.successfulAuthentication(request, response, chain, authResult);
+       // 부모 클래스에만 위임 → SecurityContext가 세션에 저장되지 않음
+   }
+   ```
+
+3. **결과: 인증 상태가 세션에 저장되지 않음**
+   - 로그인 후 각 요청은 새로운 SecurityContext로 시작
+   - JSESSIONID 쿠키가 있어도 세션에 인증 정보가 없음
+   - 다음 요청에서 UNAUTHORIZED 에러
+
+### 17.3 해결 방법
+
+#### Step 1: SecurityConfig.java 수정
+
+**1-1. Import 추가**
+```java
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+```
+
+**1-2. SecurityContextRepository 빈 등록**
+```java
+@Bean
+public SecurityContextRepository securityContextRepository() {
+    return new HttpSessionSecurityContextRepository();
+}
+```
+
+**1-3. securityFilterChain에서 명시적으로 설정**
+```java
+@Bean
+public SecurityFilterChain securityFilterChain(
+    HttpSecurity http,
+    ...,
+    SecurityContextRepository securityContextRepository) throws Exception {
+
+    // 🔧 명시적으로 SecurityContextRepository 설정
+    http.securityContext(securityContext ->
+        securityContext.securityContextRepository(securityContextRepository)
+    );
+
+    // 나머지 설정...
+}
+```
+
+#### Step 2: JsonUsernamePasswordAuthenticationFilter.java 수정
+
+**2-1. Import 추가**
+```java
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+```
+
+**2-2. successfulAuthentication() 메서드 수정**
+```java
+@Override
+protected void successfulAuthentication(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        FilterChain chain,
+                                        Authentication authResult) throws IOException, ServletException {
+
+    // 🔧 Step 1: SecurityContext 생성 및 Authentication 저장
+    SecurityContext context = SecurityContextHolder.createEmptyContext();
+    context.setAuthentication(authResult);
+
+    // 🔧 Step 2: SecurityContextHolder에 저장 (현재 스레드용)
+    SecurityContextHolder.setContext(context);
+
+    // 🔧 Step 3: HttpSessionSecurityContextRepository를 사용하여 세션에 명시적으로 저장
+    // 이 단계가 없으면 다음 요청에서 세션에서 SecurityContext를 로드할 수 없음!
+    SecurityContextRepository repository = new HttpSessionSecurityContextRepository();
+    repository.saveContext(context, request, response);
+
+    log.info("SecurityContext를 세션에 저장 완료 - email: {}", authResult.getName());
+
+    // 🔧 Step 4: 부모 클래스의 표준 처리 실행 (SuccessHandler 호출)
+    super.successfulAuthentication(request, response, chain, authResult);
+}
+```
+
+### 17.4 수정 후 인증 흐름
+
+**로그인 요청:**
+```
+POST /v1/local/login
+  ↓
+JsonUsernamePasswordAuthenticationFilter.attemptAuthentication()
+  ├─ JSON 파싱
+  ├─ 이메일/비밀번호 검증 및 정제
+  ├─ UsernamePasswordAuthenticationToken 생성
+  └─ authenticationManager.authenticate() 호출
+
+  ↓ (인증 성공)
+
+JsonUsernamePasswordAuthenticationFilter.successfulAuthentication()
+  ├─ 🔧 SecurityContext 생성
+  ├─ 🔧 SecurityContextHolder에 저장
+  ├─ 🔧 HttpSession에 명시적으로 저장 ← 핵심!
+  ├─ super.successfulAuthentication() 호출
+  └─ SuccessHandler 호출
+
+  ↓
+LocalAuthenticationSuccessHandler
+  └─ JSON 응답 (사용자 정보)
+
+응답: JSESSIONID 쿠키 ✓
+```
+
+**인증이 필요한 API 호출:**
+```
+GET /v1/local/check (JSESSIONID 쿠키 포함)
+  ↓
+Spring Security Filter Chain
+  ├─ JSESSIONID 쿠키 감지
+  ├─ HttpSessionSecurityContextRepository로 세션 로드
+  └─ SecurityContext 복원 ← 이제 가능!
+
+  ↓
+LocalAuthController.localLoginCheck()
+  ├─ SecurityContextHolder.getContext() 호출
+  ├─ Authentication 확인
+  └─ 사용자 정보 반환 ✓
+
+응답: 200 OK (사용자 정보) ✓
+```
+
+### 17.5 수정된 파일 목록
+
+| 파일 경로 | 수정 사항 |
+|---------|---------|
+| `config/SecurityConfig.java` | 1. Import 추가 (HttpSessionSecurityContextRepository, SecurityContextRepository)<br/>2. securityContextRepository() 빈 등록<br/>3. securityFilterChain() 메서드에서 명시적으로 설정 |
+| `Member_woonkim/infrastructure/auth/filter/JsonUsernamePasswordAuthenticationFilter.java` | 1. Import 추가 (SecurityContext, SecurityContextHolder, HttpSessionSecurityContextRepository)<br/>2. successfulAuthentication() 메서드에서 SecurityContext를 명시적으로 HttpSession에 저장 |
+
+### 17.6 검증 및 테스트
+
+**테스트 흐름:**
+
+```bash
+# 1. 애플리케이션 재시작
+./gradlew bootRun
+
+# 2. 로그인 API 호출
+curl -X POST http://localhost:8080/v1/local/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password123"}' \
+  -c cookies.txt \
+  -v
+
+# 응답 헤더에서 JSESSIONID 쿠키 확인:
+# Set-Cookie: JSESSIONID=xxxxx; Path=/; HttpOnly
+
+# 3. 인증 상태 확인 (쿠키 포함)
+curl -X GET http://localhost:8080/v1/local/check \
+  -b cookies.txt \
+  -v
+
+# 예상 응답: 200 OK (사용자 정보 반환) ✓
+# {
+#   "success": true,
+#   "data": {
+#     "id": 1,
+#     "email": "user@example.com",
+#     "name": "User Name",
+#     ...
+#   },
+#   ...
+# }
+```
+
+**로그 확인:**
+
+```
+# SecurityConfig에서 SecurityContextRepository 빈 등록 확인
+# JsonUsernamePasswordAuthenticationFilter에서 로그 확인:
+# "SecurityContext를 세션에 저장 완료 - email: user@example.com"
+```
+
+### 17.7 핵심 개선 사항
+
+| 항목 | 이전 | 이후 |
+|------|------|------|
+| SecurityContextRepository 설정 | ❌ 부재 | ✓ HttpSessionSecurityContextRepository 명시 |
+| SecurityContext 저장 | ❌ 위임만 수행 | ✓ 명시적으로 저장 |
+| 세션 기반 인증 상태 유지 | ❌ 불가 | ✓ 가능 |
+| 후속 API 호출 시 인증 | ❌ UNAUTHORIZED | ✓ 정상 동작 |
+| 로그 추적성 | ❌ 불명확 | ✓ 명확한 로그 제공 |
+
+### 17.8 보안 고려사항
+
+✓ **HttpSessionSecurityContextRepository 사용:**
+- Spring Security 권장 방식
+- 세션 기반 인증에 최적화
+- CSRF 보호와 통합
+
+✓ **명시적 SecurityContext 저장:**
+- 저장 여부를 명확히 확인 가능
+- 디버깅 시 추적 용이
+- 향후 Redis로 마이그레이션 시에도 호환
+
+### 17.9 향후 개선 사항 (선택사항)
+
+**프로덕션 환경에서 Redis 저장소로 변경:**
+
+```java
+@Bean
+public SecurityContextRepository securityContextRepository(RedisOperationsSessionRepository sessionRepository) {
+    // Redis 기반 분산 세션 저장소로 변경 가능
+    return new HttpSessionSecurityContextRepository();
+}
+```
+
+현재는 로컬 개발용으로 HttpSession을 사용하며, 프로덕션 배포 시에만 Redis로 변경하면 됩니다.

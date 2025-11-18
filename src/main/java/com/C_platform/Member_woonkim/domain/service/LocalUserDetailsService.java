@@ -2,6 +2,7 @@ package com.C_platform.Member_woonkim.domain.service;
 
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
+import com.C_platform.Member_woonkim.domain.value.CustomLocalUser;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,10 +46,13 @@ public class LocalUserDetailsService implements UserDetailsService {
 
         log.debug("LocalUserDetailsService: 사용자 조회 성공 - memberId: {}", member.getMemberId());
 
-        // Member → UserDetails로 변환
-        return User.builder()
+        // Member → CustomLocalUser("User implemnet UserDetails" 상속) 변환
+        return CustomLocalUser.customBuilder()
                 .username(member.getEmail())
                 .password(member.getLoginPassword())  // DB에 저장된 BCrypt 암호화 비밀번호
+                .memberId(member.getMemberId())
+                .email(member.getEmail())
+                .localProvider(LocalProvider.LOCAL)
                 .authorities(Collections.emptyList())  // 역할 없음 (필요 시 추가)
                 .accountExpired(false)
                 .accountLocked(false)
