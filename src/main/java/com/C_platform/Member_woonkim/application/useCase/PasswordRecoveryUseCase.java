@@ -70,6 +70,7 @@ public class PasswordRecoveryUseCase {
         VerificationCode verificationCode = VerificationCode.generate();
         String code = verificationCode.getValue();
         log.debug("PasswordRecoveryUseCase.sendPasswordResetCode: 인증 코드 생성 완료");
+        log.debug("인증 코드 : [{}]", code);
 
         // 4. 코드 저장소에 저장 (TTL: 10분)
         codeStore.saveCode(email, code);
@@ -138,8 +139,9 @@ public class PasswordRecoveryUseCase {
         log.debug("PasswordRecoveryUseCase.resetPassword: 인증 코드 검증 완료");
 
         // 5. 새 비밀번호 BCrypt 암호화
+        log.info("새 비밀번호 : {}", newPassword);
         String encodedPassword = passwordEncoder.encode(newPassword);
-        log.debug("PasswordRecoveryUseCase.resetPassword: 새 비밀번호 암호화 완료");
+        log.info("PasswordRecoveryUseCase.resetPassword: 새 비밀번호 암호화 완료");
 
         // 6. 데이터베이스 회원 비밀번호 업데이트
         member.changePassword(encodedPassword);

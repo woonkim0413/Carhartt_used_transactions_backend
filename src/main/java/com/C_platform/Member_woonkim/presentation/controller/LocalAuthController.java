@@ -148,6 +148,7 @@ public class LocalAuthController {
     }
 
     @PostMapping("/signup")
+    @Operation(summary = "회원가입", description = "회원가입을 합니다.")
     public ResponseEntity<ApiResponse<SignupResponseDto>> signup(
             @Valid @RequestBody SignupRequestDto request
     ) {
@@ -178,6 +179,7 @@ public class LocalAuthController {
      * @status 401 Unauthorized - 로그인 실패 (잘못된 이메일/비밀번호)
      */
     @PostMapping("/login")
+    @Operation(summary = "로그인", description = "로그인을 합니다.")
     public ResponseEntity<ApiResponse<LoginResponseDto>> login(
             @Valid @RequestBody LoginRequestDto request
     ) {
@@ -202,6 +204,7 @@ public class LocalAuthController {
      * @status 200 OK - 로그아웃 성공
      */
     @PostMapping("/logout")
+    @Operation(summary = "로그아웃", description = "로그아웃을 합니다.")
     public ResponseEntity<ApiResponse<Void>> logout() {
         // LogoutFilter + LocalLogoutSuccessHandler가 처리
         // 이 메서드는 요청 매핑 목적으로만 존재합니다.
