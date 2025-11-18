@@ -3,9 +3,8 @@
 ## Tools
 ## 아키텍처
 <img width="1531" height="1005" alt="Image" src="https://github.com/user-attachments/assets/64ce5bab-2761-4c54-83e5-b4e0b0010eea" />
-
-<img width="2320" height="1342" alt="Image" src="https://github.com/user-attachments/assets/ecee9151-e87b-408c-972a-4997a027f277" />
 ## ERD
+<img width="2320" height="1342" alt="Image" src="https://github.com/user-attachments/assets/ecee9151-e87b-408c-972a-4997a027f277" />
 ## 기능 소개
 ## 멤버
 ## 팀 주요 논의
