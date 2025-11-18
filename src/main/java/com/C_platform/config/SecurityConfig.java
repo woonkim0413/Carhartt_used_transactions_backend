@@ -145,11 +145,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
-        return authenticationConfiguration.getAuthenticationManager();
-    }
-
-    @Bean
     public ClientRegistrationRepository clientRegistrationRepository(
             OAuth2RegistrationPropertiesDto registrationProps,
             OAuth2ProviderPropertiesDto providerProps
@@ -199,7 +194,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFi
     // Local 인증 필터 등록 (UsernamePasswordAuthenticationFilter 위치에 추가)
     jsonLocalLoginFilter.setAuthenticationSuccessHandler(localSuccessHandler);
     jsonLocalLoginFilter.setAuthenticationFailureHandler(localFailureHandler);
-    jsonLocalLoginFilter.setAuthenticationManager(authenticationManager);
+    // jsonLocalLoginFilter.setAuthenticationManager(authenticationManager);
     jsonLocalLoginFilter.setSecurityContextRepository(securityContextRepository());
     http.addFilterAt(jsonLocalLoginFilter, UsernamePasswordAuthenticationFilter.class);
 
