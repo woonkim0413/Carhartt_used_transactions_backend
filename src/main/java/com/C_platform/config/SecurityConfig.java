@@ -32,7 +32,6 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -87,7 +86,8 @@ public class SecurityConfig {
             "/v1/oauth/*/callback", // kakao, naver
             "/v1/test/session-check",
             "/v1/categories", // 동희님 요청으로 추가 (운강 넣음)
-            "/v1/items" // 동희님 요청으로 추가 (운강 넣음)
+            "/v1/items", // 동희님 요청으로 추가 (운강 넣음)
+            "/v1/local/password/*" // 비밀번호 찾기 (인증 불필요)
     };
 
     @Bean
@@ -124,13 +124,6 @@ public class SecurityConfig {
     @Bean
     public XsrfPresenceFilter xsrfPresenceFilter() {
         return new XsrfPresenceFilter();
-    }
-
-    // java 코드로 쉽게 http 요청을 만들 수 있게 도와주는 객체
-    // Oauth 통신 및 Server에서 API 호출을 할 때 자주 사용된다
-    @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
     }
 
     /**
@@ -223,7 +216,8 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, SessionCheckFi
                      "/v1/order/**",
                      "/v1/orders/**",
                      "/v1/wishes",
-                     "/v1/debug/**" // 🔽 디버깅을 위해 임시 제외
+                     "/v1/debug/**", // 🔽 디버깅을 위해 임시 제외
+                     "/v1/local/password/*" // 비밀번호 찾기 및 재설정
              )
     );
 
