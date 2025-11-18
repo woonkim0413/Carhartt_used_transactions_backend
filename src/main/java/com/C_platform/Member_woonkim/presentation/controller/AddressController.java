@@ -2,8 +2,11 @@ package com.C_platform.Member_woonkim.presentation.controller;
 
 
 import com.C_platform.Member_woonkim.application.useCase.AddressUseCase;
+import com.C_platform.Member_woonkim.domain.value.CustomLocalUser;
 import com.C_platform.Member_woonkim.domain.value.CustomOAuth2User;
 import com.C_platform.Member_woonkim.domain.entitys.Address;
+import com.C_platform.Member_woonkim.exception.OauthErrorCode;
+import com.C_platform.Member_woonkim.exception.OauthException;
 import com.C_platform.Member_woonkim.presentation.dtoAssembler.AddressAssembler;
 import com.C_platform.Member_woonkim.presentation.dto.address.request.AddAddressRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.address.response.AddAddressResponseDto;
@@ -44,13 +47,16 @@ public class AddressController {
     // TODO : address name 유니크 속성 넣기 + address가 5개 이상이면 추가 생성 불가
     public ResponseEntity<ApiResponse<AddAddressResponseDto>> addAddress (
             @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
+            @AuthenticationPrincipal CustomLocalUser customLocalUser,
             @Valid @RequestBody AddAddressRequestDto dto,
             @Parameter(example = "req-129")
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
         LogPaint.sep("주소 생성 API 진입");
-        Long member_id = customOAuth2User.getMemberId();
-
+        Long member_id = customOAuth2User == null ? (customLocalUser == null ? null : customLocalUser.getMemberId()) : customOAuth2User.getMemberId();
+        if (member_id == null) {
+            throw new OauthException(OauthErrorCode.C012);
+        }
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
         // 현재 db에 저장한 address 반환
