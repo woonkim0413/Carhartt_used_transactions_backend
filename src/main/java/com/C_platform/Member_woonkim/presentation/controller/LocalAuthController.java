@@ -2,11 +2,14 @@ package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.LocalAuthUseCase;
 import com.C_platform.Member_woonkim.application.useCase.EmailVerificationUseCase;
+import com.C_platform.Member_woonkim.application.useCase.PasswordRecoveryUseCase;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.exception.LocalAuthErrorCode;
 import com.C_platform.Member_woonkim.exception.LocalAuthException;
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.LoginRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.Local.request.PasswordFindRequestDto;
+import com.C_platform.Member_woonkim.presentation.dto.Local.request.PasswordResetRequestDto;
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.RandomCodeVerificationDto;
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.SendRandomCodeToEmailDto;
 import com.C_platform.Member_woonkim.presentation.dto.Local.request.SignupRequestDto;
@@ -41,6 +44,7 @@ public class LocalAuthController {
 
     private final LocalAuthUseCase localAuthUseCase;
     private final EmailVerificationUseCase emailVerificationUseCase;
+    private final PasswordRecoveryUseCase passwordRecoveryUseCase;
 
 
     @PostMapping("/email/random_code")
@@ -82,23 +86,69 @@ public class LocalAuthController {
         return ResponseEntity.ok(ApiResponse.success(response, meta));
     }
 
-    /** [[email로 비밀번호 찾기 구현]]
-     @GetMapping("/email/password_find") public ResponseEntity<LoginResponseDto> emailVerification(
-     @Valid @RequestBody LoginRequestDto loginRequestDto
-     ) {
-     // 구현
-     }
+    /**
+     * 비밀번호 찾기 - 인증 코드 전송
+     *
+     * 사용자가 입력한 이메일로 비밀번호 재설정 인증 코드를 전송합니다.
+     *
+     * @param request 비밀번호 찾기 요청 (이메일)
+     * @return 성공 메시지
+     * @status 200 OK - 인증 코드 전송 성공
+     * @status 400 Bad Request - 유효하지 않은 이메일 또는 가입되지 않은 이메일
+     * @status 500 Internal Server Error - 이메일 전송 실패
      */
+    @PostMapping("/password/find")
+    @Operation(summary = "비밀번호 찾기 - 인증 코드 전송",
+               description = "입력한 이메일로 비밀번호 재설정 인증 코드를 전송합니다")
+    public ResponseEntity<ApiResponse<SuccessMessageResponseDto>> sendPasswordResetCode(
+            @Valid @RequestBody PasswordFindRequestDto request
+    ) {
+        LogPaint.sep("sendPasswordResetCode yㅇ을 handler 진입");
+        log.info("LocalAuthController.sendPasswordResetCode: 비밀번호 찾기 - 인증 코드 전송 요청 - email: {}", request.email());
 
-    /** [[email로 비밀번호 변경 구현]]
-     @GetMapping("/email/password_find") public ResponseEntity<LoginResponseDto> emailVerification(
-     @Valid @RequestBody LoginRequestDto loginRequestDto
-     ) {
-     // 구현
-     }
+        SuccessMessageResponseDto response = passwordRecoveryUseCase.sendPasswordResetCode(request);
+
+        log.info("LocalAuthController.sendPasswordResetCode: 비밀번호 찾기 - 인증 코드 전송 성공 - email: {}", request.email());
+
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), null);
+
+        LogPaint.sep("sendPasswordResetCode handler 이탈");
+
+        return ResponseEntity.ok(ApiResponse.success(response, meta));
+    }
+
+    /**
+     * 비밀번호 찾기 - 인증 코드 검증 및 비밀번호 재설정
+     *
+     * 사용자가 받은 인증 코드와 새로운 비밀번호를 입력하여 비밀번호를 재설정합니다.
+     *
+     * @param request 비밀번호 재설정 요청 (이메일, 인증 코드, 새 비밀번호)
+     * @return 성공 메시지
+     * @status 200 OK - 비밀번호 재설정 성공
+     * @status 400 Bad Request - 유효하지 않은 입력값, 인증 코드 만료 또는 불일치, 가입되지 않은 이메일
      */
+    @PostMapping("/password/reset")
+    @Operation(summary = "비밀번호 찾기 - 비밀번호 재설정",
+               description = "인증 코드를 검증하고 새로운 비밀번호로 변경합니다")
+    public ResponseEntity<ApiResponse<SuccessMessageResponseDto>> resetPassword(
+            @Valid @RequestBody PasswordResetRequestDto request
+    ) {
+        LogPaint.sep("resetPassword handler 진입");
+        log.info("LocalAuthController.resetPassword: 비밀번호 재설정 요청 - email: {}", request.email());
+
+        SuccessMessageResponseDto response = passwordRecoveryUseCase.resetPassword(request);
+
+        log.info("LocalAuthController.resetPassword: 비밀번호 재설정 성공 - email: {}", request.email());
+
+        MetaData meta = CreateMetaData.createMetaData(LocalDateTime.now(), null);
+
+        LogPaint.sep("resetPassword handler 이탈");
+
+        return ResponseEntity.ok(ApiResponse.success(response, meta));
+    }
 
     @PostMapping("/signup")
+    @Operation(summary = "회원가입", description = "회원가입을 합니다.")
     public ResponseEntity<ApiResponse<SignupResponseDto>> signup(
             @Valid @RequestBody SignupRequestDto request
     ) {
@@ -129,6 +179,7 @@ public class LocalAuthController {
      * @status 401 Unauthorized - 로그인 실패 (잘못된 이메일/비밀번호)
      */
     @PostMapping("/login")
+    @Operation(summary = "로그인", description = "로그인을 합니다.")
     public ResponseEntity<ApiResponse<LoginResponseDto>> login(
             @Valid @RequestBody LoginRequestDto request
     ) {
@@ -153,6 +204,7 @@ public class LocalAuthController {
      * @status 200 OK - 로그아웃 성공
      */
     @PostMapping("/logout")
+    @Operation(summary = "로그아웃", description = "로그아웃을 합니다.")
     public ResponseEntity<ApiResponse<Void>> logout() {
         // LogoutFilter + LocalLogoutSuccessHandler가 처리
         // 이 메서드는 요청 매핑 목적으로만 존재합니다.

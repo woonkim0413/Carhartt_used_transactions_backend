@@ -213,6 +213,12 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
   - **Code Format:** 6-digit numeric (000000-999999)
   - **Storage:** In-memory with 10-minute TTL (Redis optional for production)
   - **Error Codes:** `EmailErrorCode` enum (E001-E004 for email verification)
+- **Password Recovery (NEW):**
+  - `POST /v1/local/password/find` - Send password reset verification code to email
+  - `POST /v1/local/password/reset` - Verify code and reset password to new value
+  - **Code Format:** 6-digit numeric (000000-999999)
+  - **Storage:** Reuses `EmailVerificationCodeStore` with 10-minute TTL
+  - **Error Codes:** `LocalAuthErrorCode.C002` (unregistered email), `EmailErrorCode.E001/E002/E003` (send failure, code expired, code mismatch)
 - **Password Encoding:** BCrypt (10 rounds)
 - **Session Management:** `SessionCreationPolicy.IF_REQUIRED` with HttpOnly, Secure cookies
 - **Request Filter:** `JsonUsernamePasswordAuthenticationFilter` - Parses JSON body, validates/trims email/password
@@ -248,6 +254,25 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
   - **Note:** Redis dependency removed for local development (optional for production)
 - `EmailException` - Custom exception for email verification errors
 - `EmailErrorCode` - Error codes enum (E001-E004): mail send failure, code expired, code mismatch, invalid email
+
+**Password Recovery Classes (新規 - NEW - 2025-11-18):**
+- `PasswordRecoveryUseCase` - Business logic for password recovery (sendPasswordResetCode, resetPassword)
+  - Reuses `VerificationCode.generate()` for code generation
+  - Reuses `EmailVerificationCodeStore` for code storage and retrieval
+  - Reuses `EmailService.sendVerificationCodeEmail()` for email delivery
+  - Uses `PasswordEncoder` for BCrypt password encryption
+  - Updates `Member.loginPassword` via `member.changePassword(encodedPassword)`
+- `PasswordFindRequestDto` - Request DTO for password recovery initiation (email)
+- `PasswordResetRequestDto` - Request DTO for password reset (email, code, newPassword)
+- `SuccessMessageResponseDto` - Response DTO for success messages (reused)
+
+**RestTemplate Configuration (FIXED - 2025-11-18):**
+- `RestTemplateConfig` - Spring configuration class for RestTemplate bean
+  - Added `@Configuration` annotation to properly register bean with Spring
+  - Provides UTF-8 encoded RestTemplate for OAuth2 and API communication
+  - Removed duplicate bean definition from SecurityConfig
+- **Issue Fixed:** OAuth2 client initialization failed due to missing RestTemplate bean
+- **Resolution:** Centralized RestTemplate configuration in dedicated config class
 
 **Security Features:**
 - Email/password validation (8-50 char passwords, valid email format)
@@ -428,6 +453,21 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
   - Servlet-level character encoding enforced via `application.properties` settings
   - See `claude/json_encoding_fix.md` for details on supporting Korean characters in signup/login
   - Always use `@Valid` on `@RequestBody` DTOs to trigger Spring's validation before request parsing
+- **Password Recovery (NEW - 2025-11-18):**
+  - Implemented via `PasswordRecoveryUseCase` with two main operations:
+    1. `sendPasswordResetCode()` - Validates email, generates 6-digit code, stores with 10-min TTL, sends via email
+    2. `resetPassword()` - Validates code, encodes new password with BCrypt, updates Member entity, saves to DB
+  - Reuses existing `VerificationCode`, `EmailVerificationCodeStore`, and `EmailService` components
+  - Error handling uses existing `LocalAuthErrorCode.C002` (unregistered email) and `EmailErrorCode.E001/E002/E003`
+  - API Endpoints: `POST /v1/local/password/find` and `POST /v1/local/password/reset`
+  - See `claude/localLogin_findPassword.md` for detailed design specification
+- **RestTemplate Bean Configuration (FIXED - 2025-11-18):**
+  - **Problem:** `RestTemplateConfig` was missing `@Configuration` annotation, preventing Spring from registering the bean
+  - **Error:** OAuth2 client initialization failed with "No qualifying bean of type 'RestTemplate' available"
+  - **Solution:** Added `@Configuration` annotation to `RestTemplateConfig` class for proper bean registration
+  - **Action:** Removed duplicate `restTemplate()` bean definition from `SecurityConfig`
+  - **Result:** Centralized RestTemplate configuration with UTF-8 encoding in single location
+  - **Status:** Application now starts successfully in 8.57 seconds without errors
 - **Message externalization:** Error and application messages use `messages.properties` and `messages_errors.properties`. Use `MessageSource` to retrieve localized strings.
 - **Validation:** Use Jakarta Bean Validation annotations (`@NotNull`, `@Valid`, etc.) on DTOs.
 - **Logging:** Minimal logging in config (see `application.properties` commented debug levels). Enable with care to avoid performance issues.
@@ -449,7 +489,7 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
 
 | Component | Primary File |
 |-----------|--------------|
-| Security & OAuth | `config/SecurityConfig.java` (🔧 **FIXED** - Added `securityContextRepository()` bean and explicit `http.securityContext()` configuration for explicit SecurityContext persistence to HttpSession), `Member_woonkim/application/OAuth2UseCase.java` |
+| Security & OAuth | `config/SecurityConfig.java` (🔧 **FIXED** - Added `securityContextRepository()` bean and explicit `http.securityContext()` configuration for SecurityContext persistence; Removed duplicate `restTemplate()` bean; Fixed CSRF paths for password recovery endpoints with leading slash), `Member_woonkim/application/OAuth2UseCase.java` |
 | Web Configuration | `config/WebConfig.java` (HTTP message converters, UTF-8 charset for multilingual support) |
 | Local Authentication Controller | `Member_woonkim/presentation/controller/LocalAuthController.java` (signup, login, check, logout endpoints) |
 | Local Authentication UseCase | `Member_woonkim/application/useCase/LocalAuthUseCase.java` (signup validation, getMemberByEmail for check endpoint) |
@@ -465,6 +505,13 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
 | Email Verification (NEW) | `Member_woonkim/infrastructure/mail/EmailService.java` - Gmail SMTP email sender |
 | Email Verification (NEW) | `Member_woonkim/infrastructure/cache/EmailVerificationCodeStore.java` - Redis storage for verification codes (10min TTL) |
 | Email Verification (NEW) | `Member_woonkim/exception/EmailException.java`, `EmailErrorCode.java` - Email verification error handling |
+| Password Recovery (NEW - 2025-11-18) | `Member_woonkim/application/useCase/PasswordRecoveryUseCase.java` - Password recovery business logic (sendPasswordResetCode, resetPassword) |
+| Password Recovery DTOs (NEW - 2025-11-18) | `Member_woonkim/presentation/dto/Local/request/PasswordFindRequestDto.java` - Password recovery initiation request |
+| Password Recovery DTOs (NEW - 2025-11-18) | `Member_woonkim/presentation/dto/Local/request/PasswordResetRequestDto.java` - Password reset request with code and new password |
+| Password Recovery Controller (NEW - 2025-11-18) | `Member_woonkim/presentation/controller/LocalAuthController.java` - Added `sendPasswordResetCode()` and `resetPassword()` endpoints |
+| Member Entity (UPDATED - 2025-11-18) | `Member_woonkim/domain/entitys/Member.java` - Added `changePassword()` method for secure password updates |
+| RestTemplate Config (FIXED - 2025-11-18) | `Member_woonkim/config/RestTemplateConfig.java` - Added `@Configuration` annotation for proper Spring bean registration |
+| Security Config (FIXED - 2025-11-18) | `config/SecurityConfig.java` - Removed duplicate `restTemplate()` bean, fixed CSRF paths for password recovery endpoints |
 | Item Domain | `item/domain/Item.java`, `item/infrastructure/ItemRepository.java` |
 | Order Processing | `order/domain/Order.java`, `order/application/CreateOrderService.java` |
 | Payment | `payment/domain/Payment.java`, `payment/infrastructure/adapter/KakaoPayAdapter.java` |

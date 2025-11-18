@@ -152,4 +152,8 @@ public class Member {
     public void changeProfileImage(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
     }
+
+    public void changePassword(String newEncodedPassword) {
+        this.loginPassword = newEncodedPassword;
+    }
 }
