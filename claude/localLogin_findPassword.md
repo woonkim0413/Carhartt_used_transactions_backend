@@ -313,6 +313,21 @@ Client Response (200 OK + 성공 메시지)
    - 프로젝트 빌드 성공 (Build SUCCESSFUL)
    - 모든 새 코드 컴파일 성공
 
+6. **RestTemplate 빈 설정 수정** ✅ [2025-11-18 추가]
+   - `RestTemplateConfig`에 `@Configuration` 어노테이션 추가
+   - `SecurityConfig`에서 중복된 `restTemplate()` 빈 정의 제거
+   - OAuth2 클라이언트 초기화 오류 해결
+
+7. **Spring Security 경로 설정 수정** ✅ [2025-11-18 추가]
+   - 비밀번호 찾기 CSRF 제외 경로에 leading slash 추가 (`/v1/local/password/*`)
+   - 모든 보안 경로 앞에 `/` 추가로 통일
+   - 경로 패턴 경고 제거
+
+8. **애플리케이션 실행 검증** ✅ [2025-11-18 추가]
+   - Spring Boot 8.57초 만에 정상 시작
+   - 포트 8080에서 정상 구동 확인
+   - 모든 엔드포인트 등록 확인
+
 ---
 
 ## 기존 코드와의 통합 포인트

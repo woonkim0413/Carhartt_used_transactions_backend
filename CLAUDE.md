@@ -266,6 +266,14 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - `PasswordResetRequestDto` - Request DTO for password reset (email, code, newPassword)
 - `SuccessMessageResponseDto` - Response DTO for success messages (reused)
 
+**RestTemplate Configuration (FIXED - 2025-11-18):**
+- `RestTemplateConfig` - Spring configuration class for RestTemplate bean
+  - Added `@Configuration` annotation to properly register bean with Spring
+  - Provides UTF-8 encoded RestTemplate for OAuth2 and API communication
+  - Removed duplicate bean definition from SecurityConfig
+- **Issue Fixed:** OAuth2 client initialization failed due to missing RestTemplate bean
+- **Resolution:** Centralized RestTemplate configuration in dedicated config class
+
 **Security Features:**
 - Email/password validation (8-50 char passwords, valid email format)
 - Duplicate email checking during signup
@@ -453,6 +461,13 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
   - Error handling uses existing `LocalAuthErrorCode.C002` (unregistered email) and `EmailErrorCode.E001/E002/E003`
   - API Endpoints: `POST /v1/local/password/find` and `POST /v1/local/password/reset`
   - See `claude/localLogin_findPassword.md` for detailed design specification
+- **RestTemplate Bean Configuration (FIXED - 2025-11-18):**
+  - **Problem:** `RestTemplateConfig` was missing `@Configuration` annotation, preventing Spring from registering the bean
+  - **Error:** OAuth2 client initialization failed with "No qualifying bean of type 'RestTemplate' available"
+  - **Solution:** Added `@Configuration` annotation to `RestTemplateConfig` class for proper bean registration
+  - **Action:** Removed duplicate `restTemplate()` bean definition from `SecurityConfig`
+  - **Result:** Centralized RestTemplate configuration with UTF-8 encoding in single location
+  - **Status:** Application now starts successfully in 8.57 seconds without errors
 - **Message externalization:** Error and application messages use `messages.properties` and `messages_errors.properties`. Use `MessageSource` to retrieve localized strings.
 - **Validation:** Use Jakarta Bean Validation annotations (`@NotNull`, `@Valid`, etc.) on DTOs.
 - **Logging:** Minimal logging in config (see `application.properties` commented debug levels). Enable with care to avoid performance issues.
@@ -474,7 +489,7 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
 
 | Component | Primary File |
 |-----------|--------------|
-| Security & OAuth | `config/SecurityConfig.java` (🔧 **FIXED** - Added `securityContextRepository()` bean and explicit `http.securityContext()` configuration for explicit SecurityContext persistence to HttpSession), `Member_woonkim/application/OAuth2UseCase.java` |
+| Security & OAuth | `config/SecurityConfig.java` (🔧 **FIXED** - Added `securityContextRepository()` bean and explicit `http.securityContext()` configuration for SecurityContext persistence; Removed duplicate `restTemplate()` bean; Fixed CSRF paths for password recovery endpoints with leading slash), `Member_woonkim/application/OAuth2UseCase.java` |
 | Web Configuration | `config/WebConfig.java` (HTTP message converters, UTF-8 charset for multilingual support) |
 | Local Authentication Controller | `Member_woonkim/presentation/controller/LocalAuthController.java` (signup, login, check, logout endpoints) |
 | Local Authentication UseCase | `Member_woonkim/application/useCase/LocalAuthUseCase.java` (signup validation, getMemberByEmail for check endpoint) |
@@ -495,6 +510,8 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
 | Password Recovery DTOs (NEW - 2025-11-18) | `Member_woonkim/presentation/dto/Local/request/PasswordResetRequestDto.java` - Password reset request with code and new password |
 | Password Recovery Controller (NEW - 2025-11-18) | `Member_woonkim/presentation/controller/LocalAuthController.java` - Added `sendPasswordResetCode()` and `resetPassword()` endpoints |
 | Member Entity (UPDATED - 2025-11-18) | `Member_woonkim/domain/entitys/Member.java` - Added `changePassword()` method for secure password updates |
+| RestTemplate Config (FIXED - 2025-11-18) | `Member_woonkim/config/RestTemplateConfig.java` - Added `@Configuration` annotation for proper Spring bean registration |
+| Security Config (FIXED - 2025-11-18) | `config/SecurityConfig.java` - Removed duplicate `restTemplate()` bean, fixed CSRF paths for password recovery endpoints |
 | Item Domain | `item/domain/Item.java`, `item/infrastructure/ItemRepository.java` |
 | Order Processing | `order/domain/Order.java`, `order/application/CreateOrderService.java` |
 | Payment | `payment/domain/Payment.java`, `payment/infrastructure/adapter/KakaoPayAdapter.java` |
