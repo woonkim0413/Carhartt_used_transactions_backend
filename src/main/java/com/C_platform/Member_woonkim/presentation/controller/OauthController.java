@@ -2,7 +2,7 @@ package com.C_platform.Member_woonkim.presentation.controller;
 
 import com.C_platform.Member_woonkim.application.useCase.OAuth2UseCase;
 import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
-import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.value.CustomOAuth2User;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LoginType;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
@@ -110,7 +110,7 @@ public class OauthController {
     ) {
         LogPaint.sep("createRedirectUri handler 진입");
 
-        log.info("[디버깅 목적] ★★★★★ 현재 InMemory가 아닌 Cookie에 JSESSIONID를 저장하는 로그인입니다 ★★★★★); // 값이 있는지 테스트");
+        log.info("[디버깅 목적] ★★★★★ 현재 InMemory가 아닌 Cookie에 JSESSIONID를 저장하는 로그인입니다 ★★★★★");
 
         log.info("[디버깅 목적] sessionId : {}", req.getSession(false) == null ? "(없음)" : req.getSession(false).getId()); // 값이 login 목록 출력 시 새성한 sessionId와 같은지 검사
 
@@ -268,7 +268,7 @@ public class OauthController {
             성공 시 : 사용자 정보 반환 <br/>
             실패 시 : 실패 message 반환 <br/>
             """)
-    public ResponseEntity<ApiResponse<LoginCheckDto>> loginCheck(
+    public ResponseEntity<ApiResponse<LoginCheckDto>> oauthLoginCheck(
             @Parameter(example = "req-129")
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId,
             HttpServletRequest request,

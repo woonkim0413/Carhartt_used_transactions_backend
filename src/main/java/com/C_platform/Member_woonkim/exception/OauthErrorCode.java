@@ -17,6 +17,9 @@ public enum OauthErrorCode implements ErrorCode {
     C010("C010", "해당 로그인을 처리할 수 있는 userForm을 지원하지 않습니다"),
     C011("C001", "세션이 만료됐거나 security 내부 처리 에러가 발생했습니다"),
 
+    // 여러 에러들
+    C012("C012", "로그인 정보를 찾을 수 없습니다"),
+
     // Oauth naver 특화
     C007("C010", "[naver] Oauth 사용자 정보가 양식과 맞지 않습니다");
 

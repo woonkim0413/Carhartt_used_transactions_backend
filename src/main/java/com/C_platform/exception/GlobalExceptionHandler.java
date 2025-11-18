@@ -2,6 +2,7 @@ package com.C_platform.exception;
 
 
 import com.C_platform.Member_woonkim.exception.AddressException;
+import com.C_platform.Member_woonkim.exception.EmailException;
 import com.C_platform.Member_woonkim.exception.OauthException;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.Detail;
@@ -134,6 +135,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WishException.class)
     public ResponseEntity<ApiResponse<Object>> handleWishException(WishException ex) {
         log.error("Wish error: {}", ex.getMessage());
+        return getApiResponseResponseEntity(ex.getErrorCode());
+    }
+
+    @ExceptionHandler(EmailException.class)
+    public ResponseEntity<ApiResponse<Object>> EmailException(EmailException ex) {
+        log.error("Email error: {}", ex.getMessage());
         return getApiResponseResponseEntity(ex.getErrorCode());
     }
 

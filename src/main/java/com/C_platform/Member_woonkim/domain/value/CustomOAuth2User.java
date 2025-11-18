@@ -1,4 +1,4 @@
-package com.C_platform.Member_woonkim.domain.entitys;
+package com.C_platform.Member_woonkim.domain.value;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.user.OAuth2User;

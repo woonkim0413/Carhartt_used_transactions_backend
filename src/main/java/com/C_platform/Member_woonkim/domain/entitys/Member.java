@@ -103,6 +103,7 @@ public class Member {
         this.email = email;
         this.loginPassword = encodedPassword;
         this.name = name;
+        this.nickname = createNickname(); // OAuth와 동일하게 nickname 자동 생성
     }
 
     private static final String[] ADJECTIVES = {

@@ -2,7 +2,6 @@ package com.C_platform.Member_woonkim.application.useCase;
 
 import com.C_platform.Member_woonkim.application.port.OauthClientPort;
 import com.C_platform.Member_woonkim.domain.dto.JoinOrLoginResult;
-import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.OAuthProvider;
 import com.C_platform.Member_woonkim.domain.service.MemberJoinService;

@@ -20,7 +20,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     // Oauth 로그일 때 회원 조회
     Optional<Member> findByOauthProviderAndOauthId(OAuthProvider provider, String oauthId);
     // Local 로그인일 때 회원 조회
-    Optional<Member> findByLocalProviderAndEmail(LocalProvider localProvider, String email);
+    Optional<Member> findByLocalProviderAndEmail(LocalProvider localProvider, String email);    // Local 로그인일 때 회원 조회
 
     // orderId로 구매자 회원 조회
     @Query(value = """

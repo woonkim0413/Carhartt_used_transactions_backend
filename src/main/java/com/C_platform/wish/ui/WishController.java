@@ -1,6 +1,6 @@
 package com.C_platform.wish.ui;
 
-import com.C_platform.Member_woonkim.domain.entitys.CustomOAuth2User;
+import com.C_platform.Member_woonkim.domain.value.CustomOAuth2User;
 import com.C_platform.global.ApiResponse;
 import com.C_platform.global.MetaData;
 import com.C_platform.wish.applicaion.WishUseCase;
@@ -11,7 +11,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
