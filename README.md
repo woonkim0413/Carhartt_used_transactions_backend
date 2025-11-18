@@ -6,6 +6,7 @@
 
 ## ERD
 <img width="2320" height="1342" alt="Image" src="https://github.com/user-attachments/assets/ecee9151-e87b-408c-972a-4997a027f277" />
+
 ## 기능 소개
 ## 멤버
 ## 팀 주요 논의
