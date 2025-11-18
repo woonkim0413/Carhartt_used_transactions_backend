@@ -80,12 +80,15 @@ public class AddressController {
     @Operation(summary = "주소 목록 반환", description = "현재 로그인되어 있는 사용자의 주소지 목록을 반환합니다")
     public ResponseEntity<ApiResponse<GetAddressListResponseDto>> getAddressList (
             @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
+            @AuthenticationPrincipal CustomLocalUser customLocalUser,
             @Parameter(example = "req-129")
             @RequestHeader(value = "X-Request-Id", required = false) String xRequestId
     ) {
         LogPaint.sep("주소 목록 반환 API 진입");
-        Long member_id = customOAuth2User.getMemberId();
-
+        Long member_id = customOAuth2User == null ? (customLocalUser == null ? null : customLocalUser.getMemberId()) : customOAuth2User.getMemberId();
+        if (member_id == null) {
+            throw new OauthException(OauthErrorCode.C012);
+        }
         log.info("[디버깅 목적] X-Request-Id : {}", xRequestId); // 값이 있는지 테스트
 
         List<Address> addressList = addressUseCase.getAddressList(member_id);
