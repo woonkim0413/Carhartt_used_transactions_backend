@@ -24,7 +24,6 @@ import org.springframework.security.web.context.SecurityContextRepository;
 public class LocalAuthConfig {
 
     private final ObjectMapper objectMapper;
-    private final SecurityContextRepository securityContextRepository;
 
     /**
      * PasswordEncoder Bean
@@ -37,6 +36,10 @@ public class LocalAuthConfig {
         return new BCryptPasswordEncoder(10);
     }
 
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
 
     /**
      * JsonUsernamePasswordAuthenticationFilter Bean
@@ -48,10 +51,10 @@ public class LocalAuthConfig {
      */
     @Bean
     public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-            AuthenticationManager authenticationManager
-    ) {
+            AuthenticationManager authenticationManager) {
         JsonUsernamePasswordAuthenticationFilter filter =
                 new JsonUsernamePasswordAuthenticationFilter(objectMapper);
+        filter.setAuthenticationManager(authenticationManager);
         return filter;
     }
 }
