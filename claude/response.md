@@ -1,1120 +1,175 @@
-# JsonUsernamePasswordAuthenticationFilter Bean 생성 에러 분석 (2025-11-18 재분석)
+# HoneyFlow
 
-## 문제 요약
+> Think Linked, Map Together
+>
+> 끈적끈적 꿀처럼 이루어지는 협업 지식 관리 툴
 
-애플리케이션 시작 시 다음 에러 발생:
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/bb536ea4-37c9-4436-b2a1-618f6caa491a" width="512px" />
+</div>
 
-```
-Error creating bean with name 'jsonUsernamePasswordAuthenticationFilter':
-authenticationManager must be specified
-```
-
-**발생 위치:** Bean 생성 단계 (afterPropertiesSet 검증)
-**최근 에러 로그:** request.md 라인 67-69
-
----
-
-## 근본 원인
-
-### 🔴 **문제 1: LocalAuthConfig에서 authenticationManager를 필터에 설정하지 않음**
-
-**LocalAuthConfig.java 라인 52-59:**
-
-```java
-@Bean
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager
-) {
-    JsonUsernamePasswordAuthenticationFilter filter =
-            new JsonUsernamePasswordAuthenticationFilter(objectMapper);
-    return filter;  // ❌ authenticationManager를 설정하지 않음!
-}
-```
-
-**문제점:**
-- `authenticationManager` 파라미터를 받음 ✓
-- 하지만 필터에 설정하지 않음 ✗
-- `JsonUsernamePasswordAuthenticationFilter`는 `UsernamePasswordAuthenticationFilter` 상속
-- 이는 `AbstractAuthenticationProcessingFilter` 상속
-- `afterPropertiesSet()`에서 `authenticationManager`가 null이면 에러 발생
-
-**증거 (request.md 라인 67-69):**
-```
-java.lang.IllegalArgumentException: authenticationManager must be specified
-  at org.springframework.util.Assert.notNull(Assert.java:181)
-  at org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter.afterPropertiesSet(...)
-```
-
-### 🔴 **문제 2: SecurityConfig의 설정은 너무 늦음**
-
-**SecurityConfig.java 라인 197:**
-
-```java
-jsonLocalLoginFilter.setAuthenticationManager(authenticationManager);
-```
-
-**문제:**
-- Bean은 **LocalAuthConfig에서 생성** 됨
-- 생성 직후 `afterPropertiesSet()` 호출 → **에러 발생**
-- SecurityConfig의 설정은 bean 이미 망가진 후 실행 됨
-
-**타이밍:**
-```
-1. LocalAuthConfig에서 bean 생성
-   ↓
-2. afterPropertiesSet() 호출 → authenticationManager null 검사
-   ↓
-3. 💥 IllegalArgumentException 발생!
-   ↓
-4. SecurityConfig.securityFilterChain() 실행 ← 여기 도달 안 함
-   (jsonLocalLoginFilter.setAuthenticationManager(...) ← 이 코드 실행 안 됨)
-```
-
----
-
-## 해결 방법
-
-### ✅ **LocalAuthConfig.java 수정**
-
-**현재 코드 (라인 52-59):**
-```java
-@Bean
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager
-) {
-    JsonUsernamePasswordAuthenticationFilter filter =
-            new JsonUsernamePasswordAuthenticationFilter(objectMapper);
-    return filter;  // ❌
-}
-```
-
-**수정 코드:**
-```java
-@Bean
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager
-) {
-    JsonUsernamePasswordAuthenticationFilter filter =
-            new JsonUsernamePasswordAuthenticationFilter(objectMapper);
-    filter.setAuthenticationManager(authenticationManager);  // ✅ 추가: authenticationManager 설정
-    return filter;
-}
-```
-
-**변경 내용:**
-- 라인 58 다음에 `filter.setAuthenticationManager(authenticationManager);` 추가
-- **단 한 줄!**
-
----
-
-## 왜 이 문제가 발생했는가?
-
-### Spring Bean의 생명주기 (InitializingBean 패턴)
-
-```
-[1] Spring이 LocalAuthConfig 감지
-    ↓
-[2] jsonUsernamePasswordAuthenticationFilter() 메서드 실행
-    ├─ AuthenticationManager 주입됨 ✓
-    ├─ new JsonUsernamePasswordAuthenticationFilter(objectMapper) 생성
-    └─ return filter
-
-    ↓
-[3] Bean 등록 직후 afterPropertiesSet() 자동 호출 ⏰
-    │ (필터가 AbstractAuthenticationProcessingFilter 상속이므로)
-    │
-    └─ AbstractAuthenticationProcessingFilter.afterPropertiesSet()
-       ├─ authenticationManager 검증: Assert.notNull(this.authenticationManager, ...)
-       ├─ this.authenticationManager = null? ✗
-       └─ IllegalArgumentException 발생! 💥
-
-    ↓
-[4] Bean 생성 실패
-    ├─ BeanCreationException 발생
-    ├─ 애플리케이션 시작 중단
-    └─ 에러 로그 출력
-```
-
-### "주입받은 파라미터"와 "필터가 사용하는 필드"는 다름
-
-```java
-// ❌ 잘못된 이해
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager  // ← 파라미터로 받음
-) {
-    // authenticationManager가 준비되어 있으니 필터도 자동으로 사용할 것 같지만
-    // 실제로는 필터의 필드 (this.authenticationManager)에 설정해야 함
-}
-
-// ✅ 올바른 이해
-@Bean
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager  // ← 파라미터로 받음
-) {
-    JsonUsernamePasswordAuthenticationFilter filter =
-            new JsonUsernamePasswordAuthenticationFilter(objectMapper);
-
-    filter.setAuthenticationManager(authenticationManager);  // ← 필터에 설정
-    // 이제 filter.getAuthenticationManager() != null ✓
-
-    return filter;
-}
-```
-
----
-
-## 현재 코드 상태 확인
-
-| 파일 | 라인 | 클래스 | 메서드 | 상태 | 문제 |
-|------|------|--------|--------|------|------|
-| LocalAuthConfig.java | 40-42 | LocalAuthConfig | authenticationManager() | ✅ OK | AuthenticationManager bean 정상 생성 |
-| **LocalAuthConfig.java** | **52-59** | **LocalAuthConfig** | **jsonUsernamePasswordAuthenticationFilter()** | **❌ BUG** | **authenticationManager를 필터에 설정하지 않음** |
-| SecurityConfig.java | 197 | SecurityConfig | securityFilterChain() | ⏰ 늦음 | 필터 설정 시도하지만 bean 이미 실패 후 |
-| JsonUsernamePasswordAuthenticationFilter.java | 38-45 | JsonUsernamePasswordAuthenticationFilter | constructor | ✅ OK | ObjectMapper만 받음 (정상) |
-
----
-
-## 해결 후 결과
-
-### ✅ 수정 전:
-```
-Bean 생성 → authenticationManager = null → afterPropertiesSet() → 💥 에러
-```
-
-### ✅ 수정 후:
-```
-Bean 생성 → filter.setAuthenticationManager(authenticationManager)
-    → authenticationManager ≠ null
-    → afterPropertiesSet() 통과 ✓
-    → Bean 등록 완료 ✓
-```
-
----
-
-## 요점 정리
-
-| 항목 | 설명 |
-|------|------|
-| **에러 메시지** | `authenticationManager must be specified` |
-| **에러 발생 위치** | `AbstractAuthenticationProcessingFilter.afterPropertiesSet()` (라인 199) |
-| **근본 원인** | LocalAuthConfig에서 authenticationManager를 필터에 설정하지 않음 |
-| **해결책** | `filter.setAuthenticationManager(authenticationManager);` 한 줄 추가 |
-| **수정 파일** | `LocalAuthConfig.java` |
-| **수정 라인** | 58 다음 (또는 return 전) |
-| **난이도** | ⭐ (1줄) |
-
----
-
-## 추가 질문: "왜 SecurityConfig에서 설정해도 안 되는가?"
-
-**SecurityConfig.java 라인 197:**
-```java
-jsonLocalLoginFilter.setAuthenticationManager(authenticationManager);
-```
-
-### 왜 이것이 도움이 안 되는가?
-
-```
-[1단계] Spring이 LocalAuthConfig 스캔
-    └─ jsonUsernamePasswordAuthenticationFilter() 메서드 발견
-
-[2단계] Bean 생성 및 초기화
-    ├─ JsonUsernamePasswordAuthenticationFilter 인스턴스 생성
-    ├─ afterPropertiesSet() 자동 호출 ⏰
-    └─ 💥 authenticationManager null이므로 에러!
-
-[3단계] Bean 등록 실패 ❌
-    └─ Exception이 throw됨
-    └─ 애플리케이션 시작 중단
-    └─ SecurityConfig.securityFilterChain() 실행 안 됨 ❌
-```
-
-**결론: 에러가 발생하면 다음 코드에 도달하지 않음**
-
----
-
-## 확인: Bean 생성 순서
-
-Spring은 다음 순서로 bean을 처리합니다:
-
-1. **Bean 정의 스캔** → LocalAuthConfig.jsonUsernamePasswordAuthenticationFilter()
-2. **메서드 실행** → new JsonUsernamePasswordAuthenticationFilter(...)
-3. **Bean 등록** → 스프링 컨테이너에 저장
-4. **초기화 콜백** → afterPropertiesSet() 자동 호출 ⏰
-   - 이 단계에서 검증 발생!
-5. **의존성 주입 완료** → 다른 bean에서 주입 가능
-
-**문제: 4번 단계에서 authenticationManager = null → 에러**
-
----
-
-## 수정 후 작동 흐름
-
-```java
-// ✅ LocalAuthConfig.java
-@Bean
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager
-) {
-    JsonUsernamePasswordAuthenticationFilter filter =
-            new JsonUsernamePasswordAuthenticationFilter(objectMapper);
-
-    filter.setAuthenticationManager(authenticationManager);  // ✅ 설정!
-    // 이제 filter 인스턴스의 authenticationManager 필드가 설정됨
-
-    return filter;
-}
-```
-
-```
-[1] 필터 생성
-[2] authenticationManager 필드 설정 ✓
-[3] afterPropertiesSet() 호출
-    ├─ Assert.notNull(this.authenticationManager, ...)
-    ├─ this.authenticationManager ≠ null ✓
-    └─ 통과! ✓
-[4] Bean 등록 완료 ✓
-[5] SecurityConfig에서 추가 설정 (원하면) ✓
-[6] 애플리케이션 시작 성공 ✓
-```
-
----
-
-## 참고: SecurityConfig의 추가 설정
-
-**SecurityConfig.java 라인 184-199:**
-
-```java
-// 🔧 SecurityContextRepository 설정 (이것은 정상)
-http.securityContext(securityContext ->
-    securityContext.securityContextRepository(securityContextRepository())
-);
-
-// 필터 설정 (추가 설정)
-jsonLocalLoginFilter.setAuthenticationSuccessHandler(localSuccessHandler);
-jsonLocalLoginFilter.setAuthenticationFailureHandler(localFailureHandler);
-jsonLocalLoginFilter.setAuthenticationManager(authenticationManager);  // ← 이것도 좋음
-jsonLocalLoginFilter.setSecurityContextRepository(securityContextRepository());
-```
-
-**참고:**
-- LocalAuthConfig에서 authenticationManager를 설정하면
-- SecurityConfig에서 다시 설정해도 됨 (덮어쓰기)
-- 하지만 필수는 아님 (LocalAuthConfig에서만 설정해도 충분)
-
----
-
-## 최종 결론
-
-**LocalAuthConfig의 `jsonUsernamePasswordAuthenticationFilter()` 메서드에서 authenticationManager를 필터에 명시적으로 설정하세요:**
-
-```java
-filter.setAuthenticationManager(authenticationManager);
-```
-
-**이 한 줄로 모든 문제가 해결됩니다.** ✅
-
----
-
----
-
-# 추가 분석: AuthenticationManager vs LocalSuccessHandler vs SecurityContextRepository
-
-## 당신의 질문
-
-> "왜 `localSuccessHandler`나 `SecurityContextRepository`는 SecurityConfig에서 setter로 filter에 주입해도 문제가 없으나 AuthenticationManager는 setter로 주입하면 안 되는가?"
-
-### 좋은 질문입니다! 🎯
-
-이것은 **Spring Bean의 생명주기**와 **초기화 검증**의 차이를 이해하는 핵심 개념입니다.
-
----
-
-## 핵심 답변
-
-| 항목 | AuthenticationManager | LocalSuccessHandler | SecurityContextRepository |
-|------|---------------------|---------------------|------------------------|
-| **Bean 생성 후 검증** | ✅ **afterPropertiesSet()에서 검증** | ❌ 검증 없음 | ❌ 검증 없음 |
-| **타이밍** | Bean 생성 직후 | Bean 생성 후 (검증 없음) | Bean 생성 후 (검증 없음) |
-| **SecurityConfig 설정 때** | 이미 검증 실패 | 검증이 없으므로 OK | 검증이 없으므로 OK |
-| **결론** | LocalAuthConfig에서 설정 필수 ⚠️ | SecurityConfig에서 설정 OK | SecurityConfig에서 설정 OK |
-
----
-
-## 상세 분석
+<br/>
 
-### 1️⃣ AuthenticationManager (⚠️ 주의!)
+<div align="center">
 
-**현재 코드 (LocalAuthConfig.java 라인 52-59):**
-```java
-@Bean
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager
-) {
-    JsonUsernamePasswordAuthenticationFilter filter =
-            new JsonUsernamePasswordAuthenticationFilter(objectMapper);
-    return filter;  // ❌ authenticationManager 미설정
-}
-```
-
-**Bean 생성 순서:**
-```
-[1] JsonUsernamePasswordAuthenticationFilter 인스턴스 생성
-[2] Spring이 자동으로 afterPropertiesSet() 호출 ⏰ ← 여기가 핵심!
-    │
-    └─ AbstractAuthenticationProcessingFilter.afterPropertiesSet()
-       ├─ Assert.notNull(this.authenticationManager, "authenticationManager must be specified")
-       ├─ this.authenticationManager = null? ✗
-       └─ 💥 IllegalArgumentException 발생!
-[3] Bean 등록 실패 ❌
-[4] SecurityConfig 설정 실행 안 됨 ❌
-```
-
-**Spring Security 소스코드 (AbstractAuthenticationProcessingFilter.java):**
-```java
-public abstract class AbstractAuthenticationProcessingFilter extends GenericFilterBean
-        implements ApplicationEventPublisherAware, MessageSourceAware {
-
-    protected AuthenticationManager authenticationManager;
-
-    public void afterPropertiesSet() throws ServletException {
-        // ⏰ Bean 생성 직후 자동 호출
-        Assert.notNull(this.authenticationManager, "authenticationManager must be specified");
-        // ↑ null이면 즉시 에러 발생!
-    }
-}
-```
-
-**결론: afterPropertiesSet()는 Bean 생성 직후 자동 호출되므로, SecurityConfig의 설정은 이미 실패한 후**
-
----
-
-### 2️⃣ LocalAuthenticationSuccessHandler (✅ 안전!)
-
-**LocalAuthenticationSuccessHandler.java 라인 33:**
-```java
-@Component
-@RequiredArgsConstructor
-public class LocalAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
-    // ← 검증 메서드 없음!
-
-    @Override
-    public void onAuthenticationSuccess(...) {
-        // 처리 로직
-    }
-}
-```
-
-**특징:**
-- `AuthenticationSuccessHandler` 인터페이스 구현
-- `afterPropertiesSet()` 메서드 없음 ❌
-- **Bean 생성 후 검증이 없음** ✓
-
-**SecurityConfig에서 설정 (라인 195):**
-```java
-jsonLocalLoginFilter.setAuthenticationSuccessHandler(localSuccessHandler);
-```
-
-**타이밍:**
-```
-[1] LocalAuthenticationSuccessHandler Bean 생성
-    ├─ afterPropertiesSet() 호출? NO ❌
-    └─ 검증? NO ❌
-[2] Bean 등록 완료 ✓
-[3] SecurityConfig 실행
-    ├─ jsonLocalLoginFilter.setAuthenticationSuccessHandler(localSuccessHandler)
-    └─ ✓ 안전! (검증이 없으므로)
-```
-
-**결론: Handler는 검증이 없으므로 SecurityConfig에서 설정해도 OK**
-
----
-
-### 3️⃣ SecurityContextRepository (✅ 안전!)
-
-**SecurityConfig.java 라인 142-145:**
-```java
-@Bean
-public SecurityContextRepository securityContextRepository() {
-    return new HttpSessionSecurityContextRepository();
-    // ← 검증 메서드 없음!
-}
-```
-
-**특징:**
-- `SecurityContextRepository` 인터페이스 구현
-- `afterPropertiesSet()` 메서드 없음 ❌
-- **Bean 생성 후 검증이 없음** ✓
-
-**SecurityConfig에서 설정 (라인 198):**
-```java
-jsonLocalLoginFilter.setSecurityContextRepository(securityContextRepository());
-```
-
-**타이밍:**
-```
-[1] HttpSessionSecurityContextRepository Bean 생성
-    ├─ afterPropertiesSet() 호출? NO ❌
-    └─ 검증? NO ❌
-[2] Bean 등록 완료 ✓
-[3] SecurityConfig 실행
-    ├─ jsonLocalLoginFilter.setSecurityContextRepository(...)
-    └─ ✓ 안전! (검증이 없으므로)
-```
-
-**결론: SecurityContextRepository는 검증이 없으므로 SecurityConfig에서 설정해도 OK**
-
----
-
-## 비교 테이블
-
-| 항목 | AuthenticationManager | LocalSuccessHandler | SecurityContextRepository |
-|------|---------------------|---------------------|------------------------|
-| **클래스** | `AuthenticationManager` (Spring Security) | `LocalAuthenticationSuccessHandler` (Custom) | `HttpSessionSecurityContextRepository` (Spring Security) |
-| **afterPropertiesSet()** | ✅ **있음** (부모: AbstractAuthenticationProcessingFilter) | ❌ 없음 | ❌ 없음 |
-| **Bean 생성 후 검증** | ✅ **자동 호출** | ❌ 호출 안 함 | ❌ 호출 안 함 |
-| **검증 내용** | `authenticationManager != null` 검사 | - | - |
-| **LocalAuthConfig 설정** | ✅ **필수!** | ℹ️ 선택 | ℹ️ 선택 |
-| **SecurityConfig 설정** | ❌ **너무 늦음** | ✅ OK | ✅ OK |
-
----
-
-## 핵심 개념: InitializingBean 인터페이스
-
-### Spring은 Bean 생성 후 자동으로 초기화 메서드를 호출합니다
-
-```java
-// InitializingBean 인터페이스
-public interface InitializingBean {
-    void afterPropertiesSet() throws Exception;
-    // ↑ Bean 생성 직후 Spring이 자동 호출
-}
-```
-
-### AbstractAuthenticationProcessingFilter는 이 인터페이스를 구현
-
-```java
-public abstract class AbstractAuthenticationProcessingFilter
-        extends GenericFilterBean          // ← GenericFilterBean 상속
-        implements ApplicationEventPublisherAware {
-
-    // GenericFilterBean → InitializingBean 구현
-
-    public void afterPropertiesSet() throws ServletException {
-        // Spring이 자동으로 호출
-        Assert.notNull(this.authenticationManager, "authenticationManager must be specified");
-    }
-}
-```
-
-### JsonUsernamePasswordAuthenticationFilter의 상속 구조
-
-```
-JsonUsernamePasswordAuthenticationFilter
-  ↓ extends
-UsernamePasswordAuthenticationFilter
-  ↓ extends
-AbstractAuthenticationProcessingFilter
-  ↓ extends
-GenericFilterBean
-  ↓ implements
-InitializingBean ← afterPropertiesSet() 호출!
-```
-
-### LocalAuthenticationSuccessHandler의 상속 구조
-
-```
-LocalAuthenticationSuccessHandler
-  ↓ implements
-AuthenticationSuccessHandler
-  ↓ (no afterPropertiesSet())
-```
-
----
-
-## Bean 생성 순서 정리
-
-### ✅ AuthenticationManager (LocalAuthConfig 필수)
-
-```
-[1] LocalAuthConfig 클래스 스캔
-[2] jsonUsernamePasswordAuthenticationFilter() 메서드 감지
-[3] 메서드 실행:
-    ├─ new JsonUsernamePasswordAuthenticationFilter(objectMapper) 생성
-    └─ return filter
-
-[4] ⏰ Bean 등록 시작
-    ├─ GenericFilterBean 상속 확인
-    ├─ InitializingBean 구현 확인
-    └─ afterPropertiesSet() 자동 호출 ⏰
-
-[5] 🔍 afterPropertiesSet() 검증
-    ├─ Assert.notNull(this.authenticationManager, ...)
-    ├─ this.authenticationManager = null? ✗
-    └─ 💥 IllegalArgumentException!
-
-[6] 에러 발생 ❌
-    ├─ BeanCreationException
-    ├─ 애플리케이션 시작 중단
-    └─ SecurityConfig 실행 안 됨
-
-✗ 실패: SecurityConfig에서 설정 불가능
-```
-
-### ✅ LocalSuccessHandler (SecurityConfig 안전)
-
-```
-[1] LocalAuthenticationSuccessHandler 클래스 스캔
-[2] LocalAuthenticationSuccessHandler 인스턴스 생성
-
-[3] ⏰ Bean 등록 시작
-    ├─ AuthenticationSuccessHandler 구현 확인
-    ├─ InitializingBean 구현? NO ❌
-    └─ afterPropertiesSet() 호출? NO ❌
+### 🔗 바로가기
 
-[4] 검증 없음 ✓
-    └─ Bean 등록 완료 ✓
+|[📜 노션](https://psychedelic-pumpkin-26b.notion.site/HoneyFlow-12a9594041ea80fc9ae3d4cff0b6cc3a)|[🎨 피그마](https://www.figma.com/design/Uewm0B9ooTzIyN1pY9ZFVl/HoneyFlow-UI?t=rGVV4Pe2usnsTZUp-1)|[📚 위키](https://github.com/boostcampwm-2024/web29-honeyflow/wiki)|[🍯 배포 주소](http://www.honeyflow.life/)|
+|:-:|:-:|:-:|:-:|
 
-[5] SecurityConfig 실행
-    ├─ jsonLocalLoginFilter.setAuthenticationSuccessHandler(localSuccessHandler)
-    └─ ✓ 안전!
+</div>
 
-✓ 성공: SecurityConfig에서 설정 가능
-```
-
-### ✅ SecurityContextRepository (SecurityConfig 안전)
-
-```
-[1] HttpSessionSecurityContextRepository 인스턴스 생성
-
-[2] ⏰ Bean 등록 시작
-    ├─ SecurityContextRepository 구현 확인
-    ├─ InitializingBean 구현? NO ❌
-    └─ afterPropertiesSet() 호출? NO ❌
-
-[3] 검증 없음 ✓
-    └─ Bean 등록 완료 ✓
+<br/>
 
-[4] SecurityConfig 실행
-    ├─ jsonLocalLoginFilter.setSecurityContextRepository(securityContextRepository())
-    └─ ✓ 안전!
+<div align="center">
 
-✓ 성공: SecurityConfig에서 설정 가능
-```
-
----
-
-## 코드 예시로 이해하기
-
-### ❌ 왜 SecurityConfig의 설정이 도움이 안 되는가?
-
-**LocalAuthConfig (먼저 실행):**
-```java
-@Bean
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager
-) {
-    JsonUsernamePasswordAuthenticationFilter filter =
-        new JsonUsernamePasswordAuthenticationFilter(objectMapper);
-    // 여기서 authenticationManager를 설정하지 않음
-    return filter;
-    // ↓ Spring이 자동으로 afterPropertiesSet() 호출
-    // ↓ authenticationManager = null → 💥 에러!
-}
-```
+### 💻 기술 스택
 
-**SecurityConfig (나중에 실행):**
-```java
-@Bean
-public SecurityFilterChain securityFilterChain(...) throws Exception {
-    // ... 생략 ...
-
-    jsonLocalLoginFilter.setAuthenticationManager(authenticationManager);
-    // ↑ 이 코드는 실행되지 않음
-    // (위에서 이미 Bean 생성 실패)
-}
-```
-
-### ✅ 올바른 방법 (LocalAuthConfig에서 설정)
-
-**LocalAuthConfig:**
-```java
-@Bean
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager
-) {
-    JsonUsernamePasswordAuthenticationFilter filter =
-        new JsonUsernamePasswordAuthenticationFilter(objectMapper);
-
-    filter.setAuthenticationManager(authenticationManager);  // ✅ 여기서 설정!
-
-    return filter;
-    // ↓ Spring이 자동으로 afterPropertiesSet() 호출
-    // ↓ authenticationManager ≠ null → ✓ 통과!
-}
-```
+[![pnpm](https://img.shields.io/badge/pnpm-F69220?logo=pnpm&logoColor=fff)](#)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff)](#)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=fff)](#)
+[![NCP](https://img.shields.io/badge/NCP-03C75A?logo=naver&logoColor=fff)](#)
+[![Yjs](https://img.shields.io/badge/Y.js-646C80?)](#)
 
----
+[![Nest](https://img.shields.io/badge/Nest.js-%23E0234E.svg?logo=nestjs&logoColor=white)](#)
+[![TypeORM](https://img.shields.io/badge/TypeORM-FE0803.svg?logo=typeorm&logoColor=white)](#)
+[![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?logo=mongodb&logoColor=white)](#)
 
-## 최종 답변
+[![React](https://img.shields.io/badge/React-%2320232a.svg?logo=react&logoColor=%2361DAFB)](#)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=fff)](#)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white)](#)
+[![shadcn/ui](https://img.shields.io/badge/Shadcn\/ui-000000.svg?logo=shadcnui&logoColor=white)](#)
+[![Milkdown](https://img.shields.io/badge/Milkdown-374151.svg?logo=markdown&logoColor=white)](#)
 
-### Q: "왜 다른 것들은 SecurityConfig에서 설정해도 되는데 AuthenticationManager는 안 되나?"
+[![Notion](https://img.shields.io/badge/Notion-000000?logo=Notion)](#)
+[![Figma](https://img.shields.io/badge/Figma-F24E1E?logo=Figma&logoColor=ffffff)](#)
+[![Slack](https://img.shields.io/badge/Slack-4A154B?logo=Slack&logoColor=ffffff)](#)
 
-### A: **afterPropertiesSet() 때문입니다**
+</div>
 
-1. **AuthenticationManager를 필요로 하는 필터 (AbstractAuthenticationProcessingFilter)**
-   - `afterPropertiesSet()` 메서드 있음
-   - Bean 생성 직후 **자동으로 검증** 실행
-   - **SecurityConfig의 설정보다 먼저 검증됨**
-   - 따라서 LocalAuthConfig에서 필수 설정
+<br/>
 
-2. **LocalSuccessHandler**
-   - `afterPropertiesSet()` 메서드 없음
-   - Bean 생성 후 검증 없음
-   - SecurityConfig에서 설정 가능
+## 🐝 프로젝트 개요
 
-3. **SecurityContextRepository**
-   - `afterPropertiesSet()` 메서드 없음
-   - Bean 생성 후 검증 없음
-   - SecurityConfig에서 설정 가능
+<br/>
 
-### 결론
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/c4f6bd93-329c-4d42-b4bb-a02de0434d2b" width="512px" />
+</div>
 
-**필터가 InitializingBean을 구현하고 afterPropertiesSet()에서 검증을 수행하는 경우, 그 검증 전에 필요한 의존성은 LocalAuthConfig(Bean 생성 메서드)에서 설정해야 합니다.**
 
----
+## 🐝 주요 기능 소개
 
-## 예방 팁
+**Honeyflow**는 자연스러운 인터랙션 및 애니메이션과 함께 문서를 그래프 형태로 구조화할 수 있는 협업 지식 관리 도구예요.
 
-### Spring Security 커스텀 필터를 만들 때:
+이제 Honeyflow의 주요 기능들이 실제로 어떻게 동작하는지, 동작 화면과 함께 소개할게요!
 
-1. **필터의 필수 의존성 파악**
-   ```java
-   public abstract class AbstractAuthenticationProcessingFilter {
-       public void afterPropertiesSet() throws ServletException {
-           Assert.notNull(this.authenticationManager, "authenticationManager must be specified");
-           // ← authenticationManager가 필수!
-       }
-   }
-   ```
 
-2. **Bean 생성 메서드에서 필수 의존성 설정**
-   ```java
-   @Bean
-   public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(...) {
-       JsonUsernamePasswordAuthenticationFilter filter = new JsonUsernamePasswordAuthenticationFilter(...);
-       filter.setAuthenticationManager(authenticationManager);  // ✅ 필수!
-       return filter;
-   }
-   ```
+### 스페이스
 
-3. **선택적 의존성은 SecurityConfig에서 설정 가능**
-   ```java
-   @Bean
-   public SecurityFilterChain securityFilterChain(...) throws Exception {
-       jsonLocalLoginFilter.setAuthenticationSuccessHandler(handler);  // ✅ OK
-       jsonLocalLoginFilter.setSecurityContextRepository(repository);  // ✅ OK
-       return http.build();
-   }
-   ```
+> 문서들의 관계를 그래프 구조로 나타낼 수 있어요. 또, 간단히 드래그해서 새로운 문서를 생성하고 관계를 표시할 수 있어요.
 
----
+<img alt="Space" src="https://github.com/user-attachments/assets/1b162643-d6a7-4d25-922f-5850c1981eb5" width="512" />
 
----
+### 서브스페이스
 
-# 상세 순서 분석: Bean 생성 → Bean 검증 → securityFilterChain 메서드 실행
+> 각 그래프 구조는 다른 그래프 구조를 일종의 '폴더'처럼 관리할 수 있어요.
 
-## 당신의 질문
+<img alt="Subspace" src="https://github.com/user-attachments/assets/f4150946-fa86-4175-aac7-a56bcfb32793" width="512" />
 
-> "타이밍 순서가 아직도 이해가 안 가. Bean 생성 -> Bean 검증 -> securityFilterChain method 실행 순서야?"
+### 실시간 협업 기능
 
-### ✅ 정답: 그 순서가 맞습니다! 🎯
+> 각 문서들 간의 구조와 그 속에 쓰이는 내용을 함께 편집할 수 있어요.
 
----
+<img alt="Cowork-space" src="https://github.com/user-attachments/assets/430d49be-db25-447c-81ec-8465e78f2e18" width="384" height="218" />
+<img alt="Cowork-note" src="https://github.com/user-attachments/assets/55628d20-5cc5-409a-ad68-8d44f275c642" width="384" height="218" />
 
-## 정확한 실행 순서 (타임라인)
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Spring 애플리케이션 시작                              │
-└─────────────────────────────────────────────────────────────────────────┘
-                              ↓
-
-┌─ [T1] Bean 스캔 단계 ──────────────────────────────────────────────────┐
-│                                                                         │
-│  Spring이 @Configuration 클래스들을 스캔합니다.                         │
-│                                                                         │
-│  스캔 순서:                                                             │
-│  1. LocalAuthConfig 클래스 발견 ✓                                      │
-│  2. SecurityConfig 클래스 발견 ✓                                       │
-│                                                                         │
-│  "LocalAuthConfig와 SecurityConfig에 @Bean이 있네?"                    │
-│  "LocalAuthConfig를 먼저 처리해야겠다"                                 │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-                              ↓
-
-┌─ [T2] LocalAuthConfig Bean 생성 단계 ─────────────────────────────────┐
-│                                                                         │
-│  LocalAuthConfig의 @Bean 메서드들을 실행합니다.                        │
-│                                                                         │
-│  ┌─ [T2-1] authenticationManager() Bean 생성                          │
-│  │  ┌──────────────────────────────────────────────────────────┐      │
-│  │  │ @Bean                                                    │      │
-│  │  │ public AuthenticationManager authenticationManager(     │      │
-│  │  │         AuthenticationConfiguration authConfig          │      │
-│  │  │ ) {                                                      │      │
-│  │  │     return authConfig.getAuthenticationManager();        │      │
-│  │  │ }                                                        │      │
-│  │  └──────────────────────────────────────────────────────────┘      │
-│  │                                                                     │
-│  │  실행:                                                              │
-│  │  → authenticationManager Bean 생성 ✓                              │
-│  │  → Spring Container에 등록 ✓                                      │
-│  │  → afterPropertiesSet() 호출 (검증 없음 - 이것은 AuthMgr가 아님)   │
-│  │  → 완료! ✓                                                        │
-│  └─────────────────────────────────────────────────────────────────┘
-│
-│  ┌─ [T2-2] jsonUsernamePasswordAuthenticationFilter() Bean 생성 ⏰ 핵심!
-│  │  ┌──────────────────────────────────────────────────────────┐      │
-│  │  │ @Bean                                                    │      │
-│  │  │ public JsonUsernamePasswordAuthenticationFilter         │      │
-│  │  │     jsonUsernamePasswordAuthenticationFilter(           │      │
-│  │  │         AuthenticationManager authenticationManager     │      │
-│  │  │ ) {                                                      │      │
-│  │  │     JsonUsernamePasswordAuthenticationFilter filter =   │      │
-│  │  │         new JsonUsernamePasswordAuthenticationFilter(   │      │
-│  │  │             objectMapper);                              │      │
-│  │  │     return filter;  ❌ authenticationManager 설정 안 함! │      │
-│  │  │ }                                                        │      │
-│  │  └──────────────────────────────────────────────────────────┘      │
-│  │                                                                     │
-│  │  실행:                                                              │
-│  │  1️⃣ 메서드 호출                                                     │
-│  │      authenticationManager 파라미터 주입됨 ✓                        │
-│  │      new JsonUsernamePasswordAuthenticationFilter(...)생성 ✓       │
-│  │      return filter                                                 │
-│  │                                                                     │
-│  │  2️⃣ Filter 인스턴스가 Spring Container에 등록 시작                 │
-│  │      ↓                                                             │
-│  │  3️⃣ ⏰ Spring이 자동으로 afterPropertiesSet() 호출 ⏰ ★ 핵심!      │
-│  │      │                                                             │
-│  │      ├─ JsonUsernamePasswordAuthenticationFilter                  │
-│  │      │   extends UsernamePasswordAuthenticationFilter             │
-│  │      │   extends AbstractAuthenticationProcessingFilter           │
-│  │      │   extends GenericFilterBean                               │
-│  │      │   implements InitializingBean ← 이것 때문에 호출됨!        │
-│  │      │                                                             │
-│  │      └─ AbstractAuthenticationProcessingFilter.afterPropertiesSet()
-│  │         {                                                          │
-│  │             Assert.notNull(                                       │
-│  │                 this.authenticationManager,                       │
-│  │                 "authenticationManager must be specified"         │
-│  │             );                                                    │
-│  │         }                                                          │
-│  │         ↓                                                          │
-│  │         🔍 this.authenticationManager = null? ✗                   │
-│  │         ↓                                                          │
-│  │         💥 IllegalArgumentException 발생!                         │
-│  │                                                                     │
-│  │  4️⃣ 🛑 Bean 생성 실패! ❌                                          │
-│  │      ├─ BeanCreationException 발생                                │
-│  │      ├─ Spring Container 초기화 실패                              │
-│  │      └─ 애플리케이션 시작 중단!                                   │
-│  │                                                                     │
-│  │  5️⃣ 🚫 다음 단계 실행 안 됨!                                       │
-│  │      ├─ SecurityConfig 로드 안 됨                                  │
-│  │      ├─ securityFilterChain() 실행 안 됨                          │
-│  │      ├─ jsonLocalLoginFilter.setAuthenticationManager(...) 실행 안 됨
-│  │      └─ 에러 로그 출력                                             │
-│  │                                                                     │
-│  └─────────────────────────────────────────────────────────────────┘
-│
-│  결과: 🛑 FAILED - 애플리케이션 시작 중단
-│
-└─────────────────────────────────────────────────────────────────────────┘
-                              ↓
-                        ❌ 에러 발생!
-                     (여기서 멈춤)
-                     (다음 단계 진행 안 됨)
-                              ↓
-
-┌─ [T3] SecurityConfig Bean 생성 단계 ──────────────────────────────────┐
-│                                                                         │
-│  🚫 실행되지 않음! (Bean 생성 실패 때문에)                             │
-│                                                                         │
-│  만약 실행된다면 (T2 성공 시):                                         │
-│                                                                         │
-│  ┌─ securityFilterChain() 메서드 실행                                 │
-│  │  ┌──────────────────────────────────────────────────────────┐      │
-│  │  │ @Bean                                                    │      │
-│  │  │ public SecurityFilterChain securityFilterChain(         │      │
-│  │  │         HttpSecurity http,                              │      │
-│  │  │         JsonUsernamePasswordAuthenticationFilter        │      │
-│  │  │             jsonLocalLoginFilter,  ← T2에서 생성된 Bean │      │
-│  │  │         LocalAuthenticationSuccessHandler               │      │
-│  │  │             localSuccessHandler,   ← 이미 생성됨        │      │
-│  │  │         ...                                              │      │
-│  │  │ ) throws Exception {                                     │      │
-│  │  │                                                          │      │
-│  │  │     // 여기서 Setter로 설정 시도:                        │      │
-│  │  │     jsonLocalLoginFilter.setAuthenticationManager(...); │      │
-│  │  │     jsonLocalLoginFilter.setAuthenticationSuccessHandler│      │
-│  │  │         (localSuccessHandler);                          │      │
-│  │  │     // 등등...                                           │      │
-│  │  │                                                          │      │
-│  │  │     return http.build();                                │      │
-│  │  │ }                                                        │      │
-│  │  └──────────────────────────────────────────────────────────┘      │
-│  │                                                                     │
-│  │  하지만 이 메서드에 도달할 수 없음! (T2 실패 때문)                 │
-│  │                                                                     │
-│  └─────────────────────────────────────────────────────────────────┘
-│
-└─────────────────────────────────────────────────────────────────────────┘
-```
+<br/>
 
----
 
-## 타이밍 순서 정리
+## 🐝 우리만의 해결 경험
 
-### ✅ 이론적 순서 (모든 Bean이 성공할 때)
+### 기술 선택 근거
+요구사항을 만족하기 위해 필요한 기술은 무엇인지, 적합한 라이브러리는 무엇인지 많은 고민을 거쳤어요. 어떤 선택을 하던지 선택은 근거가 명확히 존재하도록 했어요.
 
-```
-1️⃣ [T1] Bean 스캔
-2️⃣ [T2-1] LocalAuthConfig.authenticationManager() 실행 → Bean 생성 & 검증 OK
-3️⃣ [T2-2] LocalAuthConfig.jsonUsernamePasswordAuthenticationFilter() 실행
-          → Bean 생성
-          → 검증 (afterPropertiesSet()) ← 이 단계!
-          → Bean 등록 완료 (또는 실패)
-4️⃣ [T2-3] LocalAuthConfig의 다른 @Bean 메서드들...
-5️⃣ [T3] SecurityConfig.securityFilterChain() 실행 ← Setter 설정 가능
-6️⃣ 애플리케이션 시작 완료 ✓
-```
+- [🎨 Canvas 라이브러리, 비교와 고민](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%8E%A8-Canvas-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC,-%EB%B9%84%EA%B5%90%EC%99%80-%EA%B3%A0%EB%AF%BC)
+- [🐝 WebRTC, WebSocket, SocketIO 기술 선정의 근거와 이유](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/WebRTC,-WebSocket,-SocketIO-%EA%B8%B0%EC%88%A0-%EC%84%A0%EC%A0%95%EC%9D%98-%EA%B7%BC%EA%B1%B0%EC%99%80-%EC%9D%B4%EC%9C%A0)
 
-### ❌ 현재 실제 순서 (현재 버그)
+### React Konva를 활용한 Canvas 개발
 
-```
-1️⃣ [T1] Bean 스캔
-2️⃣ [T2-1] LocalAuthConfig.authenticationManager() 실행 → 생성 & 검증 OK ✓
-3️⃣ [T2-2] LocalAuthConfig.jsonUsernamePasswordAuthenticationFilter() 실행
-          → Bean 생성 ✓
-          → 검증 (afterPropertiesSet()) → 💥 실패! ❌
-4️⃣ 🛑 STOP! 애플리케이션 시작 중단
-5️⃣ [T3] SecurityConfig.securityFilterChain() 실행 ← 도달 불가능 🚫
-```
+우리 팀은 React Konva를 사용해 Canvas 개발을 진행했어요. React 철학에 맞게 컴포넌트를 설계하고, 상태 관리를 효율적으로 처리하며, 재사용 가능한 구조를 고민했어요.
 
----
+- [👩‍🚀 Konva.js로 스페이스 줌 기능 구현하기](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%91%A9%E2%80%8D%F0%9F%9A%80-Konva.js%EB%A1%9C-%EC%8A%A4%ED%8E%98%EC%9D%B4%EC%8A%A4-%EC%A4%8C-%EA%B8%B0%EB%8A%A5-%EA%B5%AC%ED%98%84%ED%95%98%EA%B8%B0)
+- [🔬 FPS 테스트로 성능 최적화 고민 해결하기](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%94%AC-FPS-%ED%85%8C%EC%8A%A4%ED%8A%B8%EB%A1%9C-%EC%84%B1%EB%8A%A5-%EC%B5%9C%EC%A0%81%ED%99%94-%EA%B3%A0%EB%AF%BC-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0)
 
-## 핵심: 왜 SecurityConfig의 설정은 도움이 안 되는가?
+### Y.js로 실시간 동시편집 구현
 
-### 시간 순서 (Timeline)
+CRDT(Conflict-free Replicated Data Type)를 기반으로 한 협업 라이브러리인 Y.js를 활용해 실시간 동시편집 기능을 구현했어요. 공유 데이터를 다루고 통신 구조를 최적화하기 위해 많은 논의를 거쳤어요.
 
-```
-시간 →
-
-LocalAuthConfig.jsonUsernamePasswordAuthenticationFilter() 메서드
-│
-├─ new JsonUsernamePasswordAuthenticationFilter(...) 생성
-│  └─ Bean 객체 메모리에 할당 됨
-│
-├─ 🔴 Spring Container에 등록 시작
-│  ├─ InitializingBean 확인 (있음 ✓)
-│  └─ afterPropertiesSet() 호출 ⏰
-│     │
-│     └─ Assert.notNull(this.authenticationManager, ...)
-│        │
-│        ├─ null? ✗
-│        └─ 💥 IllegalArgumentException!
-│
-└─ 🛑 Bean 등록 실패 (여기서 멈춤)
-   └─ 🚫 Exception이 throw됨
-      └─ 🚫 애플리케이션 시작 중단
-         └─ 🚫 SecurityConfig.securityFilterChain() 도달 불가능
-
-
-SecurityConfig.securityFilterChain() 메서드
-│
-└─ (실행되지 않음 - 위에서 이미 실패했으므로)
-   │
-   ├─ jsonLocalLoginFilter.setAuthenticationManager(...) ← 실행 안 됨
-   │  (이 코드에 도달하지 못함)
-   │
-   └─ X 타임아웃
-```
+- [🧑‍💻 React에서 Y.js를 사용하기](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/React%EC%97%90%EC%84%9C-Y.js%EB%A5%BC-%EC%82%AC%EC%9A%A9%ED%95%98%EA%B8%B0)
+- [🥛 동시편집 마크다운 에디터 구현기](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%A5%9B-%EB%8F%99%EC%8B%9C%ED%8E%B8%EC%A7%91-%EB%A7%88%ED%81%AC%EB%8B%A4%EC%9A%B4-%EC%97%90%EB%94%94%ED%84%B0-%EA%B5%AC%ED%98%84%EA%B8%B0)
 
-### 순서의 핵심
+### 부드러운 인터랙션과 애니메이션
 
-```
-┌─────────────────────────────────────┐
-│ 1️⃣ LocalAuthConfig의 @Bean 메서드들 │ ← 먼저 실행
-│    (모든 메서드)                      │
-│                                       │
-│    authenticationManager()            │
-│    → Bean 생성 ✓                     │
-│                                       │
-│    jsonUsernamePasswordAuthenticationFilter()
-│    → Bean 생성 ✓                     │
-│    → 검증 (afterPropertiesSet()) 💥 │ ← 여기서 실패!
-│    → 🛑 애플리케이션 중단             │
-└─────────────────────────────────────┘
-            🚫 다음 진행 안 됨
-
-┌─────────────────────────────────────┐
-│ 2️⃣ SecurityConfig의 @Bean 메서드들  │ ← 나중에 실행
-│    (모든 메서드)                      │
-│                                       │
-│    securityFilterChain()              │
-│    → 실행되지 않음 🚫                 │
-│    (Bean이 이미 실패했으므로)        │
-│                                       │
-│    jsonLocalLoginFilter.set...()      │
-│    → 호출되지 않음 🚫                 │
-└─────────────────────────────────────┘
-```
+노트와 관계를 시각적으로 표현하는 과정에서 사용자가 긍정적인 경험을 할 수 있도록 노력했어요. 직관적이고 부드러운 인터랙션과 애니메이션을 구현하기 위해 세부적인 조정을 거쳤어요.
 
----
+- [🤔 Palette메뉴 육각형 구현체에 대한 간단한 고민](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%A4%94-Palette-%EB%A9%94%EB%89%B4-%EC%9C%A1%EA%B0%81%ED%98%95-%EA%B5%AC%ED%98%84%EC%B2%B4%EC%97%90-%EB%8C%80%ED%95%9C-%EA%B0%84%EB%8B%A8%ED%95%9C-%EA%B3%A0%EB%AF%BC)
+- [💫 CSS, JS 없이도 SVG 모핑을 구현할 수 있다니](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%92%AB-CSS,-JS-%EC%97%86%EC%9D%B4%EB%8F%84-SVG-%EB%AA%A8%ED%95%91%EC%9D%84-%EA%B5%AC%ED%98%84%ED%95%A0-%EC%88%98-%EC%9E%88%EB%8B%A4%EB%8B%88)
+- [✨ 인터랙션 구현기: 홀드, 그리고 이동](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%E2%9C%A8-%EC%9D%B8%ED%84%B0%EB%9E%99%EC%85%98-%EA%B5%AC%ED%98%84%EA%B8%B0:-%ED%99%80%EB%93%9C,-%EA%B7%B8%EB%A6%AC%EA%B3%A0-%EC%9D%B4%EB%8F%99)
 
-## 수정 후 타이밍 순서
+### 생산성을 높이는 CI/CD 파이프라인
 
-### ✅ 수정된 코드
+Docker를 활용해 환경을 동일하게 유지하며 CI/CD 파이프라인을 구성했어요. 개발 단계에서는 Docker-compose를 사용해 API 서버를 모의 운영했고, 이전 버전으로 복구할 수 있는 시스템을 만들어 안정성과 생산성을 높였어요.
 
-```java
-// LocalAuthConfig.java
-@Bean
-public JsonUsernamePasswordAuthenticationFilter jsonUsernamePasswordAuthenticationFilter(
-        AuthenticationManager authenticationManager
-) {
-    JsonUsernamePasswordAuthenticationFilter filter =
-            new JsonUsernamePasswordAuthenticationFilter(objectMapper);
 
-    filter.setAuthenticationManager(authenticationManager);  // ✅ 추가!
+<br/>
 
-    return filter;
-}
-```
 
-### ✅ 수정 후 타이밍
+## 🐝 디렉토리 구조
 
 ```
-시간 →
-
-LocalAuthConfig.jsonUsernamePasswordAuthenticationFilter() 메서드
-│
-├─ new JsonUsernamePasswordAuthenticationFilter(...) 생성
-│  └─ Bean 객체 메모리에 할당 됨
-│
-├─ filter.setAuthenticationManager(authenticationManager) ✅ 설정!
-│  └─ this.authenticationManager = authenticationManager (not null)
-│
-├─ 🟢 Spring Container에 등록 시작
-│  ├─ InitializingBean 확인 (있음 ✓)
-│  └─ afterPropertiesSet() 호출 ⏰
-│     │
-│     └─ Assert.notNull(this.authenticationManager, ...)
-│        │
-│        ├─ null? ✓ (설정했으므로!)
-│        └─ ✅ 검증 통과!
-│
-├─ ✅ Bean 등록 완료!
-│  └─ Spring Container에 저장
-│
-└─ ✅ 다음 Bean으로 진행
-
-         ↓ (시간이 계속 흘러감)
-
-SecurityConfig.securityFilterChain() 메서드
-│
-└─ ✅ 실행됨! (Bean 생성 성공했으므로)
-   │
-   ├─ jsonLocalLoginFilter.setAuthenticationManager(...) ✅ 실행됨
-   │  (이미 설정되어 있지만, 덮어쓰기 가능)
-   │
-   ├─ jsonLocalLoginFilter.setAuthenticationSuccessHandler(...) ✅ 실행됨
-   │
-   └─ ✅ 애플리케이션 시작 성공
+📂 web29-honeyflow/
+├── 📂 packages/            모노레포의 패키지들이 위치
+│   ├── 📂 backend/         백엔드 관련 패키지
+│   │   ├── 📂 src/
+│   │   ├── 📄 package.json
+│   │   └── 📄 tsconfig.json
+│   ├── 📂 frontend/        프론트엔드 관련 패키지
+│   │   ├── 📂 src/
+│   │   ├── 📄 package.json
+│   │   └── 📄 tsconfig.json
+│   └── 📂 shared/          프론트엔드와 백엔드에서 공용으로 사용하는 패키지
+├── 📄 eslint.config.mjs
+├── 📄 pnpm-lock.yaml
+├── 📄 package.json
+└── 📄 tsconfig.json
 ```
-
----
 
-## 시각적 비교: 현재 vs 수정 후
 
-### ❌ 현재 (버그)
+<br/>
 
-```
-시간 축 →
-
-LocalAuthConfig                          SecurityConfig
-│                                        │
-├─ authenticationManager() ✓              │
-│                                        │
-├─ jsonUsernamePassword...() 🛑 실패!    │
-│  └─ afterPropertiesSet() 💥             │
-│     └─ authenticationManager = null     │
-│        └─ 에러!                         │
-│                                        │
-└─ 🚫 애플리케이션 중단                   └─ 🚫 실행 안 됨
-   (여기서 멈춤!)                         (도달 불가능)
-```
-
-### ✅ 수정 후 (정상)
-
-```
-시간 축 →
-
-LocalAuthConfig                          SecurityConfig
-│                                        │
-├─ authenticationManager() ✓              │
-│                                        │
-├─ jsonUsernamePassword...() ✓           │
-│  └─ afterPropertiesSet() ✓             │
-│     └─ authenticationManager ≠ null    │
-│        └─ 통과!                        │
-│                                        │
-└─ ✅ 완료                               └─ ✅ 실행됨!
-                                            ├─ setter 설정
-                                            └─ ✅ 애플리케이션 시작 성공
-```
 
----
+## 🐝 인프라 아키텍처 구조
 
-## 최종 답변
+<img width="747" alt="image" src="https://github.com/user-attachments/assets/4b66a3b3-2494-4a40-ad14-3674405424c5">
 
-### Q: "Bean 생성 -> Bean 검증 -> securityFilterChain method 실행 순서야?"
 
-### A: **정확히 그 순서가 맞습니다!** ✅
+<br/>
 
-```
-[1] Bean 생성
-    ↓
-[2] Bean 검증 (afterPropertiesSet() 자동 호출)
-    ↓ (실패 시 여기서 멈춤!)
-    ↓ (성공 시 다음으로)
-[3] securityFilterChain() 메서드 실행
-```
 
-### 현재 상황
+## 🐝 팀 소개
 
-```
-[1] ✓ LocalAuthConfig.authenticationManager() Bean 생성 & 검증 OK
-    ↓
-[2] ✓ LocalAuthConfig.jsonUsernamePasswordAuthenticationFilter() Bean 생성
-    ↓
-[3] ❌ afterPropertiesSet() 검증 실패! (authenticationManager = null)
-    └─ 💥 IllegalArgumentException 발생
-    └─ 🛑 애플리케이션 중단
-    └─ [4] SecurityConfig.securityFilterChain() 실행 불가능
-```
+### TEAM BUZZZZZ...✨
 
-### 수정 후
+| J077 김현진 | J082 나희진 | J095 문지후 | J108 박병주 | J218 전호균 | 
+|:-:|:-:|:-:|:-:|:-:| 
+|![fru1tworld](https://github.com/fru1tworld.png)|![heegenie](https://github.com/heegenie.png)|![CatyJazzy](https://github.com/CatyJazzy.png)|![parkblo](https://github.com/parkblo.png)|![hoqn](https://github.com/hoqn.png)|
+| **BE** | **FE** | **FE** | **FE** | **FE** |
+| [@fru1tworld](https://github.com/fru1tworld) |[@heegenie](https://github.com/heegenie)|[@CatyJazzy](https://github.com/CatyJazzy) |[@parkblo](https://github.com/parkblo) |[@hoqn](https://github.com/hoqn) |
+|          |          |          |
 
-```
-[1] ✓ LocalAuthConfig.authenticationManager() Bean 생성 & 검증 OK
-    ↓
-[2] ✓ LocalAuthConfig.jsonUsernamePasswordAuthenticationFilter() Bean 생성
-    ↓
-[3] ✓ afterPropertiesSet() 검증 OK! (authenticationManager ≠ null)
-    ↓
-[4] ✓ SecurityConfig.securityFilterChain() 실행 가능!
-    └─ ✓ 애플리케이션 시작 성공
-```
+---------------------------
+나도 이런 느낌의 readMe.md를 작성해야 해
+특히 내가 맡은 역할은 "프로젝트 개요", "팀 소개", "현재 CICD 배포 구조"를 작성하는 것이야
+비슷한 느낌으로 작성을 해주고 그 결과를 claude/readMe.md에 넣어줘 
