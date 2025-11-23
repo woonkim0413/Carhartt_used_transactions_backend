@@ -1,5 +1,6 @@
 package com.C_platform.item.application;
 
+import com.C_platform.item.domain.Category;
 import com.C_platform.item.ui.dto.CategoryResponseDto;
 import com.C_platform.item.infrastructure.CategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,13 @@ public class CategoryUseCase {
     private final CategoryRepository categoryRepository;
 
     public Optional<List<CategoryResponseDto>> getCategories() {
-        List<com.C_platform.item.domain.Category> allCategories = categoryRepository.findAll();
+        List<Category> allCategories = categoryRepository.findAll();
+
+        Optional<List<Category>> byIdList = categoryRepository.findByIdList(111);
+
+        List<Category> categoryNotFound = byIdList
+                .orElseThrow(() -> new RuntimeException("Category not found"));
+
 
         if (allCategories.isEmpty()) {
             return Optional.empty();
@@ -36,7 +43,7 @@ public class CategoryUseCase {
         //                parentIdToChildren.computeIfAbsent(parentId, k -> new ArrayList<>()).add(category);
         //            }
         //        }
-        Map<Long, List<com.C_platform.item.domain.Category>> parentIdToChildren = allCategories.stream()
+        Map<Long, List<Category>> parentIdToChildren = allCategories.stream()
                 .filter(category -> category.getParent() != null)
                 .collect(Collectors.groupingBy(category -> category.getParent().getId()));
 
@@ -63,14 +70,14 @@ public class CategoryUseCase {
         return Optional.of(result);
     }
 
-    private CategoryResponseDto convertToDto(com.C_platform.item.domain.Category category, Map<Long, List<com.C_platform.item.domain.Category>> parentIdToChildren, boolean isTopLevel) {
+    private CategoryResponseDto convertToDto(Category category, Map<Long, List<Category>> parentIdToChildren, boolean isTopLevel) {
         CategoryResponseDto dto = CategoryResponseDto.builder()
                 .categoryId(category.getId())
                 .categoryName(category.getName())
                 .parentId(isTopLevel ? Long.valueOf(0L) : (category.getParent() != null ? category.getParent().getId() : null))
                 .build();
 
-        List<com.C_platform.item.domain.Category> children = parentIdToChildren.get(category.getId());
+        List<Category> children = parentIdToChildren.get(category.getId());
         if (children != null && !children.isEmpty()) {
             List<CategoryResponseDto> childDtos = children.stream()
                     .map(child -> convertToDto(child, parentIdToChildren, false))
