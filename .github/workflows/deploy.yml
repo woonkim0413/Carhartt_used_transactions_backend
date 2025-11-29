@@ -2,7 +2,7 @@ name: Build and Deploy Spring Boot to AWS EC2
 
 on:
   push:
-    branches: [ main, dev-test  ]
+    branches: [ main, dev-test ]
 # 추가
 env:
   PROJECT_NAME: Carhartt_platform
