@@ -15,12 +15,12 @@ permissions:
     owner: root
     group: root
 
-hooks:
-  # Nginx 준비 먼저 진행 (없으면 설치 + 심볼릭 링크 보장)
-  BeforeInstall:
-    - location: scripts/nginx_setup.sh
-      timeout: 300
-      runas: root
+# Nginx를 인프라 앞으로 뺐기에 사용 안 함
+# hooks:
+  # BeforeInstall:
+    #- location: scripts/nginx_setup.sh
+    #  timeout: 300
+    #  runas: root
 
   AfterInstall:
     - location: scripts/deploy.sh # 실행할 스크립트
