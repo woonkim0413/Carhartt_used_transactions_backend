@@ -5,9 +5,9 @@ on:
     branches: [ main, dev-test ]
 # 추가
 env:
-  PROJECT_NAME: Carhartt_platform
   BUCKET_NAME: storage-for-ci-cd
-  CODE_DEPLOY_APP_NAME: for_CICD
+  PROJECT_NAME: Carhartt_platform
+  CODE_DEPLOY_APP_NAME: carhartt
   DEPLOYMENT_GROUP_NAME: for_CICD
   AWS_REGION: ap-northeast-2
   # 🔧 ECR 리포지토리 이름
@@ -91,7 +91,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       # Docker Image를 build 후 바로 push
-      - name: Build and Push (arm64)
+      - name: Docker Image Build and Push (arm64)
         run: |
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
           docker buildx build --platform linux/arm64 -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA} --push .

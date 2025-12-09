@@ -4,6 +4,13 @@ app:
   identifier : local
   front-callback-path : /login/callback
 
+# logging 파일 경로 지정
+logging:
+  file:
+    name: /home/ubuntu/app/logs/carhartt.log
+  level:
+    root: INFO
+
 # local 세션 관련 설정
 # domain을 생략하면 default로 Host-Only 설정
 server:
