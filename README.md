@@ -59,8 +59,48 @@ carhartt_usedTransaction은 중요 **실측 정보와 사진을 필수로 기재
 <p align="center"><img src="image/architecture_image.png" width="500" height="300" /></p>
 
 
+### - 🌐️ **인프라 구성 요소 (AWS 생태계)**
 
-### - 개발 환경 분리 (Local, deploy)
+#### 1. <u>**Route53** (DNS & 도메인 관리)</u>
+- 도메인 이름을 AWS 리소스 엔드포인트로 라우팅
+- 백엔드 API: `api.carhartt.com` → EC2 Elastic IP로 라우팅 
+
+
+
+
+#### 2. <u>**CloudFront** - CDN (정적 자산 배포)</u>
+- React 빌드 산출물(정적 HTML, CSS, JS) 배포
+
+#### 3. <u>**EC2** - 애플리케이션 서버</u>
+- **인스턴스 스펙**: t4g.small (ARM 기반, vCPU: 2개, RAM: 2GB CPU 크래딧)
+- **설치 소프트웨어**: Nginx, Docker Engine, AWS CLI v2, codeDeploy agent, docker container(springboot 내장) 
+
+#### 4. <u>**Nginx** (EC2 호스트 레벨에 설치됨)</u>
+- 외부 트래픽을 Docker 컨테이너의 Spring Boot 애플리케이션으로 포워딩 <br>(공개 포트: 80 (HTTP), 443 (HTTPS) -> localhost:8080)
+- SSL/TLS 종료 (HTTPS 암호화)
+
+
+
+#### 5. <u>**Docker Engine**</u>
+- EC2에서 Docker Container을 띄우기 위해 사용
+
+#### 6. <u>**AWS S3**</u>
+- CI/CD 배포 번들 임시 저장 후 CodeDeploy Agent에게 중개 (CD에 사용) <BR>(파일: `appspec.yml`, `scripts/deploy.sh`, `scripts/nginx_setup.sh`)
+- Application에서 사용할 이미지 저장
+
+#### 7. <u>**AWS CodeDeploy Agent**</u>
+- GitHub Actions에서 보낸 배포 명령을 수신하고 EC2에서 배포 실행
+
+
+#### 8. <u>**RDS (MySQL 내장)**</u>
+- MySQL 8.0을 내장하여 Application에 영속성 DB 제공
+
+#### 9. <u>**AWS ECR** (Docker Image 저장소)</u>
+- GitHub Actions에서 빌드한 Docker 이미지를 저장하고 EC2에 전달
+
+<br/>
+
+### - 📚 개발 환경 분리 (Local, deploy)
 **설정 파일 구조:**
 ```
 src/main/resources/
@@ -71,75 +111,12 @@ src/main/resources/
 └── *.sql                            # 테스트 데이터 (로컬만)
 ```
 **로컬(Local)** 과 **배포(Production)** 환경을 **Spring Profiles를 활용**하여 분리하였습니다. <br>
-배포 환경에서 사용할 환경파일은 CI과정 중 Actions Securtiy Repo에서 주입 받도록 하여 <br>
+배포 환경에서 사용할 환경파일은 CI과정 중 Actions Securtiy Repo에서 주입 받도록 하여 
 민감한 값들 (aws, s3, db key들)이 외부로 노출되지 않도록 하였습니다.
-
  <br>
 
-### - **인프라 구성 요소 (AWS 생태계)**
+### - 🚀 CI/CD 배포 구조
 
-#### 1. **Route53** (DNS & 도메인 관리)
-- 도메인 이름을 AWS 리소스 엔드포인트로 라우팅
-- 백엔드 API: `api.carhartt.com` → EC2 Elastic IP로 라우팅 
-
-\* 프론트엔드 정적 코드: `www.carhartt.com` → CloudFront 배포로 라우팅
-
-
-#### 2. **CloudFront** - CDN (정적 자산 배포)
-- React 빌드 산출물(정적 HTML, CSS, JS)을 글로벌 엣지 로케이션에서 배포
-
-#### 3. **EC2** - 애플리케이션 서버
-- **인스턴스 스펙**: t4g.small (ARM 기반, vCPU: 2개, RAM: 2GB CPU 크래딧)
-- **설치 소프트웨어**: Nginx, Docker Engine, AWS CLI v2, codeDeploy agent, docker container(springboot 내장) 
-
-#### 4. **Nginx** (EC2 호스트 레벨에 설치됨)
-- 외부 트래픽을 Docker 컨테이너의 Spring Boot 애플리케이션으로 포워딩 <br>(공개 포트: 80 (HTTP), 443 (HTTPS) -> localhost:8080)
-- SSL/TLS 종료 (HTTPS 암호화), 요청/응답 헤더 조작 (요청 발생지 정보 헤더 추가)
-
-
-
-#### 5. **Docker Engine**
-- EC2에서 Docker Container을 띄우기 위해 사용
-
-#### 6. **AWS S3**
-- CI/CD 배포 번들 임시 저장 후 CodeDeploy Agent에게 중개 (CD에 사용) <BR>(파일: `appspec.yml`, `scripts/deploy.sh`, `scripts/nginx_setup.sh`)
-- Application에서 사용할 이미지 저장
-
-#### 7. **AWS CodeDeploy Agent**
-- GitHub Actions에서 보낸 배포 명령을 수신하고 EC2에서 배포 실행
-- **배포 플로우**:
-  1. GitHub Actions → `aws deploy create-deployment` 명령 실행
-  2. CodeDeploy 서비스 → S3에서 배포 번들(ZIP) 다운로드
-  3. EC2의 CodeDeploy Agent → `appspec.yml` 파일 해석
-  4. Agent → `scripts/deploy.sh` 실행 (Hooks에서 `AfterInstall` 단계)
-  5. deploy.sh → ECR에서 Docker Image Pull → 컨테이너 시작
-
-- **배포 설정**:
-  - CodeDeploy Application: `for_CICD`
-  - Deployment Group: `for_CICD`
-  - Deployment Config: `CodeDeployDefault.OneAtATime` (한 번에 하나씩 배포)
-- **EC2 IAM 역할**: 다음 권한 포함
-  - `AWSCodeDeployRoleForEC2` - CodeDeploy Agent 통신
-  - `AmazonEC2ContainerRegistryPowerUser` - ECR에서 이미지 Pull
-  - `AmazonS3ReadOnlyAccess` - S3에서 배포 번들 다운로드
-
-#### 8. **RDS (MySQL 내장)**
-- MySQL 8.0
-- **VPC 설정**: EC2와 동일 VPC → Private IP로 통신 (공개 인터넷 미노출)
-- **SSL 연결**: `ssl-mode=REQUIRED` (암호화된 연결)
-- **백업**: 자동 스냅샷 + `mysqldump` 정기 백업 (데이터 손실 방지)
-
-#### 9. **AWS ECR** (Docker Image 저장소)
-- GitHub Actions에서 빌드한 Docker 이미지를 저장하고 EC2에서 Pull하여 배포
-- **이미지 URI 형식**: `{AWS_ACCOUNT}.dkr.ecr.ap-northeast-2.amazonaws.com/c-platform:${COMMIT_SHA}`
-- **태그 전략**: 커밋 SHA 사용 (배포 추적성 향상)
-- **접근 제어**:
-  - GitHub Actions IAM User: 푸시 권한 (`AmazonEC2ContainerRegistryPowerUser`)
-  - EC2 IAM Role: 풀 권한 (`AmazonEC2ContainerRegistryPowerUser`)
-
-<br/>
-
-## 🚀 CI/CD 배포 구조
 
 
 **전체 흐름:**
@@ -194,6 +171,14 @@ src/main/resources/
 │     └─ Swagger UI: https://<EC2_IP>/swagger-ui로 확인       │
 └─────────────────────────────────────────────────────────────┘
 ```
+**CI/CD 구축으로 얻는 이점 :** <BR>
+완성된 기능을 EC2환경에서 테스트 하고 프론트 분들과 공유하기 위해선
+프로젝트 개발 중 **반복적으로 배포**가 이루어져야 합니다 <BR><BR>
+CI/CD를 한 번 구축해 놓으면 **지정한 branch에 PR을 발생시킬 때마다
+자동으로 통합 - 배포**가 이루어지기에 편리합니다 <BR><BR>
+또한 CI/CD는 **사람이 직접 배포할 때 발생할 수 있는 실수를 예방**하며,
+모든 **팀원이 배포 과정을 숙지하고 있지 않아도 되기에** 분업화에도 탁월합니다.
+
 
 
 ## 📊 성능 테스트 (K6)

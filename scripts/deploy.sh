@@ -18,6 +18,11 @@ docker pull "$IMAGE_URI"
 docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
 # 4) 새 컨테이너 실행 (포트/환경변수는 서비스에 맞게 조정)
-docker run -d --name "$CONTAINER_NAME" --restart=always -p 8080:8080 "$IMAGE_URI"
+# docker run -d --name "$CONTAINER_NAME" --restart=always -p 8080:8080 "$IMAGE_URI"
+
+# 4) log file을 host의 file과 volums mount 함
+docker run -d -v /home/ubuntu/app/logs:/home/ubuntu/app/logs \
+  --name "$CONTAINER_NAME" --restart=always -p 8080:8080 "$IMAGE_URI"
+
 
 echo "[deploy] Container $CONTAINER_NAME started."
