@@ -20,7 +20,10 @@ RUN ./gradlew bootJar -x test --no-daemon
 
 # ------------------- Run stage (ARM64 런타임) -------------------
 # 새로운 stage시작, 이전 stage와 다르게 JDK, Gradle없이 jre만 사용하여 가벼움
-FROM --platform=linux/arm64 eclipse-temurin:17-jre-jammy
+# FROM --platform=linux/arm64 eclipse-temurin:17-jre-jammy
+# -> t4g -> t3,t2로 변경하면서 EC2 환경도 amd가 됐음, arm64 image 불필요
+FROM eclipse-temurin:17-jre-jammy
+
 WORKDIR /app
 
 # 이전 stage에서 빌드된 JAR을 현재 stage로 가져옴
