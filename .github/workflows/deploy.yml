@@ -125,13 +125,12 @@ jobs:
       - name: Create bundle zip
         run: |
           cd bundle
-          zip -qq -r ${COMMIT_SHA}.zip .
+          zip -r ${COMMIT_SHA}.zip .
           mv ./${COMMIT_SHA}.zip ../${COMMIT_SHA}.zip
         shell: bash
 
       - name: Upload to S3
-        run: aws s3 cp --region ap-northeast-2 \
-          ./${COMMIT_SHA}.zip s3://$BUCKET_NAME/$PROJECT_NAME/${COMMIT_SHA}.zip
+        run: aws s3 cp --region ap-northeast-2 ./${COMMIT_SHA}.zip s3://$BUCKET_NAME/$PROJECT_NAME/${COMMIT_SHA}.zip
 
       # git commit은 7자의 짧은 log와 40자의 긴 log가 있다 COMMIT_SHA는 40자의 긴 log이다
       - name: Code Deploy
