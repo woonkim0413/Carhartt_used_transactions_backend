@@ -75,7 +75,7 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:localhost}  # 환경변수로 주입, 기본값 localhost
-      port: ${REDIS_PORT:6379}  # 환경변수로 주입, 기본값 6379
+      port: 6379  # 하드코딩 (표준 Redis 포트)
       password: ${REDIS_PASSWORD:}  # 환경변수로 주입, 비밀번호 없으면 빈 문자열
       timeout: 60000ms
       lettuce:
