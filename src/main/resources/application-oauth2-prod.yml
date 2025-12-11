@@ -70,3 +70,24 @@ spring:
             scope: # Resource server에 받고자 하는 사용자 정보 범위
               - nickname
               - email
+
+  # Redis 설정 (세션 저장소)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}  # 환경변수로 주입, 기본값 localhost
+      port: ${REDIS_PORT:6379}  # 환경변수로 주입, 기본값 6379
+      password: ${REDIS_PASSWORD:}  # 환경변수로 주입, 비밀번호 없으면 빈 문자열
+      timeout: 60000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+
+  # Spring Session 설정
+  session:
+    store-type: redis
+    timeout: 1800s  # 세션 만료 시간 (30분)
+    redis:
+      namespace: spring:session  # Redis 키 prefix
