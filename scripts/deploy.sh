@@ -14,9 +14,12 @@ else
     echo "[deploy] WARNING: redis.env not found, using environment variables"
 fi
 
-# Redis 환경변수 검증
+# Redis 환경변수 검증 (REDIS_HOST만 필수)
 : "${REDIS_HOST:?REDIS_HOST environment variable is required}"
-: "${REDIS_PORT:?REDIS_PORT environment variable is required}"
+
+# REDIS_PORT는 하드코딩 (표준 Redis 포트 6379)
+REDIS_PORT="${REDIS_PORT:-6379}"
+
 # REDIS_PASSWORD는 선택사항 (비밀번호 없는 경우 빈 문자열)
 REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 

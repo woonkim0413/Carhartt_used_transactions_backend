@@ -2,6 +2,272 @@
 
 ---
 
+## 🚨 긴급: CodeDeploy AfterInstall 실패 - Redis 환경변수 누락 (2025-12-11)
+
+### 문제 증상
+
+**배포 상태:**
+- ✅ GitHub Actions: 성공 (이미지 빌드, ECR 푸시, S3 업로드 완료)
+- ❌ CodeDeploy: **AfterInstall 단계에서 실패**
+- **에러 메시지**: `0 of 2 instances updated - Failed`
+
+### 원인 분석
+
+#### 1. 배포 흐름 확인
+
+```
+GitHub Actions (deploy.yml)
+├─ 1. Docker 이미지 빌드 ✅
+├─ 2. ECR에 이미지 푸시 ✅
+├─ 3. redis.env 파일 생성 (Line 124-128) ← 여기서 문제 발생
+│    cat > bundle/redis.env <<EOF
+│    export REDIS_HOST="${{ secrets.REDIS_HOST }}"  ← Secrets 값 읽기 (필수)
+│    EOF
+│    # REDIS_PORT는 6379로 하드코딩 (GitHub Secrets 불필요)
+│    # REDIS_PASSWORD는 선택사항 (기본값: 빈 문자열)
+├─ 4. 번들 파일 생성 (zip) ✅
+├─ 5. S3 업로드 ✅
+└─ 6. CodeDeploy 트리거 ✅
+
+CodeDeploy (appspec.yml)
+├─ ApplicationStop
+├─ BeforeInstall
+├─ AfterInstall → scripts/deploy.sh 실행 ❌
+│    ├─ redis.env 파일 로드 (Line 10-15)
+│    ├─ 환경변수 검증 (Line 17-24) ← 여기서 실패!
+│    │    : "${REDIS_HOST:?REDIS_HOST environment variable is required}"  ← 필수
+│    │    REDIS_PORT="${REDIS_PORT:-6379}"  ← 하드코딩 (기본값 6379)
+│    │    REDIS_PASSWORD="${REDIS_PASSWORD:-}"  ← 선택사항 (기본값 빈 문자열)
+│    └─ 에러 발생 → 스크립트 중단
+└─ ApplicationStart (실행되지 않음)
+```
+
+#### 2. 에러 발생 지점
+
+**파일**: `scripts/deploy.sh` Line 17-24
+
+```bash
+# Redis 환경변수 검증 (REDIS_HOST만 필수)
+: "${REDIS_HOST:?REDIS_HOST environment variable is required}"
+
+# REDIS_PORT는 하드코딩 (표준 Redis 포트 6379)
+REDIS_PORT="${REDIS_PORT:-6379}"
+
+# REDIS_PASSWORD는 선택사항 (비밀번호 없는 경우 빈 문자열)
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+```
+
+**동작:**
+- `${VAR:?message}`: 변수가 설정되지 않았거나 비어있으면 에러 메시지 출력 후 스크립트 종료
+- `${VAR:-default}`: 변수가 없으면 기본값 사용 (에러 없이 계속 진행)
+- `set -euo pipefail` (Line 2): 에러 발생 시 즉시 종료
+
+#### 3. 근본 원인
+
+**GitHub Secrets에 `REDIS_HOST`가 설정되지 않음**
+
+```
+GitHub Repository → Settings → Secrets and variables → Actions
+
+확인 필요:
+❌ REDIS_HOST: 설정되어 있는가? (필수!)
+✅ REDIS_PORT: 불필요 (6379로 하드코딩됨)
+✅ REDIS_PASSWORD: 불필요 (빈 문자열 기본값 사용)
+```
+
+**만약 `REDIS_HOST` Secret이 없다면:**
+1. GitHub Actions에서 `redis.env` 파일 생성 시 빈 값으로 설정됨
+   ```bash
+   export REDIS_HOST=""  # ← 빈 문자열
+   ```
+
+2. CodeDeploy에서 `deploy.sh` 실행 시 환경변수 검증 실패
+   ```bash
+   bash: REDIS_HOST: REDIS_HOST environment variable is required
+   ```
+
+3. 스크립트 중단 → AfterInstall 단계 실패 → 배포 전체 실패
+
+### 해결 방법
+
+#### Step 1: GitHub Secrets 설정 확인
+
+```bash
+# 1. GitHub Repository 이동
+# https://github.com/[username]/[repository]
+
+# 2. Settings → Secrets and variables → Actions → Repository secrets
+
+# 3. 다음 Secrets가 존재하는지 확인:
+```
+
+**필수 Secrets:**
+
+| Secret 이름 | 값 예시 | 필수 여부 | 설명 |
+|-------------|---------|----------|------|
+| `REDIS_HOST` | `carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com` | ✅ **필수** | ElastiCache 엔드포인트 |
+| ~~`REDIS_PORT`~~ | ~~`6379`~~ | ❌ 불필요 | 6379로 하드코딩됨 |
+| ~~`REDIS_PASSWORD`~~ | ~~(빈 값)~~ | ❌ 불필요 | 빈 문자열 기본값 사용 |
+
+#### Step 2: Secret 추가 방법
+
+1. **"New repository secret" 버튼 클릭**
+
+2. **Name**: `REDIS_HOST`
+   **Secret**: ElastiCache 엔드포인트 입력
+   ```
+   carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com
+   ```
+
+**주의**: `REDIS_PORT`와 `REDIS_PASSWORD`는 추가할 필요 없습니다!
+- `REDIS_PORT`: 6379로 하드코딩됨
+- `REDIS_PASSWORD`: 빈 문자열 기본값 사용됨
+
+#### Step 3: ElastiCache 엔드포인트 확인 방법
+
+```bash
+# AWS Console 접속
+# → ElastiCache → Redis clusters → [클러스터 이름]
+# → Primary endpoint 복사
+
+# 예시:
+# carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com:6379
+#                                                          ↑
+#                                                      포트 제거한 호스트명만 사용
+```
+
+**주의**: 엔드포인트에서 `:6379` 포트 번호는 제거하고 호스트명만 `REDIS_HOST`에 입력!
+
+#### Step 4: 재배포 및 검증
+
+```bash
+# 1. GitHub Actions 재실행 또는 코드 Push
+git commit --allow-empty -m "chore: Trigger redeploy after adding Redis secrets"
+git push origin main  # 또는 dev-test
+
+# 2. GitHub Actions 진행 확인
+# https://github.com/[username]/[repository]/actions
+
+# 3. CodeDeploy 배포 성공 확인
+# AWS Console → CodeDeploy → Deployments
+
+# 예상 결과:
+# ✅ 2 of 2 instances updated - Succeeded
+```
+
+#### Step 5: 배포 성공 후 확인
+
+```bash
+# EC2 서버에 SSH 접속
+ssh -i your-key.pem ubuntu@your-ec2-ip
+
+# 1. redis.env 파일 내용 확인
+cat /home/ubuntu/carhartt_platform/redis.env
+# 예상 결과:
+# export REDIS_HOST="carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com"
+# export REDIS_PORT="6379"
+# export REDIS_PASSWORD=""
+
+# 2. Docker 컨테이너 환경변수 확인
+docker inspect carhartt-platform | grep -A 5 "Env"
+# 예상 결과:
+# "SPRING_PROFILES_ACTIVE=prod"
+# "REDIS_HOST=carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com"
+# "REDIS_PORT=6379"
+
+# 3. 애플리케이션 로그 확인
+docker logs carhartt-platform | grep "RedisIndexedSessionRepository"
+# 예상 결과:
+# "Spring Session initialized with RedisIndexedSessionRepository"
+```
+
+### 트러블슈팅
+
+#### 문제 1: Secrets를 추가했는데도 계속 실패
+
+**원인**: 기존 GitHub Actions workflow가 캐싱된 상태
+
+**해결**:
+```bash
+# 빈 커밋으로 강제 재배포
+git commit --allow-empty -m "chore: Force redeploy"
+git push
+```
+
+#### 문제 2: ElastiCache 엔드포인트를 모르겠음
+
+**해결**:
+```bash
+# AWS CLI로 확인
+aws elasticache describe-cache-clusters \
+  --cache-cluster-id carhartt-redis \
+  --show-cache-node-info \
+  --region ap-northeast-2
+
+# 또는 AWS Console:
+# ElastiCache → Redis clusters → [클러스터 이름] → Primary endpoint
+```
+
+#### 문제 3: redis.env 파일이 생성되지 않음
+
+**원인**: GitHub Actions 빌드 단계 실패
+
+**확인**:
+```bash
+# GitHub Actions 로그 확인
+# Actions 탭 → 최근 workflow → "Stage bundle" 단계 확인
+# redis.env 파일 생성 로그가 있는지 확인
+```
+
+### 체크리스트
+
+배포 실패 해결을 위한 체크리스트:
+
+- [ ] GitHub Secrets에 `REDIS_HOST` 추가 (ElastiCache 엔드포인트) ← **필수!**
+- [ ] ~~GitHub Secrets에 `REDIS_PORT` 추가~~ ← **불필요 (하드코딩됨)**
+- [ ] ~~GitHub Secrets에 `REDIS_PASSWORD` 추가~~ ← **불필요 (기본값 사용)**
+- [ ] 코드 변경사항 commit & push (application-oauth2-prod.yml, deploy.sh, deploy.yml)
+- [ ] GitHub Actions 성공 확인 (모든 단계 완료)
+- [ ] CodeDeploy 성공 확인 (2 of 2 instances updated)
+- [ ] EC2에서 `redis.env` 파일 내용 확인
+- [ ] Docker 컨테이너 환경변수 확인
+- [ ] 애플리케이션 로그에서 Redis Session 초기화 확인
+
+### ✅ 해결 완료 (2025-12-11)
+
+**문제 해결 방안**: GitHub Secrets 요구사항 간소화
+
+배포 실패 문제를 해결하기 위해 다음과 같이 코드를 수정했습니다:
+
+#### 수정된 파일
+
+**1. application-oauth2-prod.yml**
+- `REDIS_PORT`를 6379로 하드코딩
+- 환경변수 의존성 제거
+
+**2. scripts/deploy.sh**
+- `REDIS_HOST`만 필수 검증
+- `REDIS_PORT`는 기본값 6379 사용
+- `REDIS_PASSWORD`는 빈 문자열 기본값 사용
+
+**3. .github/workflows/deploy.yml**
+- redis.env 파일에 `REDIS_HOST`만 포함
+- GitHub Secrets 요구사항 간소화
+
+#### 최종 결과
+
+**이제 GitHub Secrets에 `REDIS_HOST` 하나만 추가하면 배포가 성공합니다!**
+
+```bash
+# GitHub Repository → Settings → Secrets
+# Name: REDIS_HOST
+# Secret: carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com
+```
+
+**참고**: 상세 작업 내역은 `claude/request.md` 참조
+
+---
+
 ## 🔥 긴급: 로드 밸런싱 환경에서 세션 미공유 문제 (2025-12-11)
 
 ### 문제 증상

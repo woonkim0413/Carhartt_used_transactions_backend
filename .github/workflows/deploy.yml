@@ -122,10 +122,9 @@ jobs:
           echo "${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:${COMMIT_SHA}" > bundle/IMAGE_URI
 
           # Redis 환경변수 파일 생성 (GitHub Secrets에서 주입)
+          # REDIS_HOST만 필수, PORT는 6379로 하드코딩, PASSWORD는 선택사항
           cat > bundle/redis.env <<EOF
           export REDIS_HOST="${{ secrets.REDIS_HOST }}"
-          export REDIS_PORT="${{ secrets.REDIS_PORT }}"
-          export REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}"
           EOF
         shell: bash
 
