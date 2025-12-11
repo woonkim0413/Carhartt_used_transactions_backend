@@ -461,9 +461,40 @@ ttl spring:session:sessions:<session-id>
 - 환경변수로 Redis 연결 정보 주입: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
 - Redis 클러스터 모드 또는 복제본 구성으로 가용성 향상
 
+#### 로드 밸런싱 환경에서의 중요성
+
+**문제 상황 (2025-12-11 발견):**
+- 2대의 EC2 서버 + Nginx 로드 밸런싱 (라운드 로빈) 환경
+- Redis Session이 비활성화된 상태에서는 각 서버가 자신의 Tomcat 메모리에만 세션 저장
+- **증상**: API 요청을 2번 하면 1번 성공, 1번 실패 (50% 성공률)
+  - 로그인한 서버로 요청이 가면 성공
+  - 다른 서버로 요청이 가면 401 UNAUTHORIZED
+
+**해결**:
+- Redis Session을 활성화하여 모든 서버가 동일한 Redis를 공유
+- 어느 서버로 요청이 가도 세션 정보 접근 가능
+- 로드 밸런싱 환경에서 **필수** 설정
+
+**진단 방법**:
+```bash
+# 각 서버에서 환경변수 확인
+docker inspect carhartt-platform | grep SPRING_PROFILES_ACTIVE
+# 결과: "SPRING_PROFILES_ACTIVE=prod" 확인
+
+# Redis Session 초기화 로그 확인
+docker logs carhartt-platform | grep "RedisIndexedSessionRepository"
+# 결과: "Spring Session initialized with RedisIndexedSessionRepository"
+
+# Redis에 세션 저장 확인
+redis-cli -h <REDIS_HOST> -p 6379
+keys spring:session:*
+# 결과: 세션 키 3개 이상 반환되어야 함
+```
+
 #### 참고 문서
 - 상세 마이그레이션 가이드: `claude/redis.md`
 - 테스트 방법, 트러블슈팅, 롤백 계획 포함
+- **🔥 긴급**: 로드 밸런싱 환경 세션 미공유 문제 해결 방법 (redis.md 최상단)
 
 ## External Integrations
 
