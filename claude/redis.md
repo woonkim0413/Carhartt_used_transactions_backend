@@ -2,6 +2,403 @@
 
 ---
 
+## 🔥 긴급: 로드 밸런싱 환경에서 세션 미공유 문제 (2025-12-11)
+
+### 문제 증상
+- **현상**: Swagger UI에서 API를 2번 요청하면 1번 성공, 1번 실패 (50% 성공률)
+- **환경**: 2대의 EC2 서버 + Nginx 로드 밸런싱 (라운드 로빈)
+- **Redis 상태**: `keys *` 결과 `(empty array)` - 세션이 저장되지 않음
+
+### 원인 분석
+
+**세션이 Redis가 아닌 각 서버의 Tomcat 메모리에 저장되고 있습니다.**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Nginx (로드 밸런서 - 라운드 로빈)                   │
+└───────────┬─────────────────────────────────────────┘
+            │
+    ┌───────┴────────┐
+    │                │
+    ▼                ▼
+Server 1          Server 2
+├─ Tomcat         ├─ Tomcat
+│  ├─ Session A   │  ├─ Session A 없음!
+│  └─ 요청 성공✓  │  └─ 요청 실패✗ (401)
+└─ Redis 미사용   └─ Redis 미사용
+
+           ▼
+    Redis (ElastiCache)
+    └─ (empty) ← 세션이 저장되지 않음!
+```
+
+**왜 이런 일이 발생하는가?**
+1. 로그인 시 Server 1이 세션을 **자신의 메모리**에만 저장
+2. 다음 API 요청이 Server 2로 라우팅됨
+3. Server 2는 세션 정보가 없어서 401 UNAUTHORIZED 반환
+4. **Redis Session이 제대로 활성화되지 않음**
+
+### 즉시 확인 사항
+
+**두 서버 모두에서 다음 명령어를 실행하세요:**
+
+```bash
+# ========================================
+# 1. 최신 배포 확인 (Server 1, 2 모두)
+# ========================================
+cat /home/ubuntu/carhartt_platform/COMMIT_SHA
+# → 두 서버의 SHA가 동일한지 확인!
+
+# ========================================
+# 2. Docker 컨테이너 환경변수 확인
+# ========================================
+docker inspect carhartt-platform | grep -A 15 "Env"
+
+# 확인할 내용:
+# ✓ "SPRING_PROFILES_ACTIVE=prod" 존재하는가?
+# ✓ "REDIS_HOST=carhartt-u-redis-001..." 존재하는가?
+# ✓ "REDIS_PORT=6379" 존재하는가?
+
+# ========================================
+# 3. 활성 프로파일 확인
+# ========================================
+docker logs carhartt-platform | grep "profiles are active"
+# 예상 결과: "The following 1 profile is active: prod"
+
+# ========================================
+# 4. application-oauth2-prod.yml 로드 확인
+# ========================================
+docker logs carhartt-platform | grep "oauth2-prod"
+# 예상 결과: "Loaded config file 'classpath:application-oauth2-prod.yml'"
+
+# ========================================
+# 5. Redis Session 초기화 로그 확인
+# ========================================
+docker logs carhartt-platform | grep "RedisIndexedSessionRepository"
+# 예상 결과: "Spring Session initialized with RedisIndexedSessionRepository"
+
+# ========================================
+# 6. SessionRepositoryFilter 등록 확인
+# ========================================
+docker logs carhartt-platform | grep "SessionRepositoryFilter"
+# 예상 결과: "Filter 'sessionRepositoryFilter' configured for use"
+```
+
+### 문제 진단 플로우차트
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Step 1: COMMIT_SHA 확인                                 │
+│ → 두 서버가 다른 버전?                                  │
+│   YES: 재배포 필요                                      │
+│   NO: Step 2로                                          │
+└─────────────────────────────────────────────────────────┘
+                        │
+┌─────────────────────────────────────────────────────────┐
+│ Step 2: 환경변수 확인                                   │
+│ → SPRING_PROFILES_ACTIVE=prod 없음?                    │
+│   YES: deploy.sh 수정사항이 배포 안 됨, 재배포 필요     │
+│   NO: Step 3으로                                        │
+└─────────────────────────────────────────────────────────┘
+                        │
+┌─────────────────────────────────────────────────────────┐
+│ Step 3: 프로파일 로그 확인                              │
+│ → "active: local" 로그?                                 │
+│   YES: 환경변수가 적용 안 됨, 컨테이너 재시작 필요      │
+│   NO: Step 4로                                          │
+└─────────────────────────────────────────────────────────┘
+                        │
+┌─────────────────────────────────────────────────────────┐
+│ Step 4: application-oauth2-prod.yml 로드 확인           │
+│ → 로그 없음?                                            │
+│   YES: GitHub Secrets APPLICATION_PROPERTIES 확인 필요  │
+│        (spring.config.import 누락?)                     │
+│   NO: Step 5로                                          │
+└─────────────────────────────────────────────────────────┘
+                        │
+┌─────────────────────────────────────────────────────────┐
+│ Step 5: Redis Session 초기화 로그 확인                  │
+│ → "RedisIndexedSessionRepository" 로그 없음?            │
+│   YES: Redis 연결 실패, 네트워크/보안그룹 확인 필요     │
+│   NO: 정상, 하지만 여전히 실패한다면 로그 전체 검토     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 가장 가능성 높은 원인
+
+**원인 1: 최신 코드가 배포되지 않음 (90% 확률)**
+
+`deploy.sh`에 추가한 `SPRING_PROFILES_ACTIVE=prod` 환경변수가 아직 배포되지 않았을 가능성:
+
+```bash
+# 확인 방법
+docker inspect carhartt-platform | grep SPRING_PROFILES_ACTIVE
+
+# 결과가 없다면:
+# → scripts/deploy.sh 수정사항이 아직 배포 안 됨
+# → Git push 후 GitHub Actions 재배포 필요
+```
+
+**원인 2: 두 서버가 다른 버전 사용 (5% 확률)**
+
+```bash
+# Server 1에서
+cat /home/ubuntu/carhartt_platform/COMMIT_SHA
+# 결과: abc123
+
+# Server 2에서
+cat /home/ubuntu/carhartt_platform/COMMIT_SHA
+# 결과: xyz789 (다르다!)
+
+# → CodeDeploy 배포 실패 또는 부분 배포
+# → 수동으로 양쪽 서버 재배포 필요
+```
+
+**원인 3: Redis 환경변수 누락 (3% 확률)**
+
+```bash
+# redis.env 파일 확인
+cat /home/ubuntu/carhartt_platform/redis.env
+
+# 파일이 없거나 내용이 비어있다면:
+# → GitHub Secrets 설정 확인 필요
+```
+
+**원인 4: GitHub Secrets APPLICATION_PROPERTIES 설정 오류 (2% 확률)**
+
+```bash
+# spring.config.import 설정이 누락되었을 가능성
+# → 섹션 2-1 참고
+```
+
+### 해결 방법
+
+**1단계: 최신 코드 배포 확인**
+
+```bash
+# 1. Git 커밋 및 푸시
+git status
+git add scripts/deploy.sh claude/redis.md CLAUDE.md
+git commit -m "fix: Add SPRING_PROFILES_ACTIVE=prod for Redis session sharing"
+git push origin main  # 또는 dev-test
+
+# 2. GitHub Actions 진행 상황 확인
+# https://github.com/your-repo/actions
+
+# 3. 배포 완료 후 두 서버에서 COMMIT_SHA 확인
+```
+
+**2단계: 컨테이너 재시작 (배포 완료 후)**
+
+```bash
+# Server 1과 Server 2 모두에서
+docker restart carhartt-platform
+
+# 로그 실시간 확인
+docker logs -f carhartt-platform
+
+# 확인할 로그 순서:
+# [1] "The following 1 profile is active: prod"
+# [2] "Loaded config file 'classpath:application-oauth2-prod.yml'"
+# [3] "Spring Session initialized with RedisIndexedSessionRepository"
+# [4] "Started CPlatformApplication"
+```
+
+**3단계: Redis 세션 저장 테스트**
+
+```bash
+# 1. Redis 초기화
+redis-cli -h carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com -p 6379
+FLUSHDB
+
+# 2. 로그인 API 호출
+curl -X POST https://carhartt-usedtransactions.com/v1/local/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "password123"}' \
+  -c cookies.txt -v
+
+# 3. Redis 세션 확인
+redis-cli -h carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com -p 6379
+keys spring:session:*
+
+# 예상 결과:
+# 1) "spring:session:sessions:..."
+# 2) "spring:session:sessions:expires:..."
+# 3) "spring:session:expirations:..."
+
+# 4. 인증 필요 API를 5번 연속 호출
+for i in {1..5}; do
+  curl -X GET https://carhartt-usedtransactions.com/v1/orders/address \
+    -b cookies.txt -w "\nRequest $i: %{http_code}\n"
+done
+
+# 예상 결과: 5번 모두 200 OK (401 없어야 함!)
+```
+
+### 성공 기준
+
+✅ **Redis에 세션이 저장됨**
+```bash
+redis-cli keys 'spring:session:*'
+# 결과: 3개의 키가 반환됨
+```
+
+✅ **두 서버 모두 동일한 로그**
+```bash
+# Server 1, 2 모두에서
+docker logs carhartt-platform | grep "RedisIndexedSessionRepository"
+# 결과: "Spring Session initialized with RedisIndexedSessionRepository"
+```
+
+✅ **API 연속 호출 시 100% 성공**
+```bash
+# 5번 연속 호출 모두 200 OK
+# 401 UNAUTHORIZED 에러 없음
+```
+
+---
+
+## 🚨 중요: Local 환경 설정 변경 금지 (2025-12-11)
+
+### ⚠️ Local 환경 설정은 변경하지 마세요!
+
+**`application-oauth2-local.yml` 파일에는 Redis 설정을 추가하지 마세요.**
+
+#### 이유
+1. **Local 환경은 개발 편의성을 위해 Tomcat 메모리 세션을 사용합니다**
+   - Redis 서버 설치/실행 불필요
+   - 빠른 개발 환경 구성
+   - 서버 재시작 시 세션 초기화로 깔끔한 상태 유지
+
+2. **Redis Session은 Production 환경 전용입니다**
+   - EC2 + AWS ElastiCache for Redis 구성
+   - 다중 서버 환경에서 세션 공유 목적
+   - 서버 재시작 시에도 세션 유지 필요
+
+3. **`RedisSessionConfig.java`는 조건부 활성화됩니다**
+   - `@EnableRedisHttpSession` 어노테이션이 있지만
+   - `spring.session.store-type=redis` 설정이 있는 프로파일에서만 작동
+   - Local 프로파일에는 이 설정이 없으므로 Redis Session이 비활성화됨
+
+### 환경별 세션 저장소
+
+| 환경 | 프로파일 | 세션 저장소 | 설정 파일 | Redis 설정 |
+|------|----------|-------------|-----------|------------|
+| Local | `local` | Tomcat 메모리 | `application-oauth2-local.yml` | ❌ 없음 (의도적) |
+| Production | `prod` | AWS ElastiCache Redis | `application-oauth2-prod.yml` | ✅ 있음 |
+
+### Local 환경에서 로그인 후 401 에러가 발생한다면?
+
+**원인**: Local 환경에서는 Tomcat 메모리 세션을 사용하므로, 다음 상황에서 세션이 소실됩니다:
+1. 서버 재시작 시
+2. 애플리케이션 재배포 시
+3. JVM 종료 시
+
+**해결 방법**: 이것은 **정상 동작**입니다.
+- Local 환경에서는 로그인 상태가 서버 재시작 시 초기화되는 것이 정상입니다
+- 개발 중 재로그인이 필요하면 `/v1/local/login` API를 다시 호출하세요
+
+### Production 환경에서 Redis Session 확인 방법
+
+Production 환경(EC2 서버)에서 세션이 Redis에 제대로 저장되는지 확인하려면:
+
+#### 1. EC2 서버에 SSH 접속
+```bash
+ssh -i your-key.pem ubuntu@your-ec2-ip
+```
+
+#### 2. Redis CLI로 ElastiCache 접속
+```bash
+# Redis 엔드포인트는 환경변수 REDIS_HOST에서 확인
+redis-cli -h $REDIS_HOST -p $REDIS_PORT
+
+# 비밀번호가 설정된 경우
+redis-cli -h $REDIS_HOST -p $REDIS_PORT -a $REDIS_PASSWORD
+```
+
+#### 3. 세션 키 확인
+```bash
+# Redis CLI 내부에서 실행
+keys spring:session:*
+
+# 예상 결과:
+# 1) "spring:session:sessions:8031a48c-d9f5-1cc8-c280-ce9fef6..."
+# 2) "spring:session:sessions:expires:8031a48c-d9f5-1cc8-c280-ce9fef6..."
+# 3) "spring:session:expirations:1733925600000"
+```
+
+#### 4. 특정 세션 내용 확인
+```bash
+# 세션 데이터 상세 조회
+hgetall spring:session:sessions:<session-id>
+
+# 결과 예시:
+# "creationTime" "1733918400000"
+# "lastAccessedTime" "1733918415000"
+# "maxInactiveInterval" "1800"
+# "sessionAttr:SPRING_SECURITY_CONTEXT" "<직렬화된 SecurityContext 객체>"
+```
+
+#### 5. 세션 TTL 확인
+```bash
+# 세션 남은 시간 확인 (초 단위)
+ttl spring:session:sessions:<session-id>
+
+# 결과: 1794 (약 30분 = 1800초)
+```
+
+### Redis 세션 데이터 구조
+
+Production 환경의 Redis에 저장되는 Spring Session 데이터:
+
+```
+spring:session:sessions:<session-id>           # Hash: 세션 속성 데이터
+  - creationTime: 생성 시간 (밀리초)
+  - lastAccessedTime: 마지막 접근 시간
+  - maxInactiveInterval: 만료 시간 (초)
+  - sessionAttr:SPRING_SECURITY_CONTEXT: SecurityContext 객체 (직렬화됨)
+
+spring:session:sessions:expires:<session-id>   # String: 만료 시간 (밀리초)
+
+spring:session:expirations:<timestamp>         # Set: 해당 시간에 만료될 세션 ID 목록
+```
+
+### Production 환경 테스트 방법
+
+Production 환경에서 로그인 후 세션이 Redis에 저장되는지 확인:
+
+```bash
+# 1. Production 서버에 로그인 API 호출
+curl -X POST https://carhartt-usedtransactions.com/v1/local/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "password123"}' \
+  -c cookies.txt -v
+
+# 2. 응답 헤더에서 JSESSIONID 쿠키 확인
+# Set-Cookie: JSESSIONID=8031A48CD9F51CC8C280CE9FEF6...
+
+# 3. EC2 서버에서 Redis 확인
+redis-cli -h $REDIS_HOST keys 'spring:session:*'
+
+# 4. 인증 필요 API 호출 (JSESSIONID 쿠키 포함)
+curl -X GET https://carhartt-usedtransactions.com/v1/orders/address \
+  -b cookies.txt
+
+# 5. 정상 응답 확인 (401 에러가 아닌 정상 데이터 응답)
+```
+
+### 트러블슈팅: Production 환경에서 401 에러 발생 시
+
+- [ ] EC2 서버에서 애플리케이션이 정상 실행 중인가?
+- [ ] 환경변수 `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`가 올바르게 설정되었는가?
+- [ ] AWS ElastiCache Redis 인스턴스가 실행 중인가?
+- [ ] EC2 보안 그룹에서 ElastiCache 접근이 허용되었는가?
+- [ ] 애플리케이션 로그에서 "RedisConnectionFactory" 초기화 성공 확인되는가?
+- [ ] Redis CLI에서 `ping` 명령이 `PONG`을 반환하는가?
+- [ ] 로그인 후 Redis에 세션 키가 생성되는가? (`keys spring:session:*`)
+
+---
+
 ## ⚡ 실제 적용된 변경 사항 (2025-12-11)
 
 이 섹션은 실제로 프로젝트에 적용된 변경 사항을 기록합니다. 디버깅 시 참고하세요.
@@ -76,6 +473,98 @@ export REDIS_PASSWORD=your-password
 - Redis 연결 확인: 로그에서 "Lettuce" 또는 "RedisConnectionFactory" 검색
 - 연결 실패 시: `io.lettuce.core.RedisConnectionException` 에러 확인
 - 환경변수 확인: `echo $REDIS_HOST`, `echo $REDIS_PORT`
+
+**중요**: Local 환경(`application-oauth2-local.yml`)에는 Redis 설정을 추가하지 마세요! Local 환경은 Tomcat 메모리 세션을 사용하도록 의도적으로 설계되었습니다.
+
+---
+
+#### 2-1. GitHub Secrets APPLICATION_PROPERTIES 설정 (🚨 매우 중요!)
+**위치**: GitHub Repository Settings → Secrets and variables → Actions → Repository secrets
+**설정 날짜**: 2025-12-11 확인
+
+**⚠️ 반드시 포함되어야 하는 설정:**
+
+```properties
+# Production 프로파일 활성화
+spring.profiles.active=prod
+
+# 🔴 핵심: application-oauth2-prod.yml 파일 import (필수!)
+spring.config.import=classpath:application-oauth2-prod.yml
+
+# 나머지 production 환경 설정들...
+```
+
+**왜 이 설정이 중요한가?**
+
+1. **GitHub Actions 빌드 프로세스** (`.github/workflows/deploy.yml` Line 49-68):
+   ```yaml
+   # Git의 application.properties 삭제
+   - name: Remove test application.properties
+     run: rm application.properties
+
+   # GitHub Secrets의 값으로 교체
+   - name: Make application-prod.properties
+     run: echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./application.properties
+   ```
+
+2. **빌드된 JAR에 포함되는 설정**:
+   - Git Repository의 application.properties는 **삭제**됨
+   - GitHub Secrets의 `APPLICATION_PROPERTIES` 값이 **JAR에 포함**됨
+   - 이 설정이 runtime에 사용됨
+
+3. **프로파일만으로는 부족한 이유**:
+   - `spring.profiles.active=prod`만 설정하면 `application-prod.yml`은 자동 로드됨
+   - 하지만 `application-oauth2-prod.yml`은 **수동으로 import** 해야 함
+   - `spring.config.import` 없으면 Redis 설정이 로드되지 않음!
+
+**잘못된 설정 예시 (Redis 작동 안 함):**
+```properties
+# ❌ 이렇게만 설정하면 안 됨!
+spring.profiles.active=prod
+
+# spring.config.import가 없음 → application-oauth2-prod.yml이 로드되지 않음!
+```
+
+**올바른 설정 예시:**
+```properties
+# ✅ 반드시 둘 다 포함
+spring.profiles.active=prod
+spring.config.import=classpath:application-oauth2-prod.yml
+
+# 이제 application-oauth2-prod.yml의 Redis 설정이 로드됨!
+```
+
+**Git Repository의 application.properties (참고용):**
+```properties
+# Line 6-7 (Local 환경 기본 설정)
+spring.profiles.active=local
+spring.config.import=classpath:application-oauth2-local.yml
+```
+
+**Production 빌드 시 교체되는 구조:**
+```
+Git Repository (삭제됨)          GitHub Secrets (사용됨)
+├── application.properties  →    APPLICATION_PROPERTIES
+│   ├─ local 프로파일              ├─ prod 프로파일
+│   └─ local.yml import            └─ prod.yml import ← 필수!
+```
+
+**디버깅 팁:**
+```bash
+# EC2에서 애플리케이션 로그 확인
+docker logs carhartt-platform | grep "config file"
+
+# 예상 결과 (정상):
+# "Loaded config file 'classpath:application-oauth2-prod.yml'"
+
+# 만약 이 로그가 없다면 → spring.config.import 설정 누락!
+```
+
+**체크리스트:**
+- [ ] GitHub Secrets에 `APPLICATION_PROPERTIES` 존재
+- [ ] `spring.profiles.active=prod` 설정 포함
+- [ ] `spring.config.import=classpath:application-oauth2-prod.yml` 설정 포함 ← **핵심!**
+- [ ] 빌드 후 로그에서 "Loaded config file 'application-oauth2-prod.yml'" 확인
 
 ---
 
@@ -267,6 +756,118 @@ GitHub Repository → Settings → Secrets and variables → Actions → Reposit
 
 ---
 
+#### 6. Production 프로파일 활성화 추가 ✅ (2025-12-11 수정)
+**파일**: `scripts/deploy.sh`
+**위치**: Line 40-47
+**작업 날짜**: 2025-12-11
+
+**🚨 발견된 문제**:
+- **증상**: 로그인은 성공하지만 인증 필요 API 호출 시 401 UNAUTHORIZED 에러 발생
+- **Redis 상태**: ElastiCache 연결 성공, 하지만 `keys *` 결과가 `(empty array)` - 세션이 저장되지 않음
+- **원인**: Docker 컨테이너가 **local 프로파일**을 사용하고 있었음
+  - `application.properties`의 기본값: `spring.profiles.active=local`
+  - Dockerfile의 ENTRYPOINT에 프로파일 설정 없음
+  - Local 프로파일은 Redis 설정이 없어서 Tomcat 메모리 세션 사용
+  - 결과: Redis에 세션이 저장되지 않음
+
+**진단 과정**:
+```bash
+# EC2 서버에서 Redis CLI 접속
+ubuntu@ip-192-168-100-27:~$ redis-cli -h carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com -p 6379
+
+# 세션 키 확인
+carhartt-u-redis-001...com:6379> keys *
+(empty array)  # ← 세션이 전혀 저장되지 않음!
+
+# 로그인 API는 성공했고 JSESSIONID 쿠키도 발급되었지만
+# 세션이 Redis가 아닌 Tomcat 메모리에 저장되고 있었음
+```
+
+**해결 방법: SPRING_PROFILES_ACTIVE 환경변수 추가**
+
+```bash
+# 변경 전 (deploy.sh Line 40-45)
+docker run -d -v /home/ubuntu/app/logs:/home/ubuntu/app/logs \
+  --name "$CONTAINER_NAME" --restart=always -p 8080:8080 \
+  -e REDIS_HOST="${REDIS_HOST}" \
+  -e REDIS_PORT="${REDIS_PORT}" \
+  -e REDIS_PASSWORD="${REDIS_PASSWORD}" \
+  "$IMAGE_URI"
+
+# 변경 후 (deploy.sh Line 40-47) - SPRING_PROFILES_ACTIVE=prod 추가
+docker run -d -v /home/ubuntu/app/logs:/home/ubuntu/app/logs \
+  --name "$CONTAINER_NAME" --restart=always -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=prod \
+  -e REDIS_HOST="${REDIS_HOST}" \
+  -e REDIS_PORT="${REDIS_PORT}" \
+  -e REDIS_PASSWORD="${REDIS_PASSWORD}" \
+  "$IMAGE_URI"
+```
+
+**변경 내용**:
+- Docker 컨테이너 실행 시 `SPRING_PROFILES_ACTIVE=prod` 환경변수 추가
+- 이제 애플리케이션이 `application-oauth2-prod.yml` 파일의 Redis 설정을 로드함
+- Spring Session이 정상적으로 활성화되어 세션이 Redis에 저장됨
+
+**왜 이 문제가 발생했나?**
+1. `application.properties`의 기본 프로파일은 `local`로 설정되어 있음
+2. Dockerfile의 ENTRYPOINT에 프로파일 지정이 없음
+3. Docker 컨테이너 실행 시에도 프로파일 환경변수를 전달하지 않았음
+4. 결과: EC2에서 실행되는 컨테이너가 local 프로파일을 사용
+5. Local 프로파일에는 `spring.session.store-type=redis` 설정이 없음
+6. Redis Session이 비활성화되고 Tomcat 메모리 세션 사용
+
+**검증 방법**:
+
+1. **배포 후 환경변수 확인**
+```bash
+# EC2 서버에서 실행
+docker inspect carhartt-platform | grep SPRING_PROFILES_ACTIVE
+# 결과: "SPRING_PROFILES_ACTIVE=prod" 확인
+```
+
+2. **애플리케이션 로그 확인**
+```bash
+# 애플리케이션이 prod 프로파일을 사용하는지 확인
+docker logs carhartt-platform | grep "The following profiles are active"
+# 예상 결과: "The following 1 profile is active: prod"
+
+# Redis Session 초기화 로그 확인
+docker logs carhartt-platform | grep "RedisIndexedSessionRepository"
+# 예상 결과: "Spring Session initialized with RedisIndexedSessionRepository"
+```
+
+3. **Redis에서 세션 키 확인**
+```bash
+# 로그인 후 Redis CLI에서 세션 확인
+redis-cli -h carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com -p 6379
+
+carhartt-u-redis-001...com:6379> keys spring:session:*
+# 예상 결과:
+# 1) "spring:session:sessions:8031a48c-d9f5-1cc8-c280-ce9fef6..."
+# 2) "spring:session:sessions:expires:8031a48c-d9f5-1cc8-c280-ce9fef6..."
+# 3) "spring:session:expirations:1733925600000"
+```
+
+4. **인증 필요 API 호출 테스트**
+```bash
+# 로그인 후 JSESSIONID 쿠키로 API 호출
+curl -X GET https://carhartt-usedtransactions.com/v1/orders/address \
+  -H "Cookie: JSESSIONID=<로그인-시-받은-세션ID>"
+
+# 예상 결과: 200 OK (401 에러가 아님)
+```
+
+**디버깅 팁**:
+- 프로파일 확인: `docker exec carhartt-platform env | grep SPRING_PROFILES_ACTIVE`
+- 활성 프로파일 로그: 애플리케이션 시작 로그에서 "The following profiles are active" 검색
+- Redis 연결 로그: "Lettuce" 또는 "RedisConnectionFactory" 검색
+- 세션 저장 확인: Redis CLI에서 `keys spring:session:*` 명령 실행
+
+**참고**: 이 문제는 local과 prod 프로파일이 명확히 분리된 환경에서 발생할 수 있습니다. Dockerfile에서 프로파일을 하드코딩하는 것보다 환경변수로 전달하는 것이 더 유연하므로, deploy.sh에서 환경변수를 설정하는 방식을 권장합니다.
+
+---
+
 ### 디버깅 체크리스트
 
 애플리케이션 시작 시 다음 로그를 확인하세요:
@@ -302,6 +903,155 @@ GitHub Repository → Settings → Secrets and variables → Actions → Reposit
 [✗] 설정 오류
     - "Failed to configure a DataSource"
     → application-oauth2-prod.yml 설정 확인
+```
+
+---
+
+### 🔧 추가 디버깅: Redis 세션이 저장되지 않는 경우
+
+**모든 설정이 올바른데도 Redis에 세션이 저장되지 않는다면**, 다음 단계를 순서대로 확인하세요:
+
+#### Step 1: Docker 컨테이너 환경변수 확인
+
+```bash
+# EC2 서버에서 실행
+docker inspect carhartt-platform | grep -A 10 "Env"
+
+# 다음 환경변수들이 모두 있어야 함:
+# "SPRING_PROFILES_ACTIVE=prod"
+# "REDIS_HOST=carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com"
+# "REDIS_PORT=6379"
+# "REDIS_PASSWORD=..." (있다면)
+```
+
+**확인 사항:**
+- [ ] `SPRING_PROFILES_ACTIVE=prod` 존재
+- [ ] `REDIS_HOST` 값이 올바른 ElastiCache 엔드포인트
+- [ ] `REDIS_PORT` 값이 6379
+- [ ] 환경변수가 모두 올바르게 설정됨
+
+#### Step 2: 애플리케이션 로그에서 설정 파일 로드 확인
+
+```bash
+# application-oauth2-prod.yml이 로드되는지 확인
+docker logs carhartt-platform | grep "oauth2-prod"
+
+# 예상 결과:
+# "Loaded config file 'classpath:application-oauth2-prod.yml'"
+```
+
+**만약 이 로그가 없다면:**
+→ GitHub Secrets의 `APPLICATION_PROPERTIES`에 `spring.config.import` 설정 누락!
+→ **섹션 2-1 참고**
+
+#### Step 3: Redis 연결 로그 확인
+
+```bash
+# Redis 연결 성공 로그 확인
+docker logs carhartt-platform | grep -i "redis"
+
+# 정상 로그 예시:
+# "LettuceConnectionFactory configured"
+# "Created new Lettuce pool"
+# "Spring Session initialized with RedisIndexedSessionRepository"
+
+# 오류 로그 예시:
+# "Unable to connect to Redis"
+# "RedisConnectionException: Unable to connect to carhartt-u-redis-001..."
+```
+
+**연결 실패 시 확인:**
+- [ ] ElastiCache 인스턴스가 실행 중인가?
+- [ ] EC2 보안 그룹에서 ElastiCache 접근 허용되었는가?
+- [ ] 환경변수 `REDIS_HOST`가 올바른가?
+
+#### Step 4: Docker 컨테이너 내부에서 Redis 연결 테스트
+
+```bash
+# Docker 컨테이너 내부로 접속
+docker exec -it carhartt-platform bash
+
+# 컨테이너 내부에서 환경변수 확인
+echo $REDIS_HOST
+echo $REDIS_PORT
+echo $SPRING_PROFILES_ACTIVE
+
+# netcat으로 Redis 포트 접근 확인 (없으면 설치)
+apt-get update && apt-get install -y netcat
+nc -zv $REDIS_HOST $REDIS_PORT
+
+# 예상 결과: "Connection to ... 6379 port [tcp/*] succeeded!"
+```
+
+**만약 연결 실패:**
+- Docker 컨테이너와 ElastiCache 간 네트워크 문제
+- 보안 그룹 설정 확인 필요
+
+#### Step 5: Spring Session 필터 등록 확인
+
+```bash
+# SessionRepositoryFilter 등록 확인
+docker logs carhartt-platform | grep "SessionRepositoryFilter"
+
+# 예상 결과:
+# "Filter 'sessionRepositoryFilter' configured for use"
+```
+
+**만약 이 로그가 없다면:**
+- `spring.session.store-type=redis` 설정이 로드되지 않음
+- `application-oauth2-prod.yml`이 로드되지 않았을 가능성
+
+#### Step 6: 로그인 후 즉시 Redis 확인
+
+```bash
+# 1. 로그인 API 호출
+curl -X POST https://carhartt-usedtransactions.com/v1/local/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "password123"}' \
+  -c cookies.txt -v
+
+# 2. 즉시 Redis에서 세션 확인
+redis-cli -h carhartt-u-redis-001.cvf1em.0001.apn2.cache.amazonaws.com -p 6379
+keys spring:session:*
+
+# 3. 만약 여전히 (empty array)라면:
+# → 애플리케이션에서 Redis에 연결하지 못하고 있음
+# → Step 1~5를 다시 확인
+```
+
+#### Step 7: 애플리케이션 재시작 후 확인
+
+```bash
+# 1. 컨테이너 재시작
+docker restart carhartt-platform
+
+# 2. 시작 로그 실시간 확인
+docker logs -f carhartt-platform
+
+# 확인할 로그 순서:
+# [1] "The following 1 profile is active: prod"
+# [2] "Loaded config file 'classpath:application-oauth2-prod.yml'"
+# [3] "LettuceConnectionFactory configured"
+# [4] "Spring Session initialized with RedisIndexedSessionRepository"
+# [5] "Filter 'sessionRepositoryFilter' configured for use"
+# [6] "Started CPlatformApplication in X.XXX seconds"
+
+# 모든 로그가 나타나야 정상!
+```
+
+#### 문제가 지속되는 경우
+
+**체크리스트 최종 확인:**
+1. [ ] GitHub Secrets `APPLICATION_PROPERTIES`에 `spring.config.import=classpath:application-oauth2-prod.yml` 포함
+2. [ ] `application-oauth2-prod.yml`에 Redis 설정(`spring.session.store-type=redis`) 존재
+3. [ ] `deploy.sh`에서 Docker 실행 시 환경변수 전달 (`REDIS_HOST`, `REDIS_PORT` 등)
+4. [ ] ElastiCache 보안 그룹에서 EC2 접근 허용
+5. [ ] Docker 컨테이너 내부에서 Redis 연결 가능
+6. [ ] 애플리케이션 로그에 Redis 연결 성공 로그 존재
+
+**추가 문의사항:**
+- CodeDeploy 로그: `/var/log/aws/codedeploy-agent/codedeploy-agent.log`
+- deploy.sh 실행 로그: `/opt/codedeploy-agent/deployment-root/.../logs/scripts.log`
 ```
 
 ---

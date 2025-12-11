@@ -37,8 +37,10 @@ docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
 # 4) log file을 host의 file과 volums mount 함
 # Redis 환경변수 전달 (GitHub Actions Secrets에서 주입받음)
+# SPRING_PROFILES_ACTIVE=prod 설정으로 production 프로파일 활성화
 docker run -d -v /home/ubuntu/app/logs:/home/ubuntu/app/logs \
   --name "$CONTAINER_NAME" --restart=always -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=prod \
   -e REDIS_HOST="${REDIS_HOST}" \
   -e REDIS_PORT="${REDIS_PORT}" \
   -e REDIS_PASSWORD="${REDIS_PASSWORD}" \
