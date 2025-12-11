@@ -75,6 +75,7 @@ src/main/java/com/C_platform/
 │   ├── SecurityConfig.java  # OAuth2, CSRF, authorization rules
 │   ├── WebConfig.java       # HTTP message converters, UTF-8 charset
 │   ├── FileConfig.java      # AWS S3, file upload configs
+│   ├── RedisSessionConfig.java  # Redis session storage configuration
 │   └── RestTemplateConfig.java
 ├── global/                  # Global utilities
 │   ├── error/               # ErrorCode enums, exception handlers
@@ -223,7 +224,7 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 - **Session Management:** `SessionCreationPolicy.IF_REQUIRED` with HttpOnly, Secure cookies
 - **Request Filter:** `JsonUsernamePasswordAuthenticationFilter` - Parses JSON body, validates/trims email/password
 - **Authentication Flow:** Custom filter → AuthenticationManager → successfulAuthentication() → SuccessHandler
-- **Session Storage:** `HttpSessionSecurityContextRepository` - Persists SecurityContext to session (critical!)
+- **Session Storage:** `HttpSessionSecurityContextRepository` - Persists SecurityContext to session (Redis 기반, critical!)
 - **Handlers:** Custom success/failure handlers return JSON responses via `ApiResponse<LoginResponseDto>`
 - **Error Codes:** `LocalAuthErrorCode` enum (C001-C004 for auth/state failures, M001-M004 for validation/user queries, E001-E004 for email verification)
 
@@ -277,10 +278,10 @@ Order *: contains OrderAddress (@Embedded - immutable copy of address)
 **Security Features:**
 - Email/password validation (8-50 char passwords, valid email format)
 - Duplicate email checking during signup
-- Session-based with CSRF protection
+- Session-based with CSRF protection (Redis 기반 세션 저장소)
 - Password never returned in responses (only stored encrypted in DB)
 - Input sanitization: Email/password trimming in filter to prevent whitespace issues
-- Session persistence: SecurityContext stored in HttpSession via `HttpSessionSecurityContextRepository`
+- Session persistence: SecurityContext stored in Redis-backed HttpSession via `HttpSessionSecurityContextRepository`
 
 **Critical Implementation Detail - SecurityContext Session Storage (🔧 FIXED - 2025-11-13):**
 
@@ -359,6 +360,110 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
 **Public/Auth-Required Endpoints:**
 - **Public:** `/v1/oauth/login`, OAuth callbacks, `GET /v1/items`, `GET /v1/categories`, `/v1/local/signup`, `/v1/local/login`
 - **Auth-Required:** `GET /v1/local/check` - requires active session (local login only)
+
+### Redis Session Storage (🔧 NEW - 2025-12-11)
+
+**Session 저장소**: Servlet 세션(Tomcat 메모리)에서 **Redis 기반 세션**으로 전환 완료
+
+#### 전환 이유
+1. **영속성**: 서버 재시작 시에도 세션 유지 (사용자 재로그인 불필요)
+2. **확장성**: 여러 서버가 동일한 Redis를 공유하여 로드 밸런싱 가능
+3. **성능**: 인메모리 저장소로 빠른 읽기/쓰기
+4. **모니터링**: Redis CLI로 세션 상태 확인 가능
+5. **TTL 관리**: 세션 만료 시간을 Redis가 자동 관리
+
+#### 구현 상세
+
+**의존성** (`build.gradle`):
+```gradle
+implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+implementation 'org.springframework.session:spring-session-data-redis'
+```
+
+**Redis 설정** (`application-oauth2-prod.yml`):
+```yaml
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}  # 환경변수로 주입
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 60000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+
+  session:
+    store-type: redis
+    timeout: 1800s  # 30분
+    redis:
+      namespace: spring:session
+```
+
+**Redis Session Config** (`config/RedisSessionConfig.java`):
+- `@EnableRedisHttpSession(maxInactiveIntervalInSeconds = 1800)` - Redis 세션 활성화
+- `RedisTemplate<String, Object>` 빈 제공 - 세션 외 Redis 사용을 위한 템플릿
+- Spring Session이 `SessionRepositoryFilter`를 자동 등록하여 `HttpSession` 구현체를 Redis 기반으로 교체
+
+**중요**: 기존 코드(`SecurityConfig`, `JsonUsernamePasswordAuthenticationFilter` 등)는 **수정할 필요 없음**
+- Spring Session이 자동으로 `HttpSession` 구현체를 Redis 기반으로 교체
+- `HttpSessionSecurityContextRepository`, `HttpSessionOAuth2AuthorizationRequestRepository` 등은 그대로 사용
+- 코드 레벨에서는 동일하게 `request.getSession()` 호출, 내부적으로만 Redis 저장소 사용
+
+#### Production 환경변수 설정 (GitHub Actions)
+
+**GitHub Secrets 설정**:
+```
+GitHub Repository → Settings → Secrets and variables → Actions → Repository secrets
+
+필수 Secrets:
+- REDIS_HOST: ElastiCache 엔드포인트 (예: carhartt-redis.cvf1em.ng.0001.apn2.cache.amazonaws.com)
+- REDIS_PORT: Redis 포트 (6379)
+- REDIS_PASSWORD: Redis 비밀번호 (AUTH 설정 안 했으면 빈 값)
+```
+
+**배포 흐름**:
+1. **GitHub Actions** (`.github/workflows/deploy.yml`): Secrets에서 Redis 설정을 읽어 `redis.env` 파일 생성 → CodeDeploy 번들에 포함
+2. **CodeDeploy**: 번들을 EC2로 배포 (`/home/ubuntu/carhartt_platform/redis.env`)
+3. **deploy.sh**: `redis.env` 파일을 로드하여 환경변수 설정 → Docker 컨테이너에 전달
+
+**관련 파일**:
+- `.github/workflows/deploy.yml` (Line 124-129): redis.env 파일 생성
+- `scripts/deploy.sh` (Line 9-24): 환경변수 로드 및 검증, Docker 실행 시 환경변수 전달 (Line 34-36)
+
+#### Redis 세션 데이터 구조
+```
+spring:session:sessions:<session-id>           # Hash: 세션 데이터 (SecurityContext 등)
+spring:session:sessions:expires:<session-id>   # String: 만료 시간
+spring:session:expirations:<timestamp>         # Set: 만료 예정 세션 목록
+```
+
+#### 세션 확인 방법
+```bash
+# Redis CLI 접속
+redis-cli
+
+# 세션 키 확인
+keys spring:session:*
+
+# 특정 세션 내용 확인
+hgetall spring:session:sessions:<session-id>
+
+# 세션 TTL 확인
+ttl spring:session:sessions:<session-id>
+```
+
+#### Production 환경 설정
+- **AWS ElastiCache for Redis** 사용 권장
+- 환경변수로 Redis 연결 정보 주입: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
+- Redis 클러스터 모드 또는 복제본 구성으로 가용성 향상
+
+#### 참고 문서
+- 상세 마이그레이션 가이드: `claude/redis.md`
+- 테스트 방법, 트러블슈팅, 롤백 계획 포함
 
 ## External Integrations
 
@@ -468,6 +573,21 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
   - **Action:** Removed duplicate `restTemplate()` bean definition from `SecurityConfig`
   - **Result:** Centralized RestTemplate configuration with UTF-8 encoding in single location
   - **Status:** Application now starts successfully in 8.57 seconds without errors
+- **Redis Session Storage (NEW - 2025-12-11):**
+  - **Migration:** Servlet 세션(Tomcat 메모리)에서 Redis 기반 세션으로 전환 완료
+  - **Dependencies:** `spring-boot-starter-data-redis`, `spring-session-data-redis` added to `build.gradle`
+  - **Configuration:** Redis settings added to `application-oauth2-prod.yml` with environment variable injection
+  - **Session Config:** `RedisSessionConfig.java` created with `@EnableRedisHttpSession` annotation
+  - **Key Benefits:**
+    - Session persistence across server restarts (no re-login required)
+    - Multi-server session sharing for load balancing
+    - Redis automatic TTL management (30 minutes)
+    - External session monitoring via Redis CLI
+  - **Important:** No code changes required in existing components (SecurityConfig, Filters, Handlers)
+    - Spring Session automatically replaces `HttpSession` implementation with Redis-backed version
+    - All existing `request.getSession()` calls now use Redis internally
+  - **Production:** Use AWS ElastiCache for Redis with environment variables (`REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`)
+  - **See:** `claude/redis.md` for detailed migration guide, testing, and troubleshooting
 - **Message externalization:** Error and application messages use `messages.properties` and `messages_errors.properties`. Use `MessageSource` to retrieve localized strings.
 - **Validation:** Use Jakarta Bean Validation annotations (`@NotNull`, `@Valid`, etc.) on DTOs.
 - **Logging:** Minimal logging in config (see `application.properties` commented debug levels). Enable with care to avoid performance issues.
@@ -490,6 +610,7 @@ The `JsonUsernamePasswordAuthenticationFilter` validates/trims all inputs:
 | Component | Primary File |
 |-----------|--------------|
 | Security & OAuth | `config/SecurityConfig.java` (🔧 **FIXED** - Added `securityContextRepository()` bean and explicit `http.securityContext()` configuration for SecurityContext persistence; Removed duplicate `restTemplate()` bean; Fixed CSRF paths for password recovery endpoints with leading slash), `Member_woonkim/application/OAuth2UseCase.java` |
+| Redis Session Storage (NEW - 2025-12-11) | `config/RedisSessionConfig.java` - Redis-backed session storage configuration with `@EnableRedisHttpSession`, RedisTemplate bean for session and general Redis usage |
 | Web Configuration | `config/WebConfig.java` (HTTP message converters, UTF-8 charset for multilingual support) |
 | Local Authentication Controller | `Member_woonkim/presentation/controller/LocalAuthController.java` (signup, login, check, logout endpoints) |
 | Local Authentication UseCase | `Member_woonkim/application/useCase/LocalAuthUseCase.java` (signup validation, getMemberByEmail for check endpoint) |

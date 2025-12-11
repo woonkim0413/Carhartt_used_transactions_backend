@@ -117,9 +117,16 @@ jobs:
           cp ./appspec.yml bundle/appspec.yml
           cp ./scripts/deploy.sh bundle/scripts/deploy.sh
           cp ./scripts/nginx_setup.sh bundle/scripts/nginx_setup.sh
-          
+
           echo "${COMMIT_SHA}" > bundle/COMMIT_SHA
           echo "${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:${COMMIT_SHA}" > bundle/IMAGE_URI
+
+          # Redis 환경변수 파일 생성 (GitHub Secrets에서 주입)
+          cat > bundle/redis.env <<EOF
+          export REDIS_HOST="${{ secrets.REDIS_HOST }}"
+          export REDIS_PORT="${{ secrets.REDIS_PORT }}"
+          export REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}"
+          EOF
         shell: bash
 
       # ZIP 생성
