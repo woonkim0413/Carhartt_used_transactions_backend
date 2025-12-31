@@ -398,11 +398,12 @@ VUser = 100 × 1 = 100명 (응답시간 1초, thinking time 0초 가정)
 
 
 
-| 이름 |                                        김운강                                        | 김희수 | 정동희 | 장태규 | 수빈 |
-|:-:|:---------------------------------------------------------------------------------:|:-:|:-:|:-:|:-:|
-| 사진 |  <p align="center"><img src="image/woonkim.png" width="130" height="160" /></p>   | [사진] | [사진] | [사진] | [사진] |
-| 역할 |                                        BE                                         | BE | BE | FE | FE |
+| 이름 |                                        김운강                                        | 김희수  | 정동희  | 장태규  |  수빈  |
+|:-:|:---------------------------------------------------------------------------------:|:----:|:----:|:----:|:----:|
+| 사진 |  <p align="center"><img src="image/woonkim.png" width="130" height="160" /></p>   |   <p align="center"><img src="image/member.png" width="130" height="160" /></p>   |   <p align="center"><img src="image/member.png" width="130" height="160" /></p>   |   <p align="center"><img src="image/member.png" width="130" height="160" /></p>   |   <p align="center"><img src="image/member.png" width="130" height="160" /></p>   |
+| 역할 |                                        BE                                         |  BE  |  BE  |  FE  |  FE  |
 | GitHub | [@woonkim0413](https://github.com/woonkim0413/Carhartt_used_transactions_backend) | [링크] | [링크] | [링크] | [링크] |
+
 
 <br/>
 
