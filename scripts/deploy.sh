@@ -2,9 +2,9 @@
 set -euo pipefail
 
 APP_HOME="/home/ubuntu/carhartt_platform"
-IMAGE_URI="$(cat "$APP_HOME/IMAGE_URI")"        # CI가 넣어준 완전한 ECR 이미지 URI
-CONTAINER_NAME="carhartt-platform"              # 컨테이너 이름(원하는 이름)
-AWS_REGION="ap-northeast-2"                     # 또는 환경/파일로 주입
+IMAGE_URI="$(cat "$APP_HOME/IMAGE_URI")"   # git actions가 넣어준 완전한 ECR 이미지 URI
+CONTAINER_NAME="carhartt-platform"        # 컨테이너 이름 (원하는 이름)
+AWS_REGION="ap-northeast-2"              # 또는 환경/파일로 주입
 
 # Redis 환경변수 로드 (GitHub Actions에서 생성한 파일)
 if [ -f "$APP_HOME/redis.env" ]; then

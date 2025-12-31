@@ -1,175 +1,464 @@
-# HoneyFlow
+# Redis Session 공유 부하 테스트 (30초, 100 VUs)
 
-> Think Linked, Map Together
->
-> 끈적끈적 꿀처럼 이루어지는 협업 지식 관리 툴
+## 개선 사항
+1. ✅ **Cookie 파싱 에러 수정**: `jsessionid[0].value` → `jsessionid[0]` (k6의 cookieJar는 이미 value 반환)
+2. ✅ **세션 공유 검증 강화**: 서버별 응답 헤더 추적으로 세션이 실제로 공유되는지 확인
+3. ✅ **에러 핸들링 개선**: 로그인 실패 시 더 상세한 디버깅 정보 출력
+4. ✅ **통계 개선**: 서버별 요청 분포 확인
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/bb536ea4-37c9-4436-b2a1-618f6caa491a" width="512px" />
-</div>
+---
 
-<br/>
+## k6 테스트 스크립트
 
-<div align="center">
+```javascript
+import http from 'k6/http';
+import { sleep, check } from 'k6';
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
+import { Counter } from 'k6/metrics';
 
-### 🔗 바로가기
+export const options = {
+  vus: 100,
+  duration: '30s',
 
-|[📜 노션](https://psychedelic-pumpkin-26b.notion.site/HoneyFlow-12a9594041ea80fc9ae3d4cff0b6cc3a)|[🎨 피그마](https://www.figma.com/design/Uewm0B9ooTzIyN1pY9ZFVl/HoneyFlow-UI?t=rGVV4Pe2usnsTZUp-1)|[📚 위키](https://github.com/boostcampwm-2024/web29-honeyflow/wiki)|[🍯 배포 주소](http://www.honeyflow.life/)|
-|:-:|:-:|:-:|:-:|
+  thresholds: {
+    'http_req_failed': ['rate<0.20'],  // 20% 미만 실패
+    'http_req_duration': ['p(95)<10000'], // 95%가 10초 이내
+  },
+};
 
-</div>
+const BASE = 'https://carhartt-usedtransactions.com';
 
-<br/>
+const ACCOUNTS = [
+  { email: 'dnsrkd0414@naver.com', password: 'gjsxjsms123!' },
+  { email: 'dnsrkd0410@naver.com', password: 'gjsxjsms123!!!' }
+];
 
-<div align="center">
+const VALID_ITEM_IDS = [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 37, 38, 39];
 
-### 💻 기술 스택
+const GROUP1_PERCENT = 0.34;  // 34% - 아이템 상세 조회
+const GROUP2_PERCENT = 0.67;  // 33% - 검색
+// 나머지 33% - 주소 조회
 
-[![pnpm](https://img.shields.io/badge/pnpm-F69220?logo=pnpm&logoColor=fff)](#)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff)](#)
-[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=fff)](#)
-[![NCP](https://img.shields.io/badge/NCP-03C75A?logo=naver&logoColor=fff)](#)
-[![Yjs](https://img.shields.io/badge/Y.js-646C80?)](#)
+// Custom metrics for server tracking
+const server1Requests = new Counter('requests_to_server1');
+const server2Requests = new Counter('requests_to_server2');
 
-[![Nest](https://img.shields.io/badge/Nest.js-%23E0234E.svg?logo=nestjs&logoColor=white)](#)
-[![TypeORM](https://img.shields.io/badge/TypeORM-FE0803.svg?logo=typeorm&logoColor=white)](#)
-[![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?logo=mongodb&logoColor=white)](#)
+export function setup() {
+  console.log('\n' + '='.repeat(70));
+  console.log('🔥 Redis Session Sharing Test (30s, 100 VUs)');
+  console.log('='.repeat(70));
 
-[![React](https://img.shields.io/badge/React-%2320232a.svg?logo=react&logoColor=%2361DAFB)](#)
-[![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=fff)](#)
-[![TailwindCSS](https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white)](#)
-[![shadcn/ui](https://img.shields.io/badge/Shadcn\/ui-000000.svg?logo=shadcnui&logoColor=white)](#)
-[![Milkdown](https://img.shields.io/badge/Milkdown-374151.svg?logo=markdown&logoColor=white)](#)
+  const sessions = [];
 
-[![Notion](https://img.shields.io/badge/Notion-000000?logo=Notion)](#)
-[![Figma](https://img.shields.io/badge/Figma-F24E1E?logo=Figma&logoColor=ffffff)](#)
-[![Slack](https://img.shields.io/badge/Slack-4A154B?logo=Slack&logoColor=ffffff)](#)
+  // 각 계정으로 로그인
+  for (let i = 0; i < ACCOUNTS.length; i++) {
+    console.log(`\n📝 Logging in account ${i + 1}/${ACCOUNTS.length}...`);
+    console.log(`   Email: ${ACCOUNTS[i].email}`);
 
-</div>
+    // 각 로그인마다 새로운 Cookie Jar 생성
+    const jar = http.cookieJar();
+    jar.clear(BASE);
 
-<br/>
+    const loginUrl = `${BASE}/v1/local/login`;
+    const payload = JSON.stringify({
+      email: ACCOUNTS[i].email,
+      password: ACCOUNTS[i].password,
+    });
 
-## 🐝 프로젝트 개요
+    const res = http.post(loginUrl, payload, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: '10s',
+      jar: jar,
+    });
 
-<br/>
+    console.log(`   📊 Login response status: ${res.status}`);
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/c4f6bd93-329c-4d42-b4bb-a02de0434d2b" width="512px" />
-</div>
+    if (res.status !== 200) {
+      console.log(`   ❌ Login failed: status ${res.status}`);
+      console.log(`   📄 Response body: ${res.body.substring(0, 300)}`);
+      console.log(`   📋 Response headers: ${JSON.stringify(res.headers)}`);
+      continue;
+    }
 
+    // Cookie Jar에서 쿠키 가져오기
+    const cookies = jar.cookiesForURL(BASE);
+    console.log(`   🍪 Cookies type: ${typeof cookies}`);
+    console.log(`   🍪 Cookies keys: ${Object.keys(cookies)}`);
 
-## 🐝 주요 기능 소개
+    if (!cookies || Object.keys(cookies).length === 0) {
+      console.log(`   ❌ Login failed: no cookies in jar`);
+      console.log(`   📄 Response Set-Cookie headers: ${res.headers['Set-Cookie'] || 'none'}`);
+      continue;
+    }
 
-**Honeyflow**는 자연스러운 인터랙션 및 애니메이션과 함께 문서를 그래프 형태로 구조화할 수 있는 협업 지식 관리 도구예요.
+    // JSESSIONID 찾기
+    const jsessionid = cookies.JSESSIONID;
+    console.log(`   🔍 JSESSIONID type: ${typeof jsessionid}`);
+    console.log(`   🔍 JSESSIONID value: ${JSON.stringify(jsessionid)}`);
 
-이제 Honeyflow의 주요 기능들이 실제로 어떻게 동작하는지, 동작 화면과 함께 소개할게요!
+    if (!jsessionid) {
+      console.log(`   ❌ Login failed: no JSESSIONID found`);
+      console.log(`   📋 Available cookies: ${Object.keys(cookies).join(', ')}`);
+      continue;
+    }
 
+    // k6의 cookieJar.cookiesForURL()는 배열을 반환하므로 [0] 접근 필요
+    // 그리고 각 항목은 이미 {name, value, ...} 객체
+    let cookieString;
+    if (Array.isArray(jsessionid) && jsessionid.length > 0) {
+      const sessionValue = jsessionid[0].value || jsessionid[0];
+      cookieString = `JSESSIONID=${sessionValue}`;
+      console.log(`   ✅ Login OK - JSESSIONID: ${sessionValue.toString().substring(0, 10)}...`);
+    } else if (typeof jsessionid === 'string') {
+      cookieString = `JSESSIONID=${jsessionid}`;
+      console.log(`   ✅ Login OK - JSESSIONID: ${jsessionid.substring(0, 10)}...`);
+    } else {
+      console.log(`   ❌ Unexpected JSESSIONID format: ${JSON.stringify(jsessionid)}`);
+      continue;
+    }
 
-### 스페이스
+    sessions.push(cookieString);
 
-> 문서들의 관계를 그래프 구조로 나타낼 수 있어요. 또, 간단히 드래그해서 새로운 문서를 생성하고 관계를 표시할 수 있어요.
+    // 세션 저장 확인 (Redis에 저장되었는지 테스트)
+    sleep(1);
+    const testRes = http.get(`${BASE}/v1/items/22`, {
+      headers: { Cookie: cookieString },
+      timeout: '5s',
+    });
 
-<img alt="Space" src="https://github.com/user-attachments/assets/1b162643-d6a7-4d25-922f-5850c1981eb5" width="512" />
+    console.log(`   🧪 Session test status: ${testRes.status}`);
 
-### 서브스페이스
+    if (testRes.status === 200) {
+      const server = testRes.headers['x-upstream-server'] ||
+                     testRes.headers['X-Upstream-Server'] ||
+                     testRes.headers['X-UPSTREAM-SERVER'] ||
+                     'unknown';
+      console.log(`   ✅ Session verified on server: ${server}`);
+    } else {
+      console.log(`   ⚠️  Session test failed: ${testRes.status}`);
+      console.log(`   📄 Response: ${testRes.body.substring(0, 200)}`);
+    }
+  }
 
-> 각 그래프 구조는 다른 그래프 구조를 일종의 '폴더'처럼 관리할 수 있어요.
+  if (sessions.length === 0) {
+    throw new Error('❌ No successful logins! Cannot proceed with test.');
+  }
 
-<img alt="Subspace" src="https://github.com/user-attachments/assets/f4150946-fa86-4175-aac7-a56bcfb32793" width="512" />
+  console.log(`\n${'='.repeat(70)}`);
+  console.log(`🎉 Setup complete!`);
+  console.log(`   Total sessions: ${sessions.length}`);
+  console.log(`   Starting 30s test with 100 VUs...`);
+  console.log(`   🎯 Testing Redis session sharing across multiple EC2 instances`);
+  console.log('='.repeat(70) + '\n');
 
-### 실시간 협업 기능
+  return { sessions };
+}
 
-> 각 문서들 간의 구조와 그 속에 쓰이는 내용을 함께 편집할 수 있어요.
+export default function (data) {
+  const vuId = __VU;
+  const iter = __ITER;
 
-<img alt="Cowork-space" src="https://github.com/user-attachments/assets/430d49be-db25-447c-81ec-8465e78f2e18" width="384" height="218" />
-<img alt="Cowork-note" src="https://github.com/user-attachments/assets/55628d20-5cc5-409a-ad68-8d44f275c642" width="384" height="218" />
+  // VU별로 세션 할당 (라운드 로빈)
+  const sessionIndex = (vuId - 1) % data.sessions.length;
+  const myCookie = data.sessions[sessionIndex];
 
+  if (!myCookie) {
+    console.error(`❌ VU${vuId}: No session available`);
+    sleep(1);
+    return;
+  }
 
-<br/>
+  const headers = {
+    Cookie: myCookie,
+    'X-Request-Id': `test-${Date.now()}-${vuId}-${iter}`,
+  };
 
+  const combinedIndex = iter + (vuId - 1);
+  const totalVUs = 100;
+  const vuRatio = vuId / totalVUs;
 
-## 🐝 우리만의 해결 경험
+  // 34% - 아이템 상세 조회
+  if (vuRatio <= GROUP1_PERCENT) {
+    const itemId = VALID_ITEM_IDS[combinedIndex % VALID_ITEM_IDS.length];
+    const url = `${BASE}/v1/items/${itemId}`;
 
-### 기술 선택 근거
-요구사항을 만족하기 위해 필요한 기술은 무엇인지, 적합한 라이브러리는 무엇인지 많은 고민을 거쳤어요. 어떤 선택을 하던지 선택은 근거가 명확히 존재하도록 했어요.
+    const res = http.get(url, {
+      headers,
+      tags: { name: 'GET_item_detail' },
+      timeout: '30s',
+    });
 
-- [🎨 Canvas 라이브러리, 비교와 고민](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%8E%A8-Canvas-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC,-%EB%B9%84%EA%B5%90%EC%99%80-%EA%B3%A0%EB%AF%BC)
-- [🐝 WebRTC, WebSocket, SocketIO 기술 선정의 근거와 이유](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/WebRTC,-WebSocket,-SocketIO-%EA%B8%B0%EC%88%A0-%EC%84%A0%EC%A0%95%EC%9D%98-%EA%B7%BC%EA%B1%B0%EC%99%80-%EC%9D%B4%EC%9C%A0)
+    const server = res.headers['x-upstream-server'] ||
+                   res.headers['X-Upstream-Server'] ||
+                   res.headers['X-UPSTREAM-SERVER'] ||
+                   'unknown';
 
-### React Konva를 활용한 Canvas 개발
+    // Track server distribution
+    if (server.includes('1') || server.includes('server1')) {
+      server1Requests.add(1);
+    } else if (server.includes('2') || server.includes('server2')) {
+      server2Requests.add(1);
+    }
 
-우리 팀은 React Konva를 사용해 Canvas 개발을 진행했어요. React 철학에 맞게 컴포넌트를 설계하고, 상태 관리를 효율적으로 처리하며, 재사용 가능한 구조를 고민했어요.
+    check(res, {
+      'detail 200': (r) => r.status === 200,
+      'has upstream': (r) => {
+        return r.headers['x-upstream-server'] !== undefined ||
+               r.headers['X-Upstream-Server'] !== undefined ||
+               r.headers['X-UPSTREAM-SERVER'] !== undefined;
+      },
+      'session valid': (r) => r.status !== 401,
+    });
+  }
+  // 33% - 검색
+  else if (vuRatio <= GROUP2_PERCENT) {
+    const res = http.get(`${BASE}/v1/items?keyword=&page=0&size=10&sort=price`, {
+      headers,
+      tags: { name: 'GET_items_search' },
+      timeout: '30s',
+    });
 
-- [👩‍🚀 Konva.js로 스페이스 줌 기능 구현하기](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%91%A9%E2%80%8D%F0%9F%9A%80-Konva.js%EB%A1%9C-%EC%8A%A4%ED%8E%98%EC%9D%B4%EC%8A%A4-%EC%A4%8C-%EA%B8%B0%EB%8A%A5-%EA%B5%AC%ED%98%84%ED%95%98%EA%B8%B0)
-- [🔬 FPS 테스트로 성능 최적화 고민 해결하기](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%94%AC-FPS-%ED%85%8C%EC%8A%A4%ED%8A%B8%EB%A1%9C-%EC%84%B1%EB%8A%A5-%EC%B5%9C%EC%A0%81%ED%99%94-%EA%B3%A0%EB%AF%BC-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0)
+    const server = res.headers['x-upstream-server'] ||
+                   res.headers['X-Upstream-Server'] ||
+                   res.headers['X-UPSTREAM-SERVER'] ||
+                   'unknown';
 
-### Y.js로 실시간 동시편집 구현
+    // Track server distribution
+    if (server.includes('1') || server.includes('server1')) {
+      server1Requests.add(1);
+    } else if (server.includes('2') || server.includes('server2')) {
+      server2Requests.add(1);
+    }
 
-CRDT(Conflict-free Replicated Data Type)를 기반으로 한 협업 라이브러리인 Y.js를 활용해 실시간 동시편집 기능을 구현했어요. 공유 데이터를 다루고 통신 구조를 최적화하기 위해 많은 논의를 거쳤어요.
+    check(res, {
+      'search 200': (r) => r.status === 200,
+      'has upstream': (r) => {
+        return r.headers['x-upstream-server'] !== undefined ||
+               r.headers['X-Upstream-Server'] !== undefined ||
+               r.headers['X-UPSTREAM-SERVER'] !== undefined;
+      },
+      'session valid': (r) => r.status !== 401,
+    });
+  }
+  // 33% - 주소 조회
+  else {
+    const res = http.get(`${BASE}/v1/orders/address`, {
+      headers,
+      tags: { name: 'GET_address' },
+      timeout: '30s',
+    });
 
-- [🧑‍💻 React에서 Y.js를 사용하기](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/React%EC%97%90%EC%84%9C-Y.js%EB%A5%BC-%EC%82%AC%EC%9A%A9%ED%95%98%EA%B8%B0)
-- [🥛 동시편집 마크다운 에디터 구현기](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%A5%9B-%EB%8F%99%EC%8B%9C%ED%8E%B8%EC%A7%91-%EB%A7%88%ED%81%AC%EB%8B%A4%EC%9A%B4-%EC%97%90%EB%94%94%ED%84%B0-%EA%B5%AC%ED%98%84%EA%B8%B0)
+    const server = res.headers['x-upstream-server'] ||
+                   res.headers['X-Upstream-Server'] ||
+                   res.headers['X-UPSTREAM-SERVER'] ||
+                   'unknown';
 
-### 부드러운 인터랙션과 애니메이션
+    // Track server distribution
+    if (server.includes('1') || server.includes('server1')) {
+      server1Requests.add(1);
+    } else if (server.includes('2') || server.includes('server2')) {
+      server2Requests.add(1);
+    }
 
-노트와 관계를 시각적으로 표현하는 과정에서 사용자가 긍정적인 경험을 할 수 있도록 노력했어요. 직관적이고 부드러운 인터랙션과 애니메이션을 구현하기 위해 세부적인 조정을 거쳤어요.
+    check(res, {
+      'address 200': (r) => r.status === 200,
+      'has upstream': (r) => {
+        return r.headers['x-upstream-server'] !== undefined ||
+               r.headers['X-Upstream-Server'] !== undefined ||
+               r.headers['X-UPSTREAM-SERVER'] !== undefined;
+      },
+      'session valid': (r) => r.status !== 401,
+    });
+  }
 
-- [🤔 Palette메뉴 육각형 구현체에 대한 간단한 고민](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%A4%94-Palette-%EB%A9%94%EB%89%B4-%EC%9C%A1%EA%B0%81%ED%98%95-%EA%B5%AC%ED%98%84%EC%B2%B4%EC%97%90-%EB%8C%80%ED%95%9C-%EA%B0%84%EB%8B%A8%ED%95%9C-%EA%B3%A0%EB%AF%BC)
-- [💫 CSS, JS 없이도 SVG 모핑을 구현할 수 있다니](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%F0%9F%92%AB-CSS,-JS-%EC%97%86%EC%9D%B4%EB%8F%84-SVG-%EB%AA%A8%ED%95%91%EC%9D%84-%EA%B5%AC%ED%98%84%ED%95%A0-%EC%88%98-%EC%9E%88%EB%8B%A4%EB%8B%88)
-- [✨ 인터랙션 구현기: 홀드, 그리고 이동](https://github.com/boostcampwm-2024/web29-honeyflow/wiki/%E2%9C%A8-%EC%9D%B8%ED%84%B0%EB%9E%99%EC%85%98-%EA%B5%AC%ED%98%84%EA%B8%B0:-%ED%99%80%EB%93%9C,-%EA%B7%B8%EB%A6%AC%EA%B3%A0-%EC%9D%B4%EB%8F%99)
+  sleep(0.1);
+}
 
-### 생산성을 높이는 CI/CD 파이프라인
+export function teardown(data) {
+  console.log('\n' + '='.repeat(70));
+  console.log('🧹 Cleaning up sessions...');
 
-Docker를 활용해 환경을 동일하게 유지하며 CI/CD 파이프라인을 구성했어요. 개발 단계에서는 Docker-compose를 사용해 API 서버를 모의 운영했고, 이전 버전으로 복구할 수 있는 시스템을 만들어 안정성과 생산성을 높였어요.
+  for (let i = 0; i < data.sessions.length; i++) {
+    try {
+      const res = http.post(`${BASE}/v1/local/logout`, null, {
+        headers: { Cookie: data.sessions[i] },
+        timeout: '5s',
+      });
+      console.log(`   ✅ Session ${i + 1} logged out (status: ${res.status})`);
+    } catch (e) {
+      console.log(`   ⚠️  Session ${i + 1} logout error: ${e.message}`);
+    }
+  }
 
+  console.log('='.repeat(70) + '\n');
+}
 
-<br/>
+export function handleSummary(data) {
+  const server1Count = data.metrics.requests_to_server1?.values?.count || 0;
+  const server2Count = data.metrics.requests_to_server2?.values?.count || 0;
+  const totalRequests = server1Count + server2Count;
 
+  let customSummary = textSummary(data, { indent: '  ', enableColors: true });
 
-## 🐝 디렉토리 구조
+  customSummary += '\n\n' + '='.repeat(70) + '\n';
+  customSummary += '📊 Redis Session Sharing Results\n';
+  customSummary += '='.repeat(70) + '\n';
+  customSummary += `  Total Requests: ${totalRequests}\n`;
+  customSummary += `  Server 1: ${server1Count} (${((server1Count/totalRequests)*100).toFixed(1)}%)\n`;
+  customSummary += `  Server 2: ${server2Count} (${((server2Count/totalRequests)*100).toFixed(1)}%)\n`;
+  customSummary += '\n✅ Expected: ~50%/50% distribution if load balancing works\n';
+  customSummary += '✅ Expected: 0% 401 errors if Redis session sharing works\n';
+  customSummary += '='.repeat(70) + '\n';
+
+  return {
+    stdout: customSummary,
+  };
+}
+```
+
+---
+
+## 실행 방법
+
+```bash
+# 스크립트 저장
+# 파일명: redis_session_test.js
+
+# 실행
+k6 run redis_session_test.js
+
+# 출력을 파일로 저장
+k6 run redis_session_test.js > test_results.txt
+```
+
+---
+
+## 예상 결과 (성공 케이스)
 
 ```
-📂 web29-honeyflow/
-├── 📂 packages/            모노레포의 패키지들이 위치
-│   ├── 📂 backend/         백엔드 관련 패키지
-│   │   ├── 📂 src/
-│   │   ├── 📄 package.json
-│   │   └── 📄 tsconfig.json
-│   ├── 📂 frontend/        프론트엔드 관련 패키지
-│   │   ├── 📂 src/
-│   │   ├── 📄 package.json
-│   │   └── 📄 tsconfig.json
-│   └── 📂 shared/          프론트엔드와 백엔드에서 공용으로 사용하는 패키지
-├── 📄 eslint.config.mjs
-├── 📄 pnpm-lock.yaml
-├── 📄 package.json
-└── 📄 tsconfig.json
+=======================================================================
+🔥 Redis Session Sharing Test (30s, 100 VUs)
+=======================================================================
+
+📝 Logging in account 1/2...
+   Email: dnsrkd0414@naver.com
+   📊 Login response status: 200
+   🍪 Cookies type: object
+   🍪 Cookies keys: JSESSIONID
+   🔍 JSESSIONID type: object
+   🔍 JSESSIONID value: [{"name":"JSESSIONID","value":"abc123...","domain":"..."}]
+   ✅ Login OK - JSESSIONID: abc123...
+   🧪 Session test status: 200
+   ✅ Session verified on server: server1
+
+📝 Logging in account 2/2...
+   Email: dnsrkd0410@naver.com
+   📊 Login response status: 200
+   ✅ Login OK - JSESSIONID: def456...
+   🧪 Session test status: 200
+   ✅ Session verified on server: server2
+
+=======================================================================
+🎉 Setup complete!
+   Total sessions: 2
+   Starting 30s test with 100 VUs...
+   🎯 Testing Redis session sharing across multiple EC2 instances
+=======================================================================
+
+... (테스트 실행 중) ...
+
+=======================================================================
+📊 Redis Session Sharing Results
+=======================================================================
+  Total Requests: 30000
+  Server 1: 15120 (50.4%)
+  Server 2: 14880 (49.6%)
+
+✅ Expected: ~50%/50% distribution if load balancing works
+✅ Expected: 0% 401 errors if Redis session sharing works
+=======================================================================
+
+checks.........................: 100.00% ✓ 90000      ✗ 0
+  ✓ detail 200..................: 100.00% ✓ 10200      ✗ 0
+  ✓ search 200..................: 100.00% ✓ 9900       ✗ 0
+  ✓ address 200.................: 100.00% ✓ 9900       ✗ 0
+  ✓ has upstream................: 100.00% ✓ 30000      ✗ 0
+  ✓ session valid...............: 100.00% ✓ 30000      ✗ 0
+http_req_duration..............: avg=120ms min=50ms med=115ms max=500ms p(95)=250ms
+http_req_failed................: 0.00%   ✓ 0          ✗ 30000
 ```
 
+---
 
-<br/>
+## 검증 포인트
 
+### ✅ Redis Session 공유 성공 조건
+1. **401 에러 0개**: 모든 요청이 인증 통과 (session valid 100%)
+2. **서버 분포 균등**: Server 1과 2가 각각 ~50% 요청 처리
+3. **응답 성공률 100%**: detail/search/address 모두 200 OK
 
-## 🐝 인프라 아키텍처 구조
+### ❌ 실패 시나리오
+1. **401 에러 발생**: Redis 세션 공유 실패 → 각 서버가 다른 서버의 세션 인식 못함
+2. **서버 분포 불균등**: 한쪽 서버만 요청 처리 → 로드 밸런싱 미작동
+3. **응답 실패**: 서버 과부하 또는 애플리케이션 오류
 
-<img width="747" alt="image" src="https://github.com/user-attachments/assets/4b66a3b3-2494-4a40-ad14-3674405424c5">
+---
 
+## 트러블슈팅
 
-<br/>
+### 문제 1: `TypeError: Cannot read property 'substring' of undefined`
+**원인**: k6의 `cookieJar.cookiesForURL()` 반환 형식 오류
+**해결**: Cookie 파싱 로직 개선 (Line 90-107)
 
+### 문제 2: 401 Unauthorized 에러 발생
+**원인**: Redis 세션 공유 미작동
+**해결**:
+```bash
+# 1. Redis 연결 확인
+redis-cli -h <REDIS_HOST> -p 6379 ping
+# 예상: PONG
 
-## 🐝 팀 소개
+# 2. 세션 키 확인
+redis-cli -h <REDIS_HOST> -p 6379
+keys spring:session:*
+# 예상: spring:session:sessions:<session-id> 3개 이상
 
-### TEAM BUZZZZZ...✨
+# 3. EC2 환경변수 확인
+docker exec carhartt-platform env | grep REDIS
+# 예상: REDIS_HOST=<엔드포인트>
+```
 
-| J077 김현진 | J082 나희진 | J095 문지후 | J108 박병주 | J218 전호균 | 
-|:-:|:-:|:-:|:-:|:-:| 
-|![fru1tworld](https://github.com/fru1tworld.png)|![heegenie](https://github.com/heegenie.png)|![CatyJazzy](https://github.com/CatyJazzy.png)|![parkblo](https://github.com/parkblo.png)|![hoqn](https://github.com/hoqn.png)|
-| **BE** | **FE** | **FE** | **FE** | **FE** |
-| [@fru1tworld](https://github.com/fru1tworld) |[@heegenie](https://github.com/heegenie)|[@CatyJazzy](https://github.com/CatyJazzy) |[@parkblo](https://github.com/parkblo) |[@hoqn](https://github.com/hoqn) |
-|          |          |          |
+### 문제 3: 서버 분포 불균등 (한쪽 100%)
+**원인**: Nginx 로드 밸런싱 미작동
+**해결**:
+```bash
+# Nginx 설정 확인
+sudo vim /etc/nginx/sites-available/default
 
----------------------------
-나도 이런 느낌의 readMe.md를 작성해야 해
-특히 내가 맡은 역할은 "프로젝트 개요", "팀 소개", "현재 CICD 배포 구조"를 작성하는 것이야
-비슷한 느낌으로 작성을 해주고 그 결과를 claude/readMe.md에 넣어줘 
+# upstream 블록 확인
+upstream backend {
+    server <server1-ip>:8080;
+    server <server2-ip>:8080;
+}
+
+# Nginx 재시작
+sudo systemctl reload nginx
+```
+
+---
+
+## 성능 목표
+
+| Metric | Target | Description |
+|--------|--------|-------------|
+| http_req_failed | < 20% | 실패율 20% 미만 |
+| http_req_duration (p95) | < 10s | 95%가 10초 이내 |
+| checks (session valid) | 100% | 세션 인증 100% 통과 |
+| Server distribution | ~50/50 | 균등한 부하 분산 |
+
+---
+
+## 참고 자료
+- Redis Session Storage: `claude/redis.md`
+- Load Balancing 설정: Nginx upstream 설정
+- 환경변수 관리: GitHub Secrets → CodeDeploy → EC2 Docker
