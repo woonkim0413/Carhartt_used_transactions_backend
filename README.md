@@ -166,8 +166,10 @@ carhartt_usedTransaction은 중요 **실측 정보와 사진을 필수로 기재
 
 ## 🏗️ 서버 인프라 (CI/CD + AWS 생태계)
 
-<p align="center"><img src="image/architecture_image.png" width="500" height="300" /></p>
-
+(CICD 배포 구조)
+<p align="center"><img src="image/architecture_image1.png" width="500" height="300" /></p>
+(인프라 구조)
+<p align="center"><img src="image/carhartt-loadbalancer-infra.png" width="500" height="300" /></p>
 
 ### - 🌐️ **인프라 구성 요소 (AWS 생태계)**
 
