@@ -3,6 +3,7 @@ package com.C_platform.payment.infrastructure.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -18,6 +19,7 @@ public class KakaoPayClientConfig {
     private String authorization; // 예: "SECRET_KEY sk_test_xxx" 또는 "KakaoAK admin_key_xxx"
 
     @Bean
+    @Primary
     public WebClient kakaoPayWebClient() {
         System.out.println("=== Kakao Pay Authorization: SECRET_KEY " + authorization);
         return WebClient.builder()

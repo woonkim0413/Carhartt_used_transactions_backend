@@ -1,7 +1,7 @@
 package com.C_platform.item.applicaion;
 
 import com.C_platform.Member_woonkim.domain.entitys.Member;
-import com.C_platform.Member_woonkim.domain.Member.loginType;
+import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.item.application.ItemUseCase;
 import com.C_platform.item.domain.Category;
@@ -40,8 +40,13 @@ class ItemUseCaseTest {
     @BeforeEach
     void setUp() {
         // Create and save a test member
-        Member member = new Member();
-        memberRepository.save(member);
+        testMember = new Member(
+                LocalProvider.LOCAL,
+                "testuser@example.com",
+                "encodedPassword",
+                "테스트유저"
+        );
+        memberRepository.save(testMember);
 
         // Create and save a test category
         testCategory = Category.builder()
