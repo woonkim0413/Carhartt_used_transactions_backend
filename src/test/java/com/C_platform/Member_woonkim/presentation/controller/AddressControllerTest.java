@@ -4,11 +4,11 @@ import com.C_platform.Member_woonkim.application.useCase.AddressUseCase;
 import com.C_platform.Member_woonkim.domain.entitys.Address;
 import com.C_platform.Member_woonkim.domain.entitys.Member;
 import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
-import com.C_platform.Member_woonkim.domain.value.CustomLocalUser;
 import com.C_platform.Member_woonkim.domain.value.CustomOAuth2User;
 import com.C_platform.Member_woonkim.infrastructure.db.AddressRepository;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import com.C_platform.Member_woonkim.presentation.dto.address.request.AddAddressRequestDto;
+import com.C_platform.annotation.WithMockCustomUser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,9 +19,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * AddressController의 통합 테스트 클래스
@@ -42,9 +40,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * - GET /v1/orders/address: 주소 목록 조회
  * - DELETE /v1/orders/address/{address_id}: 주소 삭제
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
+@SpringBootTest(
+        properties = {
+                "spring.session.store-type=none",
+                "spring.data.redis.repositories.enabled=false",
+                "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration"
+        }
+)
+@AutoConfigureMockMvc // Mcok을 field에 주입
+@Transactional // 테스트 코드 동작 후 db 초기화
 class AddressControllerTest {
 
     @Autowired
@@ -63,38 +67,29 @@ class AddressControllerTest {
     private AddressUseCase addressUseCase;
 
     private Member testMember;
-    private CustomLocalUser mockLocalUser;
 
     @BeforeEach
     void setUp() {
-        // 테스트용 회원 생성 및 저장 (Local 생성자 사용)
+        // 테스트용 회원 생성 및 저장
         testMember = new Member(
                 LocalProvider.LOCAL,
-                "test@example.com",
+                "dnsrkd0414@naver.com",
                 "encodedPassword123",
-                "테스트유저"
+                "김운강"
         );
         memberRepository.save(testMember);
-
-        // Mock CustomLocalUser 생성 (customBuilder 사용)
-        mockLocalUser = CustomLocalUser.customBuilder()
-                .username(testMember.getEmail())
-                .password(testMember.getLoginPassword())
-                .authorities(Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")))
-                .accountExpired(false)
-                .accountLocked(false)
-                .credentialsExpired(false)
-                .disabled(false)
-                .memberId(testMember.getMemberId())
-                .email(testMember.getEmail())
-                .localProvider(LocalProvider.LOCAL)
-                .build();
     }
 
     /**
      * 테스트 1: 주소 추가 API - 정상 케이스
      */
     @Test
+    @WithMockCustomUser(
+            email = "dnsrkd0414@naver.com",
+            memberId = 1L,
+            name = "김운강",
+            provider = LocalProvider.LOCAL
+    )
     @DisplayName("정상적인 주소 추가 요청 시 주소가 생성되고 200 OK 반환")
     void addAddress_Success() throws Exception {
         // given
@@ -104,12 +99,8 @@ class AddressControllerTest {
         requestBody.put("road_address", "서울시 강남구 테헤란로 123");
         requestBody.put("detail_address", "101동 101호");
 
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(mockLocalUser, null, mockLocalUser.getAuthorities());
-
         // when & then
         mockMvc.perform(put("/v1/orders/address")
-                        .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-Request-Id", "test-req-001")
                         .content(objectMapper.writeValueAsString(requestBody)))
@@ -119,7 +110,7 @@ class AddressControllerTest {
                 .andExpect(jsonPath("$.data.memberId").value(testMember.getMemberId().toString()))
                 .andExpect(jsonPath("$.data.addressId").exists())
                 .andExpect(jsonPath("$.data.addressName").value("본가"))
-                .andExpect(jsonPath("$.metaData.requestId").value("test-req-001"));
+                .andExpect(jsonPath("$.meta.x_request_id").value("test-req-001"));
 
         // 검증: DB에 주소가 실제로 저장되었는지 확인
         List<Address> savedAddresses = addressRepository.findAllByMember_MemberId(testMember.getMemberId());
@@ -140,7 +131,7 @@ class AddressControllerTest {
         requestBody.put("road_address", "서울시 강남구 테헤란로 123");
         requestBody.put("detail_address", "101동 101호");
 
-        // when & then (인증 정보 없이 요청)
+        // when & then: @WithMockCustomUser 없음 = 인증 없음
         mockMvc.perform(put("/v1/orders/address")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestBody)))
@@ -152,6 +143,11 @@ class AddressControllerTest {
      * 테스트 3: 주소 추가 API - 유효하지 않은 입력 (빈 주소 이름)
      */
     @Test
+    @WithMockCustomUser(
+            email = "dnsrkd0414@naver.com",
+            memberId = 1L,
+            name = "김운강"
+    )
     @DisplayName("주소 이름이 빈 값일 경우 400 Bad Request 반환")
     void addAddress_InvalidInput_BlankAddressName() throws Exception {
         // given
@@ -161,12 +157,8 @@ class AddressControllerTest {
         requestBody.put("road_address", "서울시 강남구 테헤란로 123");
         requestBody.put("detail_address", "101동 101호");
 
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(mockLocalUser, null, mockLocalUser.getAuthorities());
-
         // when & then
         mockMvc.perform(put("/v1/orders/address")
-                        .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestBody)))
                 .andDo(print())
@@ -177,6 +169,11 @@ class AddressControllerTest {
      * 테스트 4: 주소 추가 API - 유효하지 않은 입력 (우편번호 누락)
      */
     @Test
+    @WithMockCustomUser(
+            email = "dnsrkd0414@naver.com",
+            memberId = 1L,
+            name = "김운강"
+    )
     @DisplayName("우편번호가 누락된 경우 400 Bad Request 반환")
     void addAddress_InvalidInput_MissingZipCode() throws Exception {
         // given
@@ -186,12 +183,8 @@ class AddressControllerTest {
         requestBody.put("road_address", "서울시 강남구 테헤란로 123");
         requestBody.put("detail_address", "101동 101호");
 
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(mockLocalUser, null, mockLocalUser.getAuthorities());
-
         // when & then
         mockMvc.perform(put("/v1/orders/address")
-                        .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestBody)))
                 .andDo(print())
@@ -202,6 +195,11 @@ class AddressControllerTest {
      * 테스트 5: 주소 목록 조회 API - 정상 케이스
      */
     @Test
+    @WithMockCustomUser(
+            email = "dnsrkd0414@naver.com",
+            memberId = 1L,
+            name = "김운강"
+    )
     @DisplayName("정상적인 주소 목록 조회 요청 시 주소 목록과 200 OK 반환")
     void getAddressList_Success() throws Exception {
         // given: 테스트용 주소 2개 추가
@@ -214,12 +212,8 @@ class AddressControllerTest {
         addressUseCase.addAddress(testMember.getMemberId(), dto1);
         addressUseCase.addAddress(testMember.getMemberId(), dto2);
 
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(mockLocalUser, null, mockLocalUser.getAuthorities());
-
         // when & then
         mockMvc.perform(get("/v1/orders/address")
-                        .with(authentication(auth))
                         .header("X-Request-Id", "test-req-002"))
                 .andDo(print())
                 .andExpect(status().isOk())
@@ -227,22 +221,24 @@ class AddressControllerTest {
                 .andExpect(jsonPath("$.data.memberId").value(testMember.getMemberId().toString()))
                 .andExpect(jsonPath("$.data.addressList").isArray())
                 .andExpect(jsonPath("$.data.addressList.length()").value(2))
-                .andExpect(jsonPath("$.metaData.requestId").value("test-req-002"));
+                .andExpect(jsonPath("$.meta.x_request_id").value("test-req-002"));
     }
 
     /**
      * 테스트 6: 주소 목록 조회 API - 주소가 없는 경우
      */
     @Test
+    @WithMockCustomUser(
+            email = "dnsrkd0414@naver.com",
+            memberId = 1L,
+            name = "김운강"
+    )
     @DisplayName("주소가 없는 사용자의 주소 목록 조회 시 빈 배열과 200 OK 반환")
     void getAddressList_EmptyList() throws Exception {
         // given: 주소를 추가하지 않음
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(mockLocalUser, null, mockLocalUser.getAuthorities());
 
         // when & then
-        mockMvc.perform(get("/v1/orders/address")
-                        .with(authentication(auth)))
+        mockMvc.perform(get("/v1/orders/address"))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -256,7 +252,7 @@ class AddressControllerTest {
     @Test
     @DisplayName("인증되지 않은 사용자의 주소 목록 조회 요청 시 401 반환")
     void getAddressList_Unauthorized() throws Exception {
-        // when & then (인증 정보 없이 요청)
+        // when & then: @WithMockCustomUser 없음 = 인증 없음
         mockMvc.perform(get("/v1/orders/address"))
                 .andDo(print())
                 .andExpect(status().isUnauthorized());
@@ -266,6 +262,11 @@ class AddressControllerTest {
      * 테스트 8: 주소 삭제 API - 정상 케이스
      */
     @Test
+    @WithMockCustomUser(
+            email = "dnsrkd0414@naver.com",
+            memberId = 1L,
+            name = "김운강"
+    )
     @DisplayName("정상적인 주소 삭제 요청 시 주소가 삭제되고 200 OK 반환")
     void deleteAddress_Success() throws Exception {
         // given: 테스트용 주소 추가
@@ -291,7 +292,7 @@ class AddressControllerTest {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.metaData.requestId").value("test-req-003"));
+                .andExpect(jsonPath("$.meta.x_request_id").value("test-req-003"));
 
         // 검증: DB에서 주소가 실제로 삭제되었는지 확인
         List<Address> remainingAddresses = addressRepository.findAllByMember_MemberId(testMember.getMemberId());
@@ -302,6 +303,11 @@ class AddressControllerTest {
      * 테스트 9: 주소 삭제 API - 존재하지 않는 주소 ID
      */
     @Test
+    @WithMockCustomUser(
+            email = "dnsrkd0414@naver.com",
+            memberId = 1L,
+            name = "김운강"
+    )
     @DisplayName("존재하지 않는 주소 ID로 삭제 요청 시 500 또는 400 반환")
     void deleteAddress_NotFound() throws Exception {
         // given
@@ -319,13 +325,18 @@ class AddressControllerTest {
         mockMvc.perform(delete("/v1/orders/address/{address_id}", nonExistentAddressId)
                         .with(authentication(auth)))
                 .andDo(print())
-                .andExpect(status().is5xxServerError()); // 현재는 RuntimeException 발생
+                .andExpect(status().is5xxServerError());
     }
 
     /**
      * 테스트 10: 주소 삭제 API - 다른 사용자의 주소 삭제 시도
      */
     @Test
+    @WithMockCustomUser(
+            email = "dnsrkd0414@naver.com",
+            memberId = 1L,
+            name = "김운강"
+    )
     @DisplayName("다른 사용자의 주소 삭제 시도 시 500 또는 403 반환")
     void deleteAddress_Forbidden() throws Exception {
         // given: 다른 사용자와 그 사용자의 주소 생성
@@ -342,7 +353,7 @@ class AddressControllerTest {
         );
         Address otherAddress = addressUseCase.addAddress(otherMember.getMemberId(), dto);
 
-        // testMember로 인증
+        // testMember로 인증 (CustomOAuth2User 사용)
         CustomOAuth2User mockOAuth2User = new CustomOAuth2User(
                 testMember.getMemberId(),
                 Map.of("name", testMember.getName(), "email", testMember.getEmail()),
@@ -355,7 +366,7 @@ class AddressControllerTest {
         mockMvc.perform(delete("/v1/orders/address/{address_id}", otherAddress.getAddressId())
                         .with(authentication(auth)))
                 .andDo(print())
-                .andExpect(status().is5xxServerError()); // 현재는 RuntimeException 발생
+                .andExpect(status().is5xxServerError());
     }
 
     /**
@@ -370,17 +381,21 @@ class AddressControllerTest {
         );
         Address savedAddress = addressUseCase.addAddress(testMember.getMemberId(), dto);
 
-        // when & then (인증 정보 없이 요청)
+        // when & then: @WithMockCustomUser 없음 = 인증 없음
         mockMvc.perform(delete("/v1/orders/address/{address_id}", savedAddress.getAddressId()))
                 .andDo(print())
                 .andExpect(status().isUnauthorized());
     }
 
     /**
-     * 테스트 12: 주소 추가 API - 최대 5개 제한 검증 (TODO 구현 후 활성화)
-     * 현재 AddressService.addressNumberCheck_MaxFive()가 구현되어 있어야 테스트 가능
+     * 테스트 12: 주소 추가 API - 최대 5개 제한 검증
      */
     @Test
+    @WithMockCustomUser(
+            email = "dnsrkd0414@naver.com",
+            memberId = 1L,
+            name = "김운강"
+    )
     @DisplayName("주소가 이미 5개인 경우 추가 시 에러 반환")
     void addAddress_MaxLimitExceeded() throws Exception {
         // given: 주소 5개 추가
@@ -398,14 +413,11 @@ class AddressControllerTest {
         requestBody.put("road_address", "도로명주소6");
         requestBody.put("detail_address", "상세주소6");
 
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(mockLocalUser, null, mockLocalUser.getAuthorities());
         // when & then
         mockMvc.perform(put("/v1/orders/address")
-                        .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestBody)))
                 .andDo(print())
-                .andExpect(status().is4xxClientError()); // 에러 코드 구현 후 상태 확인
+                .andExpect(status().is4xxClientError());
     }
 }

@@ -3,11 +3,15 @@ package com.C_platform.Member_woonkim.domain.value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 
 // Spring Security가 인증을 끝낸 뒤 SecurityContext에 넣어두는 사용자 대표 객체이다
-public class CustomOAuth2User implements OAuth2User {
+// Serializable 구현: Redis Session 저장 시 직렬화를 위해 필요
+public class CustomOAuth2User implements OAuth2User, Serializable {
+    private static final long serialVersionUID = 1L;
+
     // principal로 사용할 객체
     private final Long memberId;
     private final Map<String, Object> attributes;

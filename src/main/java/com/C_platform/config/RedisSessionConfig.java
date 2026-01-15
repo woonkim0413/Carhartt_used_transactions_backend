@@ -1,5 +1,6 @@
 package com.C_platform.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -11,14 +12,18 @@ import org.springframework.session.data.redis.config.annotation.web.http.EnableR
 /**
  * Redis 기반 세션 저장소 설정
  *
+ * @ConditionalOnProperty: spring.session.store-type=redis일 때만 이 설정 활성화
  * @EnableRedisHttpSession: Spring Session이 HttpSession을 Redis로 저장하도록 설정
  * maxInactiveIntervalInSeconds: 세션 만료 시간 (초 단위, 1800초 = 30분)
  *
  * 이 설정을 활성화하면 Spring Session이 SessionRepositoryFilter를 자동 등록하여
  * HttpServletRequest.getSession()을 가로채서 Tomcat 세션 대신 Redis 기반 세션을 반환합니다.
  * 따라서 기존 코드(SecurityConfig, Filter 등)는 수정할 필요가 없습니다.
+ *
+ * 테스트 환경에서는 spring.session.store-type=none으로 설정되어 이 Config가 로드되지 않습니다.
  */
 @Configuration
+@ConditionalOnProperty(name = "spring.session.store-type", havingValue = "redis")
 @EnableRedisHttpSession(maxInactiveIntervalInSeconds = 1800)  // 30분
 public class RedisSessionConfig {
 

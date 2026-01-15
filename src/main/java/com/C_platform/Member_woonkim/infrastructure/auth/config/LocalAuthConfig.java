@@ -1,6 +1,5 @@
 package com.C_platform.Member_woonkim.infrastructure.auth.config;
 
-import com.C_platform.Member_woonkim.domain.service.LocalUserDetailsService;
 import com.C_platform.Member_woonkim.infrastructure.auth.filter.JsonUsernamePasswordAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +9,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.context.SecurityContextRepository;
 
 /**
  * Local 인증 설정

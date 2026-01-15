@@ -8,13 +8,16 @@ import org.springframework.security.core.userdetails.User;
 
 import java.util.Collection;
 
-// Local login시에 AuthenticationToken의 Principal에 추가 정보를 저장하기 위한 객체 (email, memberId)
+/**
+ * Local login시에 AuthenticationToken에 저장할 Principal 객체
+ **/
 @Getter
 public class CustomLocalUser extends User {
 
     private final Long memberId;
     private final String email;
     private final LocalProvider localProvider;
+    // todo 닉네임도 저장하기 (Principal 객체에서 바로 꺼내기 위해)
 
     /**
      * Lombok @Builder가 붙는 생성자

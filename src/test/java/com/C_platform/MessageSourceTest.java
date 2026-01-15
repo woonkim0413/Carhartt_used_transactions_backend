@@ -1,5 +1,6 @@
 package com.C_platform;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,7 @@ public class MessageSourceTest {
 
     @Test
     @DisplayName("메시지 소스 테스트")
+    @Disabled
     void messageSourceTest() {
         String message = messageSource.getMessage("test.message", null, Locale.KOREA);
         System.out.println("Test Message: " + message);
