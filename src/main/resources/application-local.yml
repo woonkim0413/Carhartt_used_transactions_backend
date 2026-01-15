@@ -1,20 +1,27 @@
 # local 메타 정보
 app:
   base-url: http://localhost:8080/v1/
-  identifier : local
-  front-callback-path : /login/callback
+  identifier: local
+  front-callback-path: /login/callback
 
-# logging 파일 경로 지정
+# Logging Configuration
 logging:
   file:
     name: /home/ubuntu/app/logs/carhartt.log
   level:
     root: INFO
+    com.C_platform: INFO
+    org.springframework.web: INFO
 
-# local 세션 관련 설정
-# domain을 생략하면 default로 Host-Only 설정
+# Server Configuration
 server:
   servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+      force-request: true
+      force-response: true
     session:
       cookie:
         name: JSESSIONID
@@ -23,14 +30,35 @@ server:
         same-site: lax
         path: /
 
-# oauth 정보 설정
 spring:
-  messages:
-    encoding: UTF-8
+  # H2 Console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # H2 Database Configuration
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+
+  # JPA Configuration
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create
+    show-sql: false
+    defer-datasource-initialization: true
+
+  # Data Initialization
   sql:
     init:
       mode: always
       data-locations: classpath:categorydata.sql
+
+  # OAuth2 Configuration
   security:
     oauth2:
       client:
@@ -39,7 +67,6 @@ spring:
             authorization-uri: https://kauth.kakao.com/oauth/authorize
             token-uri: https://kauth.kakao.com/oauth/token
             user-info-uri: https://kapi.kakao.com/v2/user/me
-            # user-name-attribute: id # 해당 필드가 왜 필요하진 모르겠다
           naver:
             authorization-uri: https://nid.naver.com/oauth2.0/authorize
             token-uri: https://nid.naver.com/oauth2.0/token
@@ -47,32 +74,70 @@ spring:
 
         registration:
           kakao:
-            # client-id: 47162626b8cb908fea4e03439449674e (운영용)
-            # client-secret: 8BJ54MXf9npEfzE2w6op4dVamJUEe5fr (운영용)
             client-id: 1370abe0c0f726b791502518bd0e12ff
             client-secret: G6hY7ybVPZ9EjfIvJRwuJqD2Nyv2vmx2
-            redirect-uri : http://localhost:8080/v1/oauth/kakao/callback
+            redirect-uri: http://localhost:8080/v1/oauth/kakao/callback
             authorization-grant-type: authorization_code
             client-authentication-method: POST
             client-name: kakao
             scope:
               - name
               - account_email
-          naver: # 정리 필요
-            # client-id: v2MpZi1jsRTED3WGkHcw (운영용)
-            # client-secret: R8ppGlLLEG (운영용)
+          naver:
             client-id: v2MpZi1jsRTED3WGkHcw
             client-secret: R8ppGlLLEG
-            redirect-uri : http://localhost:8080/v1/oauth/naver/callback
+            redirect-uri: http://localhost:8080/v1/oauth/naver/callback
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
             client-name: naver
-            scope: # Resource server에 받고자 하는 사용자 정보 범위
+            scope:
               - nickname
               - email
 
+  # Email Configuration (Gmail SMTP - local dev credentials)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: gamegemos588@gmail.com
+    password: iccaqeowvczumqjk
+    properties:
+      mail:
+        smtp:
+          starttls:
+            enable: true
+          auth: true
+          ssl:
+            protocols: TLSv1.2
+
+# AWS S3 Configuration (disabled for local)
+cloud:
+  aws:
+    s3:
+      enabled: false
+
 aws:
-  bucket: dummy-bucket
   accessKey: dummy-access-key
   secretKey: dummy-secret-key
   region: ap-northeast-2
+  bucket: dummy-bucket
+
+# File Upload Configuration
+file:
+  max:
+    size: 300
+  extensions: avif,webp,jpg,jpeg
+
+# Kakao Pay Configuration (local dev credentials)
+pay:
+  kakao:
+    base-url: https://open-api.kakaopay.com/online/v1
+    authorization: SECRET_KEY DEV365B58CECABF997A69BD619ED86B402BF383B
+    cid: TC0ONETIME
+
+  # Naver Pay Configuration (local dev credentials)
+  naver:
+    partner-id: np_jtfpn862484
+    client-id: HN3GGCMDdTgGUfl0kFCo
+    client-secret: ftZjkkRNMR
+    chain-id: R0dBN3NoTmcyTEw
+    api-base-url: https://dev.apis.naver.com

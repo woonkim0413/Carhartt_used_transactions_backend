@@ -1,8 +1,8 @@
 # prod 메타 정보
 app:
   base-url: https://carhartt-usedtransactions.com/v1/
-  identifier : prod
-  front-callback-path : /login/callback
+  identifier: prod
+  front-callback-path: /login/callback
 
 # 로깅 패턴 간소화 (날짜, 로그 Level, 요청 origin만 표시)
 logging:
@@ -13,13 +13,17 @@ logging:
   level:
     root: INFO
 
-# prod 세션 관련 설정
-# domain을 생략하면 default로 Host-Only 설정
+# Server Configuration
 server:
   # 프록시가 붙여주는 헤더들을 spring이 신뢰하도록 하는 설정
   forward-headers-strategy: framework
-  # Cookie 관련 설정
   servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+      force-request: true
+      force-response: true
     session:
       cookie:
         name: JSESSIONID
@@ -28,12 +32,51 @@ server:
         same-site: none
         path: /
 
-
-
-# prod 세션 관련 설정
 spring:
-  messages:
-    encoding: UTF-8
+  # MySQL Database Configuration
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    # Hikari Connection Pool
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        highlight_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  # Redis Configuration (Session Storage)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+      timeout: 60000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+
+  # Spring Session Configuration
+  session:
+    store-type: redis
+    timeout: 1800s  # 30분
+    redis:
+      namespace: spring:session
+
+  # OAuth2 Configuration
   security:
     oauth2:
       client:
@@ -51,43 +94,63 @@ spring:
           kakao:
             client-id: 1370abe0c0f726b791502518bd0e12ff
             client-secret: G6hY7ybVPZ9EjfIvJRwuJqD2Nyv2vmx2
-            redirect-uri : https://carhartt-usedtransactions.com/v1/oauth/kakao/callback
+            redirect-uri: https://carhartt-usedtransactions.com/v1/oauth/kakao/callback
             authorization-grant-type: authorization_code
             client-authentication-method: POST
             client-name: kakao
             scope:
               - name
               - account_email
-          naver: # 정리 필요
-            # client-id: v2MpZi1jsRTED3WGkHcw (운영용)
-            # client-secret: R8ppGlLLEG (운영용)
+          naver:
             client-id: v2MpZi1jsRTED3WGkHcw
             client-secret: R8ppGlLLEG
             redirect-uri: https://carhartt-usedtransactions.com/v1/oauth/naver/callback
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
             client-name: naver
-            scope: # Resource server에 받고자 하는 사용자 정보 범위
+            scope:
               - nickname
               - email
 
-  # Redis 설정 (세션 저장소)
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}  # 환경변수로 주입, 기본값 localhost
-      port: 6379  # 하드코딩 (표준 Redis 포트)
-      password: ${REDIS_PASSWORD:}  # 환경변수로 주입, 비밀번호 없으면 빈 문자열
-      timeout: 60000ms
-      lettuce:
-        pool:
-          max-active: 20
-          max-idle: 10
-          min-idle: 5
-          max-wait: 2000ms
+  # Email Configuration (Gmail SMTP)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          starttls:
+            enable: true
+          auth: true
+          ssl:
+            protocols: TLSv1.2
 
-  # Spring Session 설정
-  session:
-    store-type: redis
-    timeout: 1800s  # 세션 만료 시간 (30분)
-    redis:
-      namespace: spring:session  # Redis 키 prefix
+# AWS S3 Configuration
+aws:
+  accessKey: ${AWS_ACCESS_KEY}
+  secretKey: ${AWS_SECRET_KEY}
+  region: ap-northeast-2
+  bucket: carhartt-bucket
+
+# File Upload Configuration
+file:
+  max:
+    size: 300
+  extensions: avif,webp,jpg,jpeg
+
+# Kakao Pay Configuration
+pay:
+  kakao:
+    base-url: https://open-api.kakaopay.com/online/v1
+    authorization: ${KAKAO_PAY_AUTHORIZATION}
+    cid: TC0ONETIME
+
+  # Naver Pay Configuration
+  naver:
+    partner-id: np_jtfpn862484
+    client-id: ${NAVER_PAY_CLIENT_ID}
+    client-secret: ${NAVER_PAY_CLIENT_SECRET}
+    chain-id: ${NAVER_PAY_CHAIN_ID}
+    api-base-url: https://dev.apis.naver.com

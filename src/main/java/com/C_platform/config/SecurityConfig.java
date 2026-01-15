@@ -48,7 +48,7 @@ import java.util.List;
 @Slf4j
 public class SecurityConfig {
 
-    @Value("${app.identifier}")
+    @Value("app.identifier")
     private String identifier;
 
     // === 화이트리스트 ===
