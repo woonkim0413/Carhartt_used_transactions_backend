@@ -8,6 +8,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.springframework.security.test.context.support.WithSecurityContext;
 
+// test 할 때 인증 securityContext를 생성하여 스레드 로컬에 넣어주는 class
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @WithSecurityContext(factory = WithMockCustomUserSecurityContextFactory.class)
