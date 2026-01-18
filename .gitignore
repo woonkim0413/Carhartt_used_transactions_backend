@@ -36,8 +36,8 @@ out/
 ### VS Code ###
 .vscode/
 
-### .env ###
-/env_values/.env
+### .env (github_secret 하위 폴더 모두 제외) ###
+github_secret/
 
 ### properties ###
 /src/main/resources/application-local.yml

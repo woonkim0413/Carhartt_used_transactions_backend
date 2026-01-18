@@ -124,7 +124,7 @@ jobs:
         # 애플리케이션 환경변수 파일 생성 (GitHub Secrets에서 주입)
         # 모든 필요한 환경변수를 포함 (DB, AWS, Redis, Payment, Email)
           cat > bundle/application.env <<EOF
-${{ secrets.APPLICATION_ENV_FILE }}
+            ${{ secrets.APPLICATION_ENV_FILE }}
           EOF
         shell: bash
 

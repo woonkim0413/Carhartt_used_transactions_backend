@@ -24,8 +24,10 @@ INSERT INTO "MEMBER" (
              NULL,             -- OAUTH_ID
              '농협은행',        -- COUNT_BANK (enum 값 중 하나)
              'LOCAL',          -- LOGIN_TYPE (enum: LOCAL / OAUTH)
-             NULL              -- OAUTH_PROVIDER (enum: KAKAO / NAVER, LOCAL이면 NULL)
+             NULL          -- OAUTH_PROVIDER (enum: KAKAO / NAVER, LOCAL이면 NULL)
          );
+
+
 
 INSERT INTO "MEMBER" (
     DEFAULT_ADDRESS_ID,
@@ -56,6 +58,7 @@ INSERT INTO "MEMBER" (
          );
 
 
+
 -- ADDRESS (address_id=101, member_id=1) - 컬럼명은 실제 엔티티/DDL에 맞게
 INSERT INTO ADDRESS (
     ADDRESS_ID,
@@ -73,6 +76,7 @@ INSERT INTO ADDRESS (
              '12345'       -- ZIP
          );
 
+
 -- ITEM (id=101)
 -- ITEM (id=1101)
 INSERT INTO ITEM (
@@ -85,12 +89,13 @@ INSERT INTO ITEM (
              1101, '2025-01-01 10:00:00', NULL, 'Item', '테스트상품', 'FOR_SALE'
          );
 
+
 INSERT INTO ITEM (
     CHEST, HEM, ITEM_PRICE, RISE_LENGTH, SHOULDER, SLEEVE, THIGH, TOTAL_LENGTH,
     MEMBER_ID,  -- ← 판매자 ID 추가!
     ITEM_ID, SIGNED_DATE, UPDATE_DATE, DTYPE, ITEM_NAME, ITEM_STATUS
 ) VALUES (
              100, 45, 50000, 60, 50, 60, 55, 90,
-             3,  -- ← MEMBER_ID (판매자도 1번 회원으로)
-             200, '2025-01-01 10:00:01', NULL, 'Item', '테스트상품2', 'FOR_SALE'
+             100,  -- ← MEMBER_ID (판매자도 1번 회원으로)
+             101, '2025-01-01 10:00:01', NULL, 'Item', '테스트상품2', 'FOR_SALE'
          );
