@@ -109,7 +109,7 @@ class AddressControllerTest {
     }
 
     /**
-     * 테스트 2: 주소 추가 API - 인증되지 않은 사용자
+     * 테스트 2: 주소 추가 API - 인증되지 않은 사용자 12
      */
     @Test
     @DisplayName("인증되지 않은 사용자의 주소 추가 요청 시 401 반환")
