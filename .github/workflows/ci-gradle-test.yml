@@ -32,15 +32,12 @@ jobs:
       - name: Load env from GitHub Secret (safe)
         shell: bash
         run: |
-        # 1) 시크릿을 파일로 저장
           cat > .env <<'EOF'
           ${{ secrets.APPLICATION_ENV_FILE }}
           EOF
           
-          # 2) GITHUB_ENV는 KEY=VALUE만 허용하므로 주석/빈줄/구분선/YAML 비슷한 줄 제거
           grep -vE '^\s*#|^\s*$|^\s*----\s*$|^\s*name:\s*|^\s*on:\s*|^\s*jobs:\s*|^\s*steps:\s*' .env >> "$GITHUB_ENV"
           
-          # 3) 프로파일
           echo "SPRING_PROFILES_ACTIVE=test" >> "$GITHUB_ENV"
 
       - name: Run tests (test profile)
