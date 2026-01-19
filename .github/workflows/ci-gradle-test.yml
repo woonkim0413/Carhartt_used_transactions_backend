@@ -45,4 +45,4 @@ jobs:
       - name: Run tests (test profile)
         shell: bash
         run: |
-          SPRING_PROFILES_ACTIVE=test ./gradlew test
+          ./gradlew test -Dspring.profiles.active=test

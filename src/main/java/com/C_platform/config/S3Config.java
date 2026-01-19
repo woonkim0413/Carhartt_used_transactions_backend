@@ -9,6 +9,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+// cicd 시점에 aws를 컨트롤 하기 위한 키가 아니라 runtime에 s3에 접근하기 위한 키임
 @Configuration
 public class S3Config {
     @Value("${aws.accessKey}")
