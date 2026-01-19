@@ -1,5 +1,6 @@
 package com.C_platform.Member_woonkim.presentation.controller;
 
+import com.C_platform.CPlatformApplication;
 import com.C_platform.Member_woonkim.application.useCase.AddressUseCase;
 import com.C_platform.Member_woonkim.domain.entitys.Address;
 import com.C_platform.Member_woonkim.domain.enums.LocalProvider;
@@ -39,10 +40,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * dsfsdf
  */
 @SpringBootTest(
+        classes = CPlatformApplication.class,
         properties = {
                 "spring.session.store-type=none",
                 "spring.data.redis.repositories.enabled=false",
-                "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration"
+                "spring.autoconfigure.exclude=" +
+                        "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration," +
+                        "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration"
         }
 )
 @AutoConfigureMockMvc // Mock을 field에 주입

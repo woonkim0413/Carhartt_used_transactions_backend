@@ -41,3 +41,4 @@ github_secret/
 
 ### properties ###
 /src/main/resources/application-local.yml
+/src/main/resources/application-local-test.yml

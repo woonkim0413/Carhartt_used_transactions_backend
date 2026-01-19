@@ -99,9 +99,8 @@ spring:
           ssl:
             protocols: TLSv1.2
 
-# ✅ 외부 연동 스위치 (test 기본 OFF)
 mail:
-  enabled: false
+  enabled: true
 
 cloud:
   aws:
@@ -116,13 +115,13 @@ aws:
 
 pay:
   kakao:
-    enabled: false
+    enabled: true
     base-url: https://open-api.kakaopay.com/online/v1
     authorization: ${KAKAO_PAY_AUTHORIZATION:dummy}
     cid: TC0ONETIME
 
   naver:
-    enabled: false
+    enabled: true
     partner-id: np_jtfpn862484
     client-id: ${NAVER_PAY_CLIENT_ID:dummy}
     client-secret: ${NAVER_PAY_CLIENT_SECRET:dummy}
