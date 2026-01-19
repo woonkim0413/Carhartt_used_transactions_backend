@@ -17,6 +17,7 @@ import com.C_platform.payment.ui.dto.AttemptPaymentResponse;
 import com.C_platform.payment.ui.dto.CompletePaymentRequest;
 import com.C_platform.payment.ui.dto.CompletePaymentResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;

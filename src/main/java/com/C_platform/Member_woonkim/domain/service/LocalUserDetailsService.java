@@ -6,7 +6,6 @@ import com.C_platform.Member_woonkim.domain.value.CustomLocalUser;
 import com.C_platform.Member_woonkim.infrastructure.db.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

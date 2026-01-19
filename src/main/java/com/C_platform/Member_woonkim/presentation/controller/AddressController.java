@@ -79,6 +79,7 @@ public class AddressController {
     @GetMapping("orders/address")
     @Operation(summary = "주소 목록 반환", description = "현재 로그인되어 있는 사용자의 주소지 목록을 반환합니다")
     public ResponseEntity<ApiResponse<GetAddressListResponseDto>> getAddressList (
+            // todo CustomOAuth2User과 CustomLocalUser을 묶는 상위 type 하나로 param을 설정하도록 변경
             @AuthenticationPrincipal CustomOAuth2User customOAuth2User,
             @AuthenticationPrincipal CustomLocalUser customLocalUser,
             @Parameter(example = "req-129")

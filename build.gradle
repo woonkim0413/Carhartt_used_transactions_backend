@@ -42,6 +42,8 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	implementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.mockito:mockito-inline:5.2.0'
 	runtimeOnly 'com.mysql:mysql-connector-j' // EC2/prod에서 사용
 	runtimeOnly 'com.h2database:h2' // local/dev에서 사용
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -49,10 +51,19 @@ dependencies {
 	// Redis 세션 저장소 의존성
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.session:spring-session-data-redis'
+	// 테스트 DB
+	testRuntimeOnly 'com.h2database:h2'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// 테스트 결과 로그 한글 깨짐 방지
+test {
+	systemProperty 'file.encoding', 'UTF-8'
+	systemProperty 'console.encoding', 'UTF-8'
+	jvmArgs = ['-Dfile.encoding=UTF-8', '-Dconsole.encoding=UTF-8']
 }
 
 // 실행 가능한 Spring Boot JAR 이름을 고정

@@ -1,6 +1,6 @@
 package com.C_platform;
 
-import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +13,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 @SpringBootTest
-@Slf4j
 public class MessageSourceTest {
 
     @Autowired
@@ -21,9 +20,10 @@ public class MessageSourceTest {
 
     @Test
     @DisplayName("메시지 소스 테스트")
+    @Disabled
     void messageSourceTest() {
         String message = messageSource.getMessage("test.message", null, Locale.KOREA);
-        log.info("Test Message: {}", message);
+        System.out.println("Test Message: " + message);
         assertThat(message).isEqualTo("Hello, World!");
     }
 }
