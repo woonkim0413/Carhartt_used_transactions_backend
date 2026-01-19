@@ -26,33 +26,21 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Create env file from GitHub Secret
-        shell: bash
-        run: |
-          echo "${{ secrets.APPLICATION_ENV_FILE }}" > .env.ci
-
-      - name: Export env vars (debug)
-        shell: bash
-        run: |
-          set -a
-          source .env.ci
-          set +a
-          echo "=== ENV CHECK ==="
-          env | sort | grep -E "SPRING|AWS|OAUTH" || true
-
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Run tests (debug mode)
+      - name: Load env from GitHub Secret (no source)
         shell: bash
         run: |
-          ./gradlew test \
-            -Dspring.profiles.active=test \
-            --info \
-            --stacktrace \
-            --no-daemon
+          printf '%s\n' "${{ secrets.APPLICATION_ENV_FILE }}" >> "$GITHUB_ENV"
+          echo "SPRING_PROFILES_ACTIVE=test" >> "$GITHUB_ENV"
 
-      - name: Upload test reports (always)
+      - name: Run tests (test profile)
+        shell: bash
+        run: |
+          ./gradlew clean test --no-daemon --info --stacktrace
+
+      - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
