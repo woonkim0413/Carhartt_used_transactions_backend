@@ -13,7 +13,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    steps:ㅆㄷㅅ
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
 
