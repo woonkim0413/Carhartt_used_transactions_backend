@@ -27,30 +27,68 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission for gradlew
+        shell: bash
         run: chmod +x ./gradlew
 
       - name: Load env from GitHub Secret (safe)
         shell: bash
         run: |
-          cat > .env <<'EOF'
-          ${{ secrets.APPLICATION_ENV_FILE }}
-          EOF
-          
-          grep -vE '^\s*#|^\s*$|^\s*----\s*$|^\s*name:\s*|^\s*on:\s*|^\s*jobs:\s*|^\s*steps:\s*' .env >> "$GITHUB_ENV"
-          
+          set -euo pipefail
+
+          # Write secret safely (no heredoc)
+          printf '%s\n' "${{ secrets.APPLICATION_ENV_FILE }}" > .env
+
+          # Only KEY=VALUE lines are allowed in GITHUB_ENV
+          grep -E '^[A-Za-z_][A-Za-z0-9_]*=' .env >> "$GITHUB_ENV"
+
           echo "SPRING_PROFILES_ACTIVE=test" >> "$GITHUB_ENV"
+
+          echo "Loaded env keys count: $(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' .env | wc -l)"
 
       - name: Run tests (test profile)
         shell: bash
         run: |
-          ./gradlew clean test --no-daemon --info --stacktrace \
-          --tests "com.C_platform.Member_woonkim.presentation.controller.AddressControllerTest"
+          set -euxo pipefail
 
-      - name: Upload test reports
+          ./gradlew clean test \
+            --no-daemon \
+            --console=plain \
+            --info \
+            --stacktrace \
+            --tests "com.C_platform.Member_woonkim.presentation.controller.AddressControllerTest" \
+            2>&1 | tee gradle-test.log
+
+      - name: Summarize test result (quick)
+        if: always()
+        shell: bash
+        run: |
+          set +e
+
+          echo "==== Quick Summary ===="
+
+          echo "-- Environment --"
+          java -version 2>&1 | head -n 3
+          ./gradlew -v 2>/dev/null | head -n 8 || true
+          echo "SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-NOT_SET}"
+
+          echo "-- Failed tests (JUnit XML) --"
+          if ls build/test-results/test/*.xml >/dev/null 2>&1; then
+            grep -R "<testsuite" build/test-results/test \
+              | grep -E 'failures="[1-9]|errors="[1-9]' \
+              || echo "No failed tests"
+          else
+            echo "No test result XML found"
+          fi
+
+          echo "-- Top stacktrace hints --"
+          grep -n "Caused by:" gradle-test.log | head -n 5 || true
+
+      - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
+          name: test-artifacts
           path: |
-            build/reports/tests/test
+            gradle-test.log
             build/test-results/test
+            build/reports/tests/test

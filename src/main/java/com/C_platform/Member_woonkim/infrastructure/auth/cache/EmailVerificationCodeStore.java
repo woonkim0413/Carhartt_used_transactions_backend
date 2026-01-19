@@ -2,8 +2,10 @@ package com.C_platform.Member_woonkim.infrastructure.auth.cache;
 
 import com.C_platform.Member_woonkim.exception.EmailErrorCode;
 import com.C_platform.Member_woonkim.exception.EmailException;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 import javax.security.auth.login.LoginException;
 import java.util.Optional;
@@ -17,7 +19,8 @@ import java.util.concurrent.TimeUnit;
  * 인증 코드를 임시로 저장하고 만료 시간을 관리합니다.
  * (Redis 없는 로컬 개발 환경용)
  */
-@Component
+@ConditionalOnProperty(name = "mail.enabled", havingValue = "true")
+@Service
 @Slf4j
 public class EmailVerificationCodeStore {
 

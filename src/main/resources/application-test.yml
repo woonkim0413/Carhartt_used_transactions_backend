@@ -1,5 +1,4 @@
 # src/test/resources/application-test.yml
-# .env(APPLICATION_ENV_FILE)에 존재하는 값만 placeholder로 사용
 
 app:
   base-url: http://localhost:8080/v1/
@@ -23,11 +22,12 @@ server:
       force-response: true
 
 spring:
-  # 테스트 안정성을 위해 세션 저장소는 끔(Redis 의존 제거)
+  profiles:
+    active: test
+
   session:
     store-type: none
 
-  # 테스트 DB는 H2로 고정 (env에 H2 설정 값이 없으므로 yml에 고정)
   h2:
     console:
       enabled: true
@@ -35,7 +35,7 @@ spring:
 
   datasource:
     driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:testdb
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
     password:
 
@@ -51,13 +51,7 @@ spring:
       data-locations: classpath:CreateOrderTestData.sql
       mode: always
 
-# runtime에 s3에 접근하기 위한 환경변수임
-aws:
-  accessKey: ${AWS_ACCESS_KEY}
-  secretKey: ${AWS_SECRET_KEY}
-  region: ap-northeast-2
-  bucket: carhartt-bucket
-
+  # ✅ OAuth2 설정은 spring 아래로
   security:
     oauth2:
       client:
@@ -73,9 +67,8 @@ aws:
 
         registration:
           kakao:
-            client-id: ${KAKAO_CLIENT_ID}
-            client-secret: ${KAKAO_CLIENT_SECRET}
-            # .env에 redirect-uri가 없으므로 test 고정값 사용
+            client-id: ${KAKAO_CLIENT_ID:dummy}
+            client-secret: ${KAKAO_CLIENT_SECRET:dummy}
             redirect-uri: http://localhost:8080/v1/oauth/kakao/callback
             authorization-grant-type: authorization_code
             client-authentication-method: POST
@@ -83,21 +76,20 @@ aws:
             scope: [name, account_email]
 
           naver:
-            client-id: ${NAVER_CLIENT_ID}
-            client-secret: ${NAVER_CLIENT_SECRET}
-            # .env에 redirect-uri가 없으므로 test 고정값 사용
+            client-id: ${NAVER_CLIENT_ID:dummy}
+            client-secret: ${NAVER_CLIENT_SECRET:dummy}
             redirect-uri: http://localhost:8080/v1/oauth/naver/callback
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
             client-name: naver
             scope: [nickname, email]
 
+  # ✅ 메일 설정은 spring.mail 아래로 (원하면 남겨두고, test에선 enabled=false로 빈 생성 차단)
   mail:
-    # .env에 host/port가 없으므로 기존 값 고정, 계정/비번만 env 사용
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    username: ${MAIL_USERNAME:dummy}
+    password: ${MAIL_PASSWORD:dummy}
     properties:
       mail:
         smtp:
@@ -107,22 +99,32 @@ aws:
           ssl:
             protocols: TLSv1.2
 
-# AWS/S3는 테스트에서 비활성화 (외부 의존 제거)
+# ✅ 외부 연동 스위치 (test 기본 OFF)
+mail:
+  enabled: false
+
 cloud:
   aws:
     s3:
       enabled: false
 
-# pay는 .env에 있는 값만 placeholder로 사용
+aws:
+  accessKey: ${AWS_ACCESS_KEY:dummy}
+  secretKey: ${AWS_SECRET_KEY:dummy}
+  region: ap-northeast-2
+  bucket: carhartt-bucket
+
 pay:
   kakao:
+    enabled: false
     base-url: https://open-api.kakaopay.com/online/v1
-    authorization: ${KAKAO_PAY_AUTHORIZATION}
+    authorization: ${KAKAO_PAY_AUTHORIZATION:dummy}
     cid: TC0ONETIME
 
   naver:
+    enabled: false
     partner-id: np_jtfpn862484
-    client-id: ${NAVER_PAY_CLIENT_ID}
-    client-secret: ${NAVER_PAY_CLIENT_SECRET}
-    chain-id: ${NAVER_PAY_CHAIN_ID}
+    client-id: ${NAVER_PAY_CLIENT_ID:dummy}
+    client-secret: ${NAVER_PAY_CLIENT_SECRET:dummy}
+    chain-id: ${NAVER_PAY_CHAIN_ID:dummy}
     api-base-url: https://dev.apis.naver.com
