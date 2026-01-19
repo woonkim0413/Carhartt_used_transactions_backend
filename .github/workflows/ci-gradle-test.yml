@@ -26,48 +26,33 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
-
       - name: Create env file from GitHub Secret
         shell: bash
         run: |
-          cat << 'EOF' > .env.ci
-          ${{ secrets.APPLICATION_ENV_FILE }}
-          EOF
+          echo "${{ secrets.APPLICATION_ENV_FILE }}" > .env.ci
 
-      # ✅ source 대신 GITHUB_ENV에 안전하게 주입 (주석/빈줄 제거)
-      - name: Export env vars (safe)
+      - name: Export env vars (debug)
         shell: bash
         run: |
-          # 주석/빈줄 제거 후 GITHUB_ENV에 추가
-          # KEY=VALUE 형태만 남김
-          grep -vE '^\s*#' .env.ci | grep -vE '^\s*$' >> "$GITHUB_ENV"
+          set -a
+          source .env.ci
+          set +a
+          echo "=== ENV CHECK ==="
+          env | sort | grep -E "SPRING|AWS|OAUTH" || true
 
-      # ✅ test 프로필을 “확실히” 강제
-      - name: Force test profile
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Run tests (debug mode)
         shell: bash
         run: |
-          echo "SPRING_PROFILES_ACTIVE=test" >> "$GITHUB_ENV"
+          ./gradlew test \
+            -Dspring.profiles.active=test \
+            --info \
+            --stacktrace \
+            --no-daemon
 
-      # ✅ 어떤 환경변수가 실제로 들어갔는지 “키만” 확인 (값은 노출하지 않음)
-      - name: Debug env keys (no values)
-        shell: bash
-        run: |
-          echo "=== Loaded env keys ==="
-          cut -d= -f1 .env.ci | grep -vE '^\s*#|^\s*$' | sed 's/^/- /'
-          echo "======================="
-
-      # ✅ 테스트 로그를 파일로 저장 + 상세 옵션
-      - name: Run tests (capture logs)
-        shell: bash
-        run: |
-          ./gradlew test --info --stacktrace > gradle-test.log 2>&1 || true
-          echo "=== Last 250 lines of gradle-test.log ==="
-          tail -n 250 gradle-test.log
-
-      # ✅ 테스트 결과/리포트를 업로드해서 원인 분석 가능하게
-      - name: Upload test reports
+      - name: Upload test reports (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -75,31 +60,3 @@ jobs:
           path: |
             build/reports/tests/test
             build/test-results/test
-
-      - name: Upload problems report (if exists)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: problems-report
-          path: build/reports/problems
-
-      - name: Upload gradle log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-test-log
-          path: gradle-test.log
-
-      # ✅ 마지막에 실패를 명확히 처리 (앞에서 || true 해놨으니 여기서 실패로 종료)
-      - name: Fail if tests failed
-        shell: bash
-        run: |
-          # JUnit XML 결과 파일이 하나라도 있고, 실패(failures/errors)가 있으면 실패 처리
-          if ls build/test-results/test/*.xml >/dev/null 2>&1; then
-            if grep -R "<failure" -n build/test-results/test/*.xml >/dev/null 2>&1 || \
-               grep -R "<error" -n build/test-results/test/*.xml >/dev/null 2>&1; then
-              echo "Tests failed. See uploaded artifacts: test-reports, gradle-test-log."
-              exit 1
-            fi
-          fi
-          echo "Tests passed."
