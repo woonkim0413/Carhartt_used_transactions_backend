@@ -39,6 +39,9 @@ jobs:
           source .env.ci
           set +a
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
       - name: Run tests (test profile)
         shell: bash
         run: |
