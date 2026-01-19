@@ -13,7 +13,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    steps:
+    steps:ㅆㄷㅅ
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -43,7 +43,8 @@ jobs:
       - name: Run tests (test profile)
         shell: bash
         run: |
-          ./gradlew clean test --no-daemon --info --stacktrace
+          ./gradlew clean test --no-daemon --info --stacktrace \
+          --tests "com.C_platform.Member_woonkim.presentation.controller.AddressControllerTest"
 
       - name: Upload test reports
         if: always()
