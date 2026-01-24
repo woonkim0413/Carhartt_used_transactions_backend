@@ -402,7 +402,7 @@ VUser = 100 × 1 = 100명 (응답시간 1초, thinking time 0초 가정)
 |:-:|:---------------------------------------------------------------------------------:|:----:|:----:|:----:|:----:|
 | 사진 |  <p align="center"><img src="image/woonkim.png" width="130" height="160" /></p>   |   <p align="center"><img src="image/member.png" width="130" height="160" /></p>   |   <p align="center"><img src="image/member.png" width="130" height="160" /></p>   |   <p align="center"><img src="image/member.png" width="130" height="160" /></p>   |   <p align="center"><img src="image/member.png" width="130" height="160" /></p>   |
 | 역할 |                                        BE                                         |  BE  |  BE  |  FE  |  FE  |
-| GitHub | [@woonkim0413](https://github.com/woonkim0413/Carhartt_used_transactions_backend) | [링크] | [링크] | [링크] | [링크] |
+| GitHub | [@woonkim0413](https://github.com/woonkim0413/Carhartt_used_transactions_backend) | @Tarte12[https://github.com/Tarte12] | [링크] | [링크] | [링크] |
 
 
 <br/>
